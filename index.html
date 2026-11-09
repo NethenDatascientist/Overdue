@@ -1535,10 +1535,7 @@
     }
 
     // =========================================================================
-    // SNAPSHOT ENGINE (FIREBASE CLOUD + LOCAL INDEXEDDB BACKUP — MANUAL SYNC)
-    // =========================================================================
-    // =========================================================================
-    // SHARED DAILY SNAPSHOT ENGINE (FIREBASE CLOUD SYNC ACROSS ALL DEVICES)
+    // SHARED DAILY SNAPSHOT ENGINE (COMPRESSED BASE64 CLOUD CACHE)
     // =========================================================================
     const ROW_KEYS = [
       "sheet_name", "work_name", "division_name", "subdivision_name",
@@ -1549,10 +1546,13 @@
     ];
 
     function packRowsForCloud(rows) {
-      return rows.map((r) => ROW_KEYS.map((k) => r[k]));
+      const packed = rows.map((r) => ROW_KEYS.map((k) => r[k]));
+      return btoa(encodeURIComponent(JSON.stringify(packed)));
     }
 
-    function unpackRowsFromCloud(packed) {
+    function unpackRowsFromCloud(encodedStr) {
+      const jsonStr = decodeURIComponent(atob(encodedStr));
+      const packed = JSON.parse(jsonStr);
       return packed.map((arr) => {
         const obj = {};
         ROW_KEYS.forEach((k, i) => { obj[k] = arr[i]; });
@@ -1570,18 +1570,15 @@
       const fbUrl = getFirebaseBaseUrl();
       if (!fbUrl) return null;
       try {
-        const resp = await fetch(`${fbUrl}/mi_daily_snapshot_v2.json?t=${Date.now()}`, {
+        const resp = await fetch(`${fbUrl}/mi_daily_snapshot_v3.json?t=${Date.now()}`, {
           cache: "no-store"
         });
         if (!resp.ok) return null;
         const data = await resp.json();
         if (!data) return null;
 
-        if (Array.isArray(data.packedRows) && data.packedRows.length > 0) {
-          data.masterRows = unpackRowsFromCloud(data.packedRows);
-          return data;
-        }
-        if (Array.isArray(data.masterRows) && data.masterRows.length > 0) {
+        if (typeof data.compressedRows === "string" && data.compressedRows.length > 0) {
+          data.masterRows = unpackRowsFromCloud(data.compressedRows);
           return data;
         }
       } catch (e) {
@@ -1595,24 +1592,20 @@
       if (!fbUrl) return false;
       try {
         const compactPayload = {
-          packedRows: packRowsForCloud(payload.masterRows),
+          compressedRows: packRowsForCloud(payload.masterRows),
           diagRows: payload.diagRows,
           todayStr: payload.todayStr,
           lastSynced: payload.lastSynced
         };
 
-        const resp = await fetch(`${fbUrl}/mi_daily_snapshot_v2.json`, {
+        const resp = await fetch(`${fbUrl}/mi_daily_snapshot_v3.json`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(compactPayload)
         });
 
         if (!resp.ok) {
-          alert(
-            "Warning: Firebase Cloud rejected saving the snapshot (HTTP " +
-            resp.status +
-            "). Go to Firebase Console -> Realtime Database -> Rules, and set .read: true and .write: true so other devices can use this snapshot."
-          );
+          console.warn("Firebase cloud save rejected with HTTP " + resp.status);
           return false;
         }
         return true;
@@ -1649,7 +1642,7 @@
 
         STATE.sourceLabel = cloudSaved
           ? "Shared Cloud Snapshot Updated ✓"
-          : "Live Sync (Firebase Locked — Check Rules)";
+          : "Live Sync (Cloud Save Failed — Check Rules)";
 
         populateFilterDropdowns(true);
         renderActivePage();
@@ -1670,7 +1663,7 @@
 
       const cached = await loadFromFirebaseCache();
 
-      // If Firebase already has a snapshot synced TODAY, load it immediately on all devices!
+      // If Firebase already has today's snapshot, load it instantly on all devices without re-downloading sheets!
       if (
         cached &&
         Array.isArray(cached.masterRows) &&
@@ -1685,7 +1678,7 @@
         populateFilterDropdowns(true);
         renderActivePage();
       } else {
-        // First open of the day (or no cloud snapshot yet) -> Sync once and save for all devices
+        // First open of the day -> Sync once and save to cloud for all other devices
         await syncFromGoogleSheets();
       }
 
