@@ -1,8 +1,8 @@
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   const sheetUrl =
     req.query.url ||
     process.env.SHEET_URL ||
-    "https://docs.google.com/spreadsheets/d/13W04z-fdU3RhuVJ5vQFRpK4BBSQRJWfscPqpr7Oj2Y8/edit?gid=270221191#gid=270221191";
+    "https://docs.google.com/spreadsheets/d/13W04z-fdU3RhuVJ5vQFRpK4BBSQRJWfscPqpr7Oj2Y8/edit?usp=sharing";
 
   const match = sheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
   if (!match) {
@@ -36,4 +36,4 @@ export default async function handler(req, res) {
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
-}
+};
