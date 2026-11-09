@@ -1538,6 +1538,9 @@
     // =========================================================================
     // SNAPSHOT ENGINE (FIREBASE CLOUD COMPRESSED + LOCAL INDEXEDDB BACKUP)
     // =========================================================================
+    // =========================================================================
+    // SNAPSHOT ENGINE (NATIVE GZIP CLOUD CACHE + LOCAL INDEXEDDB BACKUP)
+    // =========================================================================
     const ROW_KEYS = [
       "sheet_name", "work_name", "division_name", "subdivision_name",
       "ee_name", "ta_name", "as_name", "so_name", "aee_name",
@@ -1546,44 +1549,148 @@
       "is_status_p", "is_status_ets", "is_overdue"
     ];
 
-    function packPayloadForCloud(payload) {
-      const compactObj = {
-        r: payload.masterRows.map((row) => ROW_KEYS.map((k) => row[k])),
-        d: payload.diagRows || [],
-        t: payload.todayStr || "",
-        l: payload.lastSynced || "-"
-      };
-      const rawJson = JSON.stringify(compactObj);
-      if (typeof LZString !== "undefined") {
-        return { v: 2, lz: LZString.compressToBase64(rawJson) };
-      }
-      return { v: 1, b64: btoa(encodeURIComponent(rawJson)) };
+    function getSafeTodayIST() {
+      const istDate = new Date(Date.now() + 19800000); // Exact UTC + 5:30 IST on all devices
+      const d = String(istDate.getUTCDate()).padStart(2, "0");
+      const m = String(istDate.getUTCMonth() + 1).padStart(2, "0");
+      const y = istDate.getUTCFullYear();
+      return `${d}-${m}-${y}`;
     }
 
-    function unpackPayloadFromCloud(wrapper) {
-      if (!wrapper) return null;
-      let rawJson = "";
-      if (wrapper.v === 2 && wrapper.lz && typeof LZString !== "undefined") {
-        rawJson = LZString.decompressFromBase64(wrapper.lz);
-      } else if (wrapper.v === 1 && wrapper.b64) {
-        rawJson = decodeURIComponent(atob(wrapper.b64));
-      } else if (Array.isArray(wrapper.masterRows)) {
-        return wrapper;
-      } else {
-        return null;
+    function uint8ToBase64(bytes) {
+      let binary = "";
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
       }
-      const parsed = JSON.parse(rawJson);
-      if (!parsed || !Array.isArray(parsed.r)) return null;
-      const masterRows = parsed.r.map((arr) => {
-        const obj = {};
-        ROW_KEYS.forEach((k, idx) => { obj[k] = arr[idx]; });
-        return obj;
+      return btoa(binary);
+    }
+
+    function base64ToUint8(b64) {
+      const binary = atob(b64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes;
+    }
+
+    async function compressString(str) {
+      const rawBytes = new TextEncoder().encode(str);
+      if (typeof CompressionStream !== "undefined") {
+        try {
+          const cs = new CompressionStream("gzip");
+          const writer = cs.writable.getWriter();
+          writer.write(rawBytes);
+          writer.close();
+          const compressedBuf = await new Response(cs.readable).arrayBuffer();
+          return { fmt: "gzip", data: uint8ToBase64(new Uint8Array(compressedBuf)) };
+        } catch (e) {
+          console.warn("Gzip fallback to raw base64:", e);
+        }
+      }
+      return { fmt: "raw", data: uint8ToBase64(rawBytes) };
+    }
+
+    async function decompressString(b64, fmt) {
+      const bytes = base64ToUint8(b64);
+      if (fmt === "gzip" && typeof DecompressionStream !== "undefined") {
+        const ds = new DecompressionStream("gzip");
+        const writer = ds.writable.getWriter();
+        writer.write(bytes);
+        writer.close();
+        const decompressedBuf = await new Response(ds.readable).arrayBuffer();
+        return new TextDecoder().decode(decompressedBuf);
+      }
+      return new TextDecoder().decode(bytes);
+    }
+
+    async function packPayloadForCloud(payload) {
+      const strMap = new Map();
+      const strList = [];
+      function getStrId(val) {
+        const s = val === null || val === undefined ? "" : String(val);
+        if (strMap.has(s)) return strMap.get(s);
+        const id = strList.length;
+        strList.push(s);
+        strMap.set(s, id);
+        return id;
+      }
+
+      const packedRows = payload.masterRows.map((row) => [
+        getStrId(row.sheet_name),
+        getStrId(row.work_name),
+        getStrId(row.division_name),
+        getStrId(row.subdivision_name),
+        getStrId(row.ee_name),
+        getStrId(row.ta_name),
+        getStrId(row.as_name),
+        getStrId(row.so_name),
+        getStrId(row.aee_name),
+        getStrId(row.status_raw),
+        getStrId(row.start_date),
+        getStrId(row.target_date),
+        getStrId(row.overdue_by),
+        getStrId(row.hoa),
+        getStrId(row.age_bucket),
+        getStrId(row.tree_bucket),
+        row.is_status_p ? 1 : 0,
+        row.is_status_ets ? 1 : 0,
+        row.is_overdue ? 1 : 0
+      ]);
+
+      const rawJson = JSON.stringify({
+        s: strList,
+        r: packedRows,
+        d: payload.diagRows || [],
+        t: payload.todayStr || getSafeTodayIST(),
+        l: payload.lastSynced || "-"
       });
+
+      const compressed = await compressString(rawJson);
+      return {
+        v: 8,
+        fmt: compressed.fmt,
+        todayStr: payload.todayStr || getSafeTodayIST(),
+        lastSynced: payload.lastSynced || "-",
+        data: compressed.data
+      };
+    }
+
+    async function unpackPayloadFromCloud(wrapper) {
+      if (!wrapper || !wrapper.data) return null;
+      const rawJson = await decompressString(wrapper.data, wrapper.fmt);
+      const parsed = JSON.parse(rawJson);
+      if (!parsed || !Array.isArray(parsed.r) || !Array.isArray(parsed.s)) return null;
+
+      const s = parsed.s;
+      const masterRows = parsed.r.map((arr) => ({
+        sheet_name: s[arr[0]] || "",
+        work_name: s[arr[1]] || "",
+        division_name: s[arr[2]] || "",
+        subdivision_name: s[arr[3]] || "",
+        ee_name: s[arr[4]] || "",
+        ta_name: s[arr[5]] || "",
+        as_name: s[arr[6]] || "",
+        so_name: s[arr[7]] || "",
+        aee_name: s[arr[8]] || "",
+        status_raw: s[arr[9]] || "",
+        start_date: s[arr[10]] || "",
+        target_date: s[arr[11]] || "",
+        overdue_by: s[arr[12]] || "-",
+        hoa: s[arr[13]] || "",
+        age_bucket: s[arr[14]] || "Unknown",
+        tree_bucket: s[arr[15]] || "Unknown",
+        is_status_p: arr[16] ? 1 : 0,
+        is_status_ets: arr[17] ? 1 : 0,
+        is_overdue: arr[18] ? 1 : 0
+      }));
+
       return {
         masterRows,
         diagRows: parsed.d || [],
-        todayStr: parsed.t || "",
-        lastSynced: parsed.l || "-"
+        todayStr: parsed.t || wrapper.todayStr || "",
+        lastSynced: parsed.l || wrapper.lastSynced || "-"
       };
     }
 
@@ -1596,7 +1703,7 @@
     function openLocalSnapshotDB() {
       return new Promise((resolve) => {
         try {
-          const req = indexedDB.open("MI_Overdue_Snapshot_DB", 2);
+          const req = indexedDB.open("MI_Overdue_Snapshot_DB_v8", 1);
           req.onupgradeneeded = (e) => {
             const db = e.target.result;
             if (!db.objectStoreNames.contains("snapshots")) {
@@ -1615,8 +1722,12 @@
       try {
         const db = await openLocalSnapshotDB();
         if (!db) return;
-        const tx = db.transaction("snapshots", "readwrite");
-        tx.objectStore("snapshots").put(payload, "latest_v2");
+        await new Promise((resolve) => {
+          const tx = db.transaction("snapshots", "readwrite");
+          tx.objectStore("snapshots").put(payload, "latest_v8");
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+        });
       } catch (e) {
         console.warn("IndexedDB save skipped:", e);
       }
@@ -1628,7 +1739,7 @@
         if (!db) return null;
         return await new Promise((resolve) => {
           const tx = db.transaction("snapshots", "readonly");
-          const req = tx.objectStore("snapshots").get("latest_v2");
+          const req = tx.objectStore("snapshots").get("latest_v8");
           req.onsuccess = () => resolve(req.result || null);
           req.onerror = () => resolve(null);
         });
@@ -1641,38 +1752,50 @@
       const fbUrl = getFirebaseBaseUrl();
       if (!fbUrl) return null;
       try {
-        const resp = await fetch(`${fbUrl}/mi_daily_snapshot.json?t=${Date.now()}`, { cache: "no-store" });
+        const resp = await fetch(`${fbUrl}/mi_cloud_cache_v8.json`, { cache: "no-store" });
         if (!resp.ok) return null;
         const wrapper = await resp.json();
-        const data = unpackPayloadFromCloud(wrapper);
+        if (!wrapper) return null;
+        const data = await unpackPayloadFromCloud(wrapper);
         if (data && Array.isArray(data.masterRows) && data.masterRows.length > 0) {
+          console.log("Loaded snapshot from Firebase Cloud!");
           return data;
         }
       } catch (e) {
-        console.warn("Firebase cache read skipped:", e);
+        console.warn("Firebase cache read error:", e);
       }
       return null;
     }
 
     async function saveToFirebaseCache(payload) {
-      await saveLocalSnapshot(payload);
+      const cleanPayload = {
+        masterRows: payload.masterRows,
+        diagRows: payload.diagRows || [],
+        todayStr: getSafeTodayIST(),
+        lastSynced: payload.lastSynced || getISTTimestamp()
+      };
+
+      await saveLocalSnapshot(cleanPayload);
+
       const fbUrl = getFirebaseBaseUrl();
       if (!fbUrl) return false;
       try {
-        const packedWrapper = packPayloadForCloud(payload);
-        const resp = await fetch(`${fbUrl}/mi_daily_snapshot.json`, {
+        const packedWrapper = await packPayloadForCloud(cleanPayload);
+        const bodyStr = JSON.stringify(packedWrapper);
+        const resp = await fetch(`${fbUrl}/mi_cloud_cache_v8.json`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(packedWrapper)
+          body: bodyStr
         });
         if (!resp.ok) {
           const errText = await resp.text();
           console.error("Firebase save HTTP " + resp.status + ":", errText);
           return false;
         }
+        console.log("Saved snapshot to Firebase Cloud (" + Math.round(bodyStr.length / 1024) + " KB)");
         return true;
       } catch (e) {
-        console.warn("Firebase cache write skipped:", e);
+        console.error("Firebase cache write error:", e);
         return false;
       }
     }
@@ -1690,15 +1813,16 @@
         const arrayBuffer = await resp.arrayBuffer();
         const parsed = parseWorkbookArrayBuffer(arrayBuffer);
 
+        const currentTodayIST = getSafeTodayIST();
         STATE.masterRows = parsed.masterRows;
         STATE.diagRows = parsed.diagRows;
-        STATE.todayStr = parsed.todayStr;
+        STATE.todayStr = currentTodayIST;
         STATE.lastSynced = parsed.lastSynced;
 
         const cloudSaved = await saveToFirebaseCache({
           masterRows: STATE.masterRows,
           diagRows: STATE.diagRows,
-          todayStr: STATE.todayStr,
+          todayStr: currentTodayIST,
           lastSynced: STATE.lastSynced
         });
 
@@ -1720,7 +1844,7 @@
       document.getElementById("sheet-url-input").value = CONFIG.DEFAULT_SHEET_URL;
       document.getElementById("firebase-url-input").value = CONFIG.FIREBASE_DB_URL;
 
-      const currentTodayIST = getTodayIST().formatted;
+      const currentTodayIST = getSafeTodayIST();
       statusTextEl.textContent = "Loading saved snapshot...";
 
       // 1. Check Firebase Cloud Snapshot first (~0.2s across all devices)
@@ -1733,7 +1857,6 @@
         sourceText = "Saved Browser Snapshot";
       }
 
-      // If a snapshot exists for today, load it immediately without re-syncing
       if (cached && Array.isArray(cached.masterRows) && cached.masterRows.length > 0 && cached.todayStr === currentTodayIST) {
         STATE.masterRows = cached.masterRows;
         STATE.diagRows = cached.diagRows || [];
@@ -1743,7 +1866,6 @@
         populateFilterDropdowns(true);
         renderActivePage();
       } else {
-        // First open of the morning (or empty DB): sync once and save to Firebase for everyone
         await syncFromGoogleSheets();
       }
 
