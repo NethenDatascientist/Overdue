@@ -1566,43 +1566,24 @@
       return (inputVal || CONFIG.FIREBASE_DB_URL || "").replace(/\/+$/, "");
     }
 
-    async function loadFromFirebaseCache() {
+   async function loadFromFirebaseCache() {
       const fbUrl = getFirebaseBaseUrl();
       if (!fbUrl) return null;
       try {
-        const resp = await fetch(`${fbUrl}/mi_daily_snapshot_v3.json?t=${Date.now()}`, {
-          cache: "no-store"
-        });
-        if (!resp.ok) return null;
-        const data = await resp.json();
-        if (!data) return null;
-
-        if (typeof data.compressedRows === "string" && data.compressedRows.length > 0) {
-          data.masterRows = unpackRowsFromCloud(data.compressedRows);
-          return data;
-        }
-      } catch (e) {
-        console.warn("Firebase read error:", e);
-      }
-      return null;
-    }
-
-    async function loadFromFirebaseCache() {
-      const fbUrl = getFirebaseBaseUrl();
-      if (!fbUrl) return null;
-      try {
-        const resp = await fetch(`${fbUrl}/mi_snapshot.json?t=${Date.now()}`, {
+        const cleanBaseUrl = fbUrl.trim().replace(/\s+/g, '');
+        const resp = await fetch(`${cleanBaseUrl}/mi_snapshot_v5.json?t=${Date.now()}`, {
           cache: "no-store"
         });
         if (!resp.ok) {
           console.warn("Firebase read HTTP status:", resp.status);
           return null;
         }
-        const data = await resp.json();
-        if (!data) return null;
+        const wrapper = await resp.json();
+        if (!wrapper || !wrapper.data) return null;
 
-        if (typeof data.compressedRows === "string" && data.compressedRows.length > 0) {
-          data.masterRows = unpackRowsFromCloud(data.compressedRows);
+        const jsonStr = decodeURIComponent(atob(wrapper.data));
+        const data = JSON.parse(jsonStr);
+        if (data && Array.isArray(data.masterRows) && data.masterRows.length > 0) {
           console.log("Successfully loaded snapshot from Firebase Cloud!");
           return data;
         }
@@ -1611,7 +1592,6 @@
       }
       return null;
     }
-
     function openLocalSnapshotDB() {
       return new Promise((resolve) => {
         try {
