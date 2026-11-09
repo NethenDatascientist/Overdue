@@ -5,59 +5,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Minor Irrigation — Overdue Works Dashboard</title>
 
-  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
 
-  <!-- Plotly.js, SheetJS (XLSX) & LZ-String Compression -->
   <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 
   <style>
     :root { color-scheme: light !important; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    @media (min-width: 1024px) {
-      .app-layout { zoom: 90%; }
-    }
-
+    @media (min-width: 1024px) { .app-layout { zoom: 90%; } }
     body {
       background: linear-gradient(180deg, #DCE4EE 0%, #E2E8F0 50%, #CBD5E1 100%);
-      background-attachment: fixed;
-      color: #0F172A;
+      background-attachment: fixed; color: #0F172A;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      min-height: 100vh;
-      overflow-x: hidden;
+      min-height: 100vh; overflow-x: hidden;
     }
-
     #intro-video-overlay {
       position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
       z-index: 999999; background: #0F172A; overflow: hidden;
-      transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.55s ease;
+      transition: opacity 0.55s ease, visibility 0.55s ease;
     }
     #intro-video-overlay.hidden-overlay { opacity: 0; visibility: hidden; pointer-events: none; }
     #intro-video-player { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: fill; }
     .intro-hud-bar {
       position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
-      display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px;
-      background: rgba(15, 23, 42, 0.84); backdrop-filter: blur(12px);
-      border: 1px solid rgba(148, 163, 184, 0.38); padding: 9px 18px; border-radius: 999px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); z-index: 10;
+      display: flex; gap: 12px; background: rgba(15, 23, 42, 0.84); backdrop-filter: blur(12px);
+      border: 1px solid rgba(148, 163, 184, 0.38); padding: 9px 18px; border-radius: 999px; z-index: 10;
     }
     .intro-load-status { font-size: 0.82rem; font-weight: 700; color: #E2E8F0; display: flex; align-items: center; gap: 8px; }
-    .intro-spinner {
-      width: 14px; height: 14px; border: 2.5px solid #93C5FD; border-top-color: transparent;
-      border-radius: 50%; animation: spin 0.75s linear infinite;
-    }
+    .intro-spinner { width: 14px; height: 14px; border: 2.5px solid #93C5FD; border-top-color: transparent; border-radius: 50%; animation: spin 0.75s linear infinite; }
     .intro-spinner.done { border: none; width: auto; height: auto; animation: none; color: #4ADE80; font-weight: 800; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .intro-btn {
-      background: linear-gradient(180deg, #2563EB 0%, #1D4ED8 100%);
-      color: #FFFFFF; border: 1px solid #60A5FA; border-radius: 999px;
-      padding: 6px 14px; font-size: 0.78rem; font-weight: 700; cursor: pointer;
-    }
+    .intro-btn { background: #2563EB; color: #FFFFFF; border: 1px solid #60A5FA; border-radius: 999px; padding: 6px 14px; font-size: 0.78rem; font-weight: 700; cursor: pointer; }
 
     .app-layout { display: flex; min-height: 100vh; width: 100%; }
     .sidebar {
@@ -65,51 +46,36 @@
       background: linear-gradient(180deg, #CFD9E6 0%, #DAE2ED 100%);
       border-right: 1px solid #94A3B8; padding: 1rem 0.7rem;
       display: flex; flex-direction: column; gap: 0.85rem;
-      transition: margin-left 0.25s cubic-bezier(0.22, 1, 0.36, 1); z-index: 100;
+      transition: margin-left 0.25s ease; z-index: 100;
     }
     .sidebar.collapsed { margin-left: -220px; }
     .sidebar-title { font-size: 0.92rem; font-weight: 800; color: #0F172A; padding-bottom: 0.45rem; border-bottom: 1px solid #94A3B8; }
     .ctrl-group { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.78rem; font-weight: 600; color: #0F172A; }
     .ctrl-input { width: 100%; padding: 6px 8px; border-radius: 7px; border: 1px solid #64748B; background: #F1F5F9; color: #0F172A; font-size: 0.76rem; font-weight: 600; }
     .radio-stack, .check-stack { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.76rem; font-weight: 600; color: #1E293B; }
-    .radio-stack label, .check-stack label { display: flex; align-items: flex-start; gap: 6px; cursor: pointer; line-height: 1.3; }
+    .radio-stack label, .check-stack label { display: flex; align-items: flex-start; gap: 6px; cursor: pointer; }
 
-    #sidebar-toggle-btn {
-      position: fixed; top: 12px; left: 12px; z-index: 9990;
-      background: #CBD5E1; border: 1.5px solid #475569; border-radius: 9px;
-      color: #0F172A; width: 34px; height: 34px; font-weight: 800; cursor: pointer;
-    }
-
+    #sidebar-toggle-btn { position: fixed; top: 12px; left: 12px; z-index: 9990; background: #CBD5E1; border: 1.5px solid #475569; border-radius: 9px; color: #0F172A; width: 34px; height: 34px; font-weight: 800; cursor: pointer; }
     .main-container { flex: 1; min-width: 0; padding: 1.1rem 1.35rem 2.2rem 1.35rem; }
     .top-header-row { display: grid; grid-template-columns: 150px 1fr 170px; align-items: center; gap: 0.75rem; margin-bottom: 0.55rem; }
-    .main-title { font-family: 'Montserrat', sans-serif; font-size: clamp(1.0rem, 3.2vw, 1.68rem); font-weight: 800; color: #0F172A; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .main-title { font-family: 'Montserrat', sans-serif; font-size: clamp(1.0rem, 3.2vw, 1.68rem); font-weight: 800; color: #0F172A; text-align: center; }
+    .btn-primary { background: #1E40AF; border: 1px solid #1E3A8A; border-radius: 10px; color: #FFFFFF; font-weight: 700; font-size: 0.84rem; padding: 0.5rem 0.95rem; cursor: pointer; width: 100%; }
 
-    .btn-primary {
-      background: linear-gradient(180deg, #1E40AF 0%, #1E3A8A 100%);
-      border: 1px solid #1E3A8A; border-radius: 10px; color: #FFFFFF;
-      font-weight: 700; font-size: 0.84rem; padding: 0.5rem 0.95rem; cursor: pointer; width: 100%;
-    }
-
-    .mi-status-bar {
-      display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.2rem;
-      padding: 0.45rem 0.95rem; margin-bottom: 0.75rem; border-radius: 10px;
-      background: #D5E0ED; border: 1px solid #94A3B8; font-size: 0.80rem; color: #0F172A;
-    }
+    .mi-status-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.2rem; padding: 0.45rem 0.95rem; margin-bottom: 0.75rem; border-radius: 10px; background: #D5E0ED; border: 1px solid #94A3B8; font-size: 0.80rem; color: #0F172A; }
     .mi-status-pill { display: inline-flex; align-items: center; padding: 0.14rem 0.65rem; border-radius: 999px; background: #1E3A8A; color: #FFFFFF; font-weight: 700; font-size: 0.74rem; }
 
     .filter-grid-5 { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 0.65rem; }
-    .filter-card { border-radius: 11px; padding: 0.45rem 0.6rem; background: linear-gradient(145deg, #E8EFF7 0%, #DCE6F2 100%); border: 1px solid #94A3B8; }
+    .filter-card { border-radius: 11px; padding: 0.45rem 0.6rem; background: #E8EFF7; border: 1px solid #94A3B8; }
     .filter-card label { display: block; font-size: 0.74rem; font-weight: 800; color: #0F172A; margin-bottom: 4px; }
     .filter-select { width: 100%; padding: 6px 8px; border-radius: 7px; border: 1px solid #64748B; background: #F1F5F9; color: #0F172A; font-weight: 700; font-size: 0.80rem; }
 
     .sub-controls-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 0.65rem; }
-    .inline-radio-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; padding: 0.45rem 0.75rem; border-radius: 10px; background: linear-gradient(145deg, #E8EFF7 0%, #DCE6F2 100%); border: 1px solid #94A3B8; font-size: 0.82rem; font-weight: 700; color: #0F172A; }
+    .inline-radio-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; padding: 0.45rem 0.75rem; border-radius: 10px; background: #E8EFF7; border: 1px solid #94A3B8; font-size: 0.82rem; font-weight: 700; color: #0F172A; }
 
     .kpi-grid-6 { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 11px; margin-bottom: 12px; }
     .kpi-card { border-radius: 12px; padding: 0.65rem 0.85rem; box-shadow: 0 3px 10px rgba(15, 23, 42, 0.07); }
     .kpi-label { font-size: 0.74rem; font-weight: 800; color: #1E293B; margin-bottom: 4px; }
     .kpi-val { font-size: 1.42rem; font-weight: 800; color: #0F172A; line-height: 1.15; }
-    .kpi-sub { font-size: 0.70rem; font-weight: 700; color: #334155; margin-top: 3px; }
 
     .kpi-sky { border: 1px solid #93C5FD; border-top: 4px solid #1D4ED8; background: #DBEAFE; }
     .kpi-lavender { border: 1px solid #C4B5FD; border-top: 4px solid #6D28D9; background: #EDE9FE; }
@@ -117,10 +83,8 @@
     .kpi-rose { border: 1px solid #FCA5A5; border-top: 4px solid #B91C1C; background: #FEE2E2; }
     .kpi-amber { border: 1px solid #FCD34D; border-top: 4px solid #B45309; background: #FEF3C7; }
     .kpi-sage { border: 1px solid #6EE7B7; border-top: 4px solid #047857; background: #D1FAE5; }
-    .kpi-pink { border: 1px solid #F472B6; border-top: 4px solid #BE185D; background: #FCE7F3; }
 
     .p1-age-card { display: flex; align-items: center; justify-content: space-between; gap: 6px; background: #FFE4E6; border: 1px solid #FDA4AF; border-top: 3.5px solid #BE123C; border-radius: 10px; padding: 9px 11px; }
-
     .exec-section-banner { display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 1.05rem; margin: 0.5rem 0 0.65rem 0; border-radius: 10px; background: #CFD9E6; border: 1px solid #94A3B8; border-left: 5px solid #1D4ED8; }
     .exec-section-title { font-size: 1.15rem; font-weight: 800; color: #0F172A; }
     .exec-scope-badge { font-size: 0.75rem; font-weight: 700; padding: 0.22rem 0.75rem; border-radius: 999px; background: #DBEAFE; border: 1px solid #60A5FA; color: #1E3A8A; }
@@ -132,24 +96,6 @@
     table.ce-overdue-table tbody tr { border-bottom: 1px solid #CBD5E1; background: #EDF2F7; }
     table.ce-overdue-table td { padding: 8px 10px; font-weight: 600; }
     .ce-date-overdue { color: #B91C1C !important; font-weight: 800 !important; }
-
-    .truth-audit-box { background: #E2E8F0; border: 1px solid #94A3B8; border-left: 6px solid #B91C1C; border-radius: 12px; padding: 16px; margin: 8px 0 14px 0; }
-    .lb-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-    .exec-lb-panel { border-radius: 14px; padding: 15px; margin-bottom: 14px; }
-    .exec-lb-panel-danger { background: #F8E8EA; border: 1px solid #FDA4AF; border-top: 4.5px solid #B91C1C; }
-    .exec-lb-panel-success { background: #E3F5EE; border: 1px solid #6EE7B7; border-top: 4.5px solid #047857; }
-    .exec-lb-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #CBD5E1; padding-bottom: 8px; margin-bottom: 10px; }
-    .exec-lb-row { background: #E2E8F0; border: 1px solid #B8C4D4; border-radius: 10px; padding: 9px; margin-bottom: 8px; }
-    .exec-lb-row-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-    .exec-lb-bar-bg { width: 100%; height: 6px; background: #CBD5E1; border-radius: 999px; overflow: hidden; display: flex; }
-    .exec-lb-bar-od { background: #B91C1C; height: 100%; }
-    .exec-lb-bar-ets { background: #047857; height: 100%; }
-
-    .tab-bar { display: flex; gap: 6px; margin-bottom: 12px; }
-    .tab-btn { background: #DCE6F2; border: 1px solid #94A3B8; border-radius: 8px; padding: 8px 14px; font-weight: 700; cursor: pointer; color: #1E293B; }
-    .tab-btn.active { background: #1E3A8A; border-color: #1E3A8A; color: #FFFFFF; }
-    details.exec-expander { background: #DCE6F2; border: 1px solid #94A3B8; border-radius: 10px; padding: 0.55rem 0.85rem; margin-bottom: 0.75rem; }
-    details.exec-expander summary { font-weight: 800; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -175,11 +121,10 @@
     <aside class="sidebar" id="app-sidebar">
       <div class="sidebar-title" style="padding-left:28px;">Dashboard Controls</div>
       <div class="ctrl-group"><label>Google Spreadsheet Link</label><input type="text" id="sheet-url-input" class="ctrl-input" /></div>
-      <div class="ctrl-group"><label>Firebase Realtime DB URL</label><input type="text" id="firebase-url-input" class="ctrl-input" /></div>
       <div class="ctrl-group"><label>Or Upload Workbook (.xlsx)</label><input type="file" id="xlsx-upload-input" accept=".xlsx" class="ctrl-input" /></div>
-      <button type="button" id="sync-btn" class="btn-primary">Sync Latest Data from Google Sheets</button>
+      <button type="button" id="sync-btn" class="btn-primary">Sync Latest Data from Sheets</button>
       <div class="ctrl-group">
-        <span>Total Works Assigned Count Basis:</span>
+        <span>Total Works Count Basis:</span>
         <div class="radio-stack">
           <label><input type="radio" name="denom-mode" value="all" checked /> All Works Assigned</label>
           <label><input type="radio" name="denom-mode" value="ongoing" /> Only Ongoing Works</label>
@@ -263,37 +208,10 @@
           <div class="exec-scope-badge" id="p1-scope-badge-3"></div>
         </div>
         <div id="p1-summary-table-wrap"></div>
-
-        <details class="exec-expander"><summary>Inspect Worksheet Loading Status</summary><div id="p1-diag-table-wrap" style="margin-top:8px;"></div></details>
       </section>
 
       <section id="page-analytics" style="display:none;">
         <div class="kpi-grid-6" id="p2-kpi-grid"></div>
-        <div class="filter-card" style="padding:14px;margin-bottom:14px;">
-          <div class="inline-radio-bar" style="margin-bottom:10px;">
-            <span>Select Officer Cadre:</span>
-            <label><input type="radio" name="p2-audit-role" value="Assistant Engineer" checked /> AE</label>
-            <label><input type="radio" name="p2-audit-role" value="Assistant Executive Engineer" /> AEE</label>
-          </div>
-          <select id="p2-audit-officer-select" class="filter-select" style="margin-bottom:10px;"></select>
-          <div id="p2-truth-verdict-box"></div>
-          <div class="lb-grid-2" style="align-items:center;">
-            <div class="chart-box" style="margin-bottom:0;"><div id="p2-donut-chart" style="width:100%;height:300px;"></div></div>
-            <div id="p2-proof-table-wrap"></div>
-          </div>
-        </div>
-
-        <div class="exec-section-banner">
-          <div class="exec-section-title">Executive Leaderboards</div>
-          <div class="exec-scope-badge" id="p2-lb-badge"></div>
-        </div>
-        <div class="tab-bar">
-          <button type="button" class="tab-btn active" data-cadre="Assistant Engineer">AE</button>
-          <button type="button" class="tab-btn" data-cadre="Assistant Executive Engineer">AEE</button>
-          <button type="button" class="tab-btn" data-cadre="Technical Assistant">TA</button>
-          <button type="button" class="tab-btn" data-cadre="Account Superintendent">AS</button>
-        </div>
-        <div id="p2-leaderboards-wrap"></div>
       </section>
     </main>
   </div>
@@ -301,7 +219,6 @@
   <script>
     const CONFIG = {
       DEFAULT_SHEET_URL: "https://docs.google.com/spreadsheets/d/13W04z-fdU3RhuVJ5vQFRpK4BBSQRJWfscPqpr7Oj2Y8/edit?usp=sharing",
-      FIREBASE_DB_URL: "https://ae-aee-overdue-default-rtdb.asia-southeast1.firebasedatabase.app",
       INTRO_VIDEO_URL: "/Intro.mp4"
     };
 
@@ -321,9 +238,7 @@
     const BAR_SHRINK_MAX_EXTRA = 18.0;
 
     let STATE = {
-      activePage: "dashboard",
-      activeLbCadre: "Assistant Engineer",
-      masterRows: [], diagRows: [], todayStr: "", lastSynced: "-",
+      activePage: "dashboard", masterRows: [], diagRows: [], todayStr: "", lastSynced: "-",
       sourceLabel: "Initialising...", dataReady: false, videoEnded: false,
       sidebarAutoClosed: false, currentOfficerOverdueRows: []
     };
@@ -335,23 +250,10 @@
 
     videoEl.play().catch(() => { videoEl.muted = true; videoEl.play().catch(() => {}); });
 
-    function scheduleSidebarAutoClose() {
-      if (STATE.sidebarAutoClosed) return;
-      STATE.sidebarAutoClosed = true;
-      setTimeout(() => {
-        const sb = document.getElementById("app-sidebar");
-        if (sb && !sb.classList.contains("collapsed")) {
-          sb.classList.add("collapsed");
-          setTimeout(() => window.dispatchEvent(new Event("resize")), 260);
-        }
-      }, 3000);
-    }
-
     function checkDismissOverlay() {
       if (STATE.dataReady && STATE.videoEnded) {
         overlayEl.classList.add("hidden-overlay");
         setTimeout(() => { videoEl.pause(); window.dispatchEvent(new Event("resize")); }, 550);
-        scheduleSidebarAutoClose();
       }
     }
 
@@ -361,7 +263,7 @@
       videoEl.muted = !videoEl.muted; e.target.textContent = videoEl.muted ? "Unmute Audio" : "Mute Audio";
     });
     document.getElementById("skip-intro-btn").addEventListener("click", () => {
-      STATE.videoEnded = true; if (STATE.dataReady) checkDismissOverlay(); else statusTextEl.textContent = "Opening dashboard...";
+      STATE.videoEnded = true; if (STATE.dataReady) checkDismissOverlay();
     });
 
     function getTodayIST() {
@@ -395,8 +297,7 @@
       if (m) {
         let p1 = parseInt(m[1], 10), p2 = parseInt(m[2], 10), p3 = parseInt(m[3], 10);
         let yr = p1 > 31 ? p1 : (p3 < 100 ? p3 + 2000 : p3);
-        let mo = p1 > 31 ? p2 : p2;
-        let da = p1 > 31 ? p3 : p1;
+        let mo = p2, da = p1 > 31 ? p3 : p1;
         if (mo >= 1 && mo <= 12 && da >= 1 && da <= 31) return new Date(Date.UTC(yr, mo - 1, da));
       }
       return null;
@@ -424,10 +325,10 @@
       if (d <= 0) { m -= 1; d += daysInMonth(todayDt.getUTCFullYear(), todayDt.getUTCMonth()); }
       if (m < 0) { y -= 1; m += 12; }
       const parts = [];
-      if (y > 0) parts.push(`${y} year${y > 1 ? "s" : ""}`);
-      if (m > 0) parts.push(`${m} month${m > 1 ? "s" : ""}`);
-      if (d > 0) parts.push(`${d} day${d > 1 ? "s" : ""}`);
-      return parts.length ? `(${parts.join(", ")})` : "(0 days)";
+      if (y > 0) parts.push(`${y} yr`);
+      if (m > 0) parts.push(`${m} mo`);
+      if (d > 0) parts.push(`${d} d`);
+      return parts.length ? `(${parts.join(", ")})` : "(0 d)";
     }
 
     function getAgeBuckets(targetDt, todayDt) {
@@ -509,10 +410,7 @@
 
       TARGET_SHEETS.forEach(target => {
         const actualName = availableMap[normalizeText(target).toLowerCase()];
-        if (!actualName) {
-          diagRows.push({ Sheet: target, Status: "Missing", "Rows Loaded": 0, "Overdue ('P')": 0, ETS: 0 });
-          return;
-        }
+        if (!actualName) return;
         const ws = wb.Sheets[actualName];
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
         if (!rows || !rows.length) return;
@@ -569,93 +467,39 @@
     }
 
     // =========================================================================
-    // ROBUST COMPRESSED CLOUD CACHE (BYPASSES FIREBASE 1MB LIMIT)
+    // INSTANT BROWSER INDEXEDDB LOCAL STORAGE (NO SIZE LIMITS)
     // =========================================================================
-    function getFirebaseBaseUrl() {
-      const inputEl = document.getElementById("firebase-url-input");
-      const inputVal = inputEl ? inputEl.value.trim() : "";
-      return (inputVal || CONFIG.FIREBASE_DB_URL || "").replace(/\/+$/, "").trim();
-    }
-
-    async function loadFromFirebaseCache() {
-      const fbUrl = getFirebaseBaseUrl();
-      if (!fbUrl) return null;
-      try {
-        const resp = await fetch(`${fbUrl}/mi_snapshot_v6.json?t=${Date.now()}`, { cache: "no-store" });
-        if (!resp.ok) return null;
-        const wrapper = await resp.json();
-        if (!wrapper || !wrapper.data) return null;
-
-        const jsonStr = LZString.decompressFromUTF16(wrapper.data);
-        const data = JSON.parse(jsonStr);
-        if (data && Array.isArray(data.masterRows) && data.masterRows.length > 0) {
-          console.log("Loaded compressed snapshot from Firebase Cloud!");
-          return data;
-        }
-      } catch (e) {
-        console.warn("Cloud cache read skipped:", e);
-      }
-      return null;
-    }
-
-    async function saveLocalSnapshot(payload) {
-      try {
-        const req = indexedDB.open("MI_Overdue_Snapshot_DB", 3);
-        req.onupgradeneeded = (e) => { e.target.result.createObjectStore("snapshots"); };
-        req.onsuccess = (e) => {
-          const db = e.target.result;
-          const tx = db.transaction("snapshots", "readwrite");
-          tx.objectStore("snapshots").put(payload, "latest_v3");
-        };
-      } catch (err) {}
-    }
-
-    async function loadLocalSnapshot() {
+    function openLocalDB() {
       return new Promise((resolve) => {
         try {
-          const req = indexedDB.open("MI_Overdue_Snapshot_DB", 3);
-          req.onupgradeneeded = (e) => { e.target.result.createObjectStore("snapshots"); };
-          req.onsuccess = (e) => {
-            const db = e.target.result;
-            const tx = db.transaction("snapshots", "readonly");
-            const getReq = tx.objectStore("snapshots").get("latest_v3");
-            getReq.onsuccess = () => resolve(getReq.result || null);
-            getReq.onerror = () => resolve(null);
-          };
+          const req = indexedDB.open("MI_Dashboard_Storage", 1);
+          req.onupgradeneeded = (e) => { e.target.result.createObjectStore("cache"); };
+          req.onsuccess = (e) => resolve(e.target.result);
           req.onerror = () => resolve(null);
         } catch (err) { resolve(null); }
       });
     }
 
-    async function saveToFirebaseCache(payload) {
-      await saveLocalSnapshot(payload);
-      const fbUrl = getFirebaseBaseUrl();
-      if (!fbUrl) return false;
+    async function saveLocalSnapshot(payload) {
       try {
-        const jsonString = JSON.stringify({
-          masterRows: payload.masterRows,
-          diagRows: payload.diagRows,
-          todayStr: payload.todayStr,
-          lastSynced: payload.lastSynced
-        });
+        const db = await openLocalDB();
+        if (!db) return;
+        const tx = db.transaction("cache", "readwrite");
+        tx.objectStore("cache").put(payload, "latest_snapshot");
+      } catch (err) {}
+    }
 
-        const compressedData = LZString.compressToUTF16(jsonString);
-        const resp = await fetch(`${fbUrl}/mi_snapshot_v6.json`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ data: compressedData })
+    async function loadLocalSnapshot() {
+      try {
+        const db = await openLocalDB();
+        if (!db) return null;
+        return await new Promise((resolve) => {
+          const tx = db.transaction("cache", "readonly");
+          const req = tx.objectStore("cache").get("latest_snapshot");
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => resolve(null);
         });
-
-        if (!resp.ok) {
-          console.warn("Cloud save returned HTTP " + resp.status);
-          return false;
-        }
-        console.log("Successfully saved compressed snapshot to Firebase Cloud!");
-        return true;
-      } catch (e) {
-        console.warn("Cloud save skipped:", e);
-        return false;
-      }
+      } catch (err) { return null; }
     }
 
     async function syncFromGoogleSheets() {
@@ -674,43 +518,35 @@
         STATE.diagRows = parsed.diagRows;
         STATE.todayStr = parsed.todayStr;
         STATE.lastSynced = parsed.lastSynced;
+        STATE.sourceLabel = "Local Snapshot Updated ✓ (Instant Load)";
 
-        const cloudSaved = await saveToFirebaseCache({
+        await saveLocalSnapshot({
           masterRows: STATE.masterRows, diagRows: STATE.diagRows,
-          todayStr: STATE.todayStr, lastSynced: STATE.lastSynced
+          todayStr: STATE.todayStr, lastSynced: STATE.lastSynced, sourceLabel: STATE.sourceLabel
         });
 
-        STATE.sourceLabel = cloudSaved ? "Shared Cloud Snapshot Updated ✓" : "Local Browser Snapshot (Cloud Saved Pending)";
         populateFilterDropdowns(true);
         renderActivePage();
       } catch (err) {
         alert("Could not sync from Google Sheets: " + err.message);
       } finally {
-        if (btn) { btn.disabled = false; btn.textContent = "Sync Latest Data from Google Sheets"; }
+        if (btn) { btn.disabled = false; btn.textContent = "Sync Latest Data from Sheets"; }
       }
     }
 
     async function initAppLoad() {
       document.getElementById("sheet-url-input").value = CONFIG.DEFAULT_SHEET_URL;
-      document.getElementById("firebase-url-input").value = CONFIG.FIREBASE_DB_URL;
-
       const currentTodayIST = getTodayIST().formatted;
-      statusTextEl.textContent = "Checking shared cloud snapshot...";
+      statusTextEl.textContent = "Checking local cached snapshot...";
 
-      let cached = await loadFromFirebaseCache();
-      let sourceText = "Firebase Cloud Snapshot";
-
-      if (!cached) {
-        cached = await loadLocalSnapshot();
-        sourceText = "Saved Browser Snapshot";
-      }
+      const cached = await loadLocalSnapshot();
 
       if (cached && Array.isArray(cached.masterRows) && cached.masterRows.length > 0 && cached.todayStr === currentTodayIST) {
         STATE.masterRows = cached.masterRows;
         STATE.diagRows = cached.diagRows || [];
         STATE.todayStr = cached.todayStr;
         STATE.lastSynced = cached.lastSynced || "-";
-        STATE.sourceLabel = `${sourceText} (Instant)`;
+        STATE.sourceLabel = "Saved Browser Snapshot (Instant)";
         populateFilterDropdowns(true);
         renderActivePage();
       } else {
@@ -778,7 +614,7 @@
     }
 
     function getFilterScopeLabel() {
-      return `Division: ${document.getElementById("f-div").value} | Sub-div: ${document.getElementById("f-subdiv").value} | EE: ${document.getElementById("f-ee").value}`;
+      return `Division: ${document.getElementById("f-div").value} | Sub-div: ${document.getElementById("f-subdiv").value}`;
     }
 
     function escapeHtml(str) {
@@ -928,9 +764,6 @@
       const sumCols = ["Sl. No.", viewChoice, "Total Works", "Overdue", "ETS", "Rest", "Overdue %"];
       const sumRows = summaryList.map((r, i) => ({ "Sl. No.": i + 1, [viewChoice]: r.name, "Total Works": r.total_works, "Overdue": r.overdue_works, "ETS": r.ets_works, "Rest": r.rest_works, "Overdue %": `${r.overdue_pct.toFixed(1)}%` }));
       document.getElementById("p1-summary-table-wrap").innerHTML = buildHtmlTable(sumCols, sumRows, 460);
-
-      const diagCols = ["Sl. No.", "Sheet", "Status", "Rows Loaded", "Overdue", "ETS"];
-      document.getElementById("p1-diag-table-wrap").innerHTML = buildHtmlTable(diagCols, STATE.diagRows.map((d, i) => ({ "Sl. No.": i + 1, ...d })), 420);
     }
 
     function renderSelectedOfficerOverdueTable(scopeRows, viewChoice) {
@@ -959,19 +792,6 @@
       return `<div class="ce-table-wrapper" style="max-height:${maxHeight}px;"><table class="ce-overdue-table"><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table></div>`;
     }
 
-    function renderAnalyticsPage() {
-      const scopeRows = getFilteredScopeRows();
-      const totWorks = scopeRows.length;
-      const totOd = scopeRows.reduce((a, r) => a + r.is_overdue, 0);
-      const totEts = scopeRows.reduce((a, r) => a + r.is_status_ets, 0);
-
-      document.getElementById("p2-kpi-grid").innerHTML = `
-        <div class="kpi-card kpi-teal"><div class="kpi-label">📋 Total Works</div><div class="kpi-val">${totWorks.toLocaleString()}</div></div>
-        <div class="kpi-card kpi-rose"><div class="kpi-label">🔴 Overdue</div><div class="kpi-val">${totOd.toLocaleString()}</div></div>
-        <div class="kpi-card kpi-sage"><div class="kpi-label">🟢 ETS</div><div class="kpi-val">${totEts.toLocaleString()}</div></div>
-      `;
-    }
-
     function renderActivePage() {
       document.getElementById("status-source-pill").textContent = STATE.sourceLabel;
       document.getElementById("status-time-label").textContent = STATE.lastSynced;
@@ -979,10 +799,6 @@
         document.getElementById("page-dashboard").style.display = "block";
         document.getElementById("page-analytics").style.display = "none";
         renderDashboardPage();
-      } else {
-        document.getElementById("page-dashboard").style.display = "none";
-        document.getElementById("page-analytics").style.display = "block";
-        renderAnalyticsPage();
       }
     }
 
@@ -1001,6 +817,7 @@
       STATE.masterRows = parsed.masterRows; STATE.diagRows = parsed.diagRows;
       STATE.todayStr = parsed.todayStr; STATE.lastSynced = parsed.lastSynced;
       STATE.sourceLabel = `Uploaded (${file.name})`;
+      await saveLocalSnapshot({ masterRows: STATE.masterRows, diagRows: STATE.diagRows, todayStr: STATE.todayStr, lastSynced: STATE.lastSynced, sourceLabel: STATE.sourceLabel });
       populateFilterDropdowns(true); renderActivePage();
     });
 
