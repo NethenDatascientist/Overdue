@@ -1588,8 +1588,13 @@
     }
 
     async function saveToFirebaseCache(payload) {
+      await saveLocalSnapshot(payload);
+
       const fbUrl = getFirebaseBaseUrl();
-      if (!fbUrl) return false;
+      if (!fbUrl) {
+        console.warn("Firebase URL is empty!");
+        return false;
+      }
       try {
         const compactPayload = {
           compressedRows: packRowsForCloud(payload.masterRows),
@@ -1598,19 +1603,24 @@
           lastSynced: payload.lastSynced
         };
 
-        const resp = await fetch(`${fbUrl}/mi_daily_snapshot_v3.json`, {
+        const targetUrl = `${fbUrl}/mi_snapshot.json`;
+        console.log("Saving to Firebase URL:", targetUrl);
+
+        const resp = await fetch(targetUrl, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(compactPayload)
         });
 
         if (!resp.ok) {
-          console.warn("Firebase cloud save rejected with HTTP " + resp.status);
+          const errText = await resp.text();
+          console.error("Firebase REJECTED with HTTP " + resp.status + " — Error details:", errText);
           return false;
         }
+        console.log("Successfully saved snapshot to Firebase Cloud!");
         return true;
       } catch (e) {
-        console.warn("Firebase write error:", e);
+        console.error("Firebase write exception:", e);
         return false;
       }
     }
