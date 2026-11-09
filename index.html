@@ -41,7 +41,7 @@
     }
 
     /* =========================================================================
-       1. FULL-SCREEN INTRO VIDEO SPLASH OVERLAY (PLAYS WHILE DATA LOADS)
+       1. TRUE EDGE-TO-EDGE FULLSCREEN INTRO VIDEO OVERLAY
        ========================================================================= */
     #intro-video-overlay {
       position: fixed;
@@ -65,11 +65,11 @@
       left: 0;
       width: 100vw;
       height: 100vh;
-      object-fit: fill; /* Stretches edge-to-edge with zero side bars */
+      object-fit: fill;
     }
     .intro-hud-bar {
       position: absolute;
-      bottom: 28px;
+      bottom: 24px;
       left: 50%;
       transform: translateX(-50%);
       display: flex;
@@ -77,10 +77,10 @@
       align-items: center;
       justify-content: center;
       gap: 12px;
-      background: rgba(15, 23, 42, 0.82);
+      background: rgba(15, 23, 42, 0.84);
       backdrop-filter: blur(12px);
-      border: 1px solid rgba(148, 163, 184, 0.35);
-      padding: 10px 18px;
+      border: 1px solid rgba(148, 163, 184, 0.38);
+      padding: 9px 18px;
       border-radius: 999px;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
       z-index: 10;
@@ -106,6 +106,8 @@
       width: auto;
       height: auto;
       animation: none;
+      color: #4ADE80;
+      font-weight: 800;
     }
     @keyframes spin {
       to { transform: rotate(360deg); }
@@ -146,7 +148,7 @@
       display: flex;
       flex-direction: column;
       gap: 0.85rem;
-      transition: margin-left 0.22s ease;
+      transition: margin-left 0.25s cubic-bezier(0.22, 1, 0.36, 1);
       z-index: 100;
     }
     .sidebar.collapsed {
@@ -806,16 +808,17 @@
 <body>
 
   <!-- =========================================================================
-       INTRO VIDEO OVERLAY (PLAYS IMMEDIATELY WHILE DATA LOADS IN BACKGROUND)
+       INTRO VIDEO OVERLAY (DIRECT SOURCES + FULLSCREEN)
        ========================================================================= -->
   <div id="intro-video-overlay">
-    <video id="intro-video-player" autoplay muted playsinline>
-      <source id="intro-video-src" src="/intro.mp4" type="video/mp4" />
+    <video id="intro-video-player" autoplay muted playsinline preload="auto">
+      <source src="/Intro.mp4" type="video/mp4" />
+      <source src="https://raw.githubusercontent.com/NethenDatascientist/Overdue/main/Intro.mp4" type="video/mp4" />
     </video>
     <div class="intro-hud-bar">
       <div class="intro-load-status">
         <div id="intro-spinner-icon" class="intro-spinner"></div>
-        <span id="intro-status-text">Loading 23 Worksheets in background...</span>
+        <span id="intro-status-text">Loading saved snapshot...</span>
       </div>
       <button type="button" class="intro-btn" id="unmute-video-btn">Unmute Audio</button>
       <button type="button" class="intro-btn" id="skip-intro-btn">Enter Dashboard →</button>
@@ -847,7 +850,7 @@
 
       <div class="ctrl-group">
         <label for="firebase-url-input">Firebase Realtime DB URL</label>
-        <input type="text" id="firebase-url-input" class="ctrl-input" placeholder="https://your-db.firebaseio.com" />
+        <input type="text" id="firebase-url-input" class="ctrl-input" />
       </div>
 
       <div class="ctrl-group">
@@ -902,7 +905,7 @@
         <span><b>Row Rule:</b> Valid text in <b>Division</b> column (empty <b>Sub-division</b> rows included)</span>
       </div>
 
-      <!-- 5 Cascading Dropdown Filters (Shared Across Both Pages) -->
+      <!-- 5 Cascading Dropdown Filters -->
       <div class="filter-grid-5">
         <div class="filter-card">
           <label for="f-div">Select Division:</label>
@@ -943,7 +946,7 @@
           </div>
         </div>
 
-        <!-- 6 KPI Cards (Emojis Strictly Here) -->
+        <!-- 6 KPI Cards -->
         <div class="kpi-grid-6" id="p1-kpi-grid"></div>
 
         <!-- Connected 6-Bucket Overdue Ageing Tree -->
@@ -1051,20 +1054,12 @@
   </div>
 
   <!-- =========================================================================
-       APPLICATION LOGIC (23-SHEET PARSER, FIREBASE CACHE, PLOTLY CHARTS)
+       APPLICATION LOGIC
        ========================================================================= -->
   <script>
-    // =========================================================================
-    // CONFIGURATION — PASTE YOUR LINKS HERE
-    // =========================================================================
     const CONFIG = {
-      // 1. Your Google Spreadsheet Link:
       DEFAULT_SHEET_URL: "https://docs.google.com/spreadsheets/d/13W04z-fdU3RhuVJ5vQFRpK4BBSQRJWfscPqpr7Oj2Y8/edit?usp=sharing",
-
-      // 2. Your Firebase Realtime Database URL (e.g. "https://your-project-default-rtdb.asia-southeast1.firebasedatabase.app"):
       FIREBASE_DB_URL: "https://ae-aee-overdue-default-rtdb.asia-southeast1.firebasedatabase.app",
-
-      // 3. Your Intro Video Path ("/intro.mp4" if uploaded to GitHub root, or full raw.githubusercontent.com link):
       INTRO_VIDEO_URL: "/Intro.mp4"
     };
 
@@ -1093,20 +1088,38 @@
       sourceLabel: "Initialising...",
       dataReady: false,
       videoEnded: false,
+      sidebarAutoClosed: false,
       currentOfficerOverdueRows: []
     };
 
     // =========================================================================
-    // INTRO VIDEO & PARALLEL BACKGROUND LOADING CONTROLLER
+    // INTRO VIDEO & AUTO-CLOSE SIDEBAR CONTROLLER
     // =========================================================================
     const videoEl = document.getElementById("intro-video-player");
-    const videoSrcEl = document.getElementById("intro-video-src");
     const overlayEl = document.getElementById("intro-video-overlay");
     const statusTextEl = document.getElementById("intro-status-text");
     const spinnerEl = document.getElementById("intro-spinner-icon");
 
-    videoSrcEl.src = CONFIG.INTRO_VIDEO_URL;
-    videoEl.load();
+    // Start video playback immediately
+    const playPromise = videoEl.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        videoEl.muted = true;
+        videoEl.play().catch(() => {});
+      });
+    }
+
+    function scheduleSidebarAutoClose() {
+      if (STATE.sidebarAutoClosed) return;
+      STATE.sidebarAutoClosed = true;
+      setTimeout(() => {
+        const sb = document.getElementById("app-sidebar");
+        if (sb && !sb.classList.contains("collapsed")) {
+          sb.classList.add("collapsed");
+          setTimeout(() => window.dispatchEvent(new Event("resize")), 260);
+        }
+      }, 3000);
+    }
 
     function checkDismissOverlay() {
       if (STATE.dataReady && STATE.videoEnded) {
@@ -1114,7 +1127,8 @@
         setTimeout(() => {
           videoEl.pause();
           window.dispatchEvent(new Event("resize"));
-        }, 600);
+        }, 550);
+        scheduleSidebarAutoClose();
       }
     }
 
@@ -1124,7 +1138,6 @@
     });
 
     videoEl.addEventListener("error", () => {
-      // If intro.mp4 is not uploaded yet, don't block the dashboard once data is ready
       STATE.videoEnded = true;
       checkDismissOverlay();
     });
@@ -1148,9 +1161,13 @@
     // =========================================================================
     function getTodayIST() {
       const now = new Date();
-      const istStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }); // YYYY-MM-DD
+      const istStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
       const [y, m, d] = istStr.split("-").map(Number);
-      return { y, m, d, dateObj: new Date(Date.UTC(y, m - 1, d)), formatted: `${String(d).padStart(2, "0")}-${String(m).padStart(2, "0")}-${y}` };
+      return {
+        y, m, d,
+        dateObj: new Date(Date.UTC(y, m - 1, d)),
+        formatted: `${String(d).padStart(2, "0")}-${String(m).padStart(2, "0")}-${y}`
+      };
     }
 
     function getISTTimestamp() {
@@ -1178,7 +1195,6 @@
         return new Date(Date.UTC(rawVal.getFullYear(), rawVal.getMonth(), rawVal.getDate()));
       }
       if (typeof rawVal === "number" && rawVal > 10000 && rawVal < 80000) {
-        // Excel serial date
         const utcDays = Math.floor(rawVal - 25569);
         const d = new Date(utcDays * 86400 * 1000);
         return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
@@ -1272,7 +1288,6 @@
       if (!val) return false;
       const upper = val.toUpperCase().trim();
       if (["-", "--", "---", "NIL", "NA", "N/A", "NONE", "NAN", "NAT", "NULL", "0"].includes(upper)) return false;
-      // Reject only if string has NO letters (neither English nor Kannada)
       if (!/[a-zA-Z\u0C80-\u0CFF]/.test(val)) return false;
       if (["ವಿಭಾಗ", "ವಿಭಾಗದ ಹೆಸರು", "ಒಟ್ಟು", "ಒಟ್ಟು ಮೊತ್ತ", "ಮಹಾ ಒಟ್ಟು"].includes(val)) return false;
       if (["DIVISION", "DIVISION NAME", "TOTAL", "GRAND TOTAL", "SUB TOTAL"].includes(upper)) return false;
@@ -1360,7 +1375,7 @@
     }
 
     // =========================================================================
-    // 23-WORKSHEET EXCEL PARSER (RUNS IN BROWSER VIA SHEETJS)
+    // 23-WORKSHEET EXCEL PARSER (UINT8ARRAY + KANNADA SUPPORT)
     // =========================================================================
     function parseWorkbookArrayBuffer(arrayBuffer) {
       const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: "array", cellDates: true });
@@ -1520,25 +1535,25 @@
     }
 
     // =========================================================================
-    // FIREBASE REALTIME DATABASE CACHE & SYNC ENGINE
-    // =========================================================================
-    // =========================================================================
-    // SNAPSHOT ENGINE (FIREBASE CLOUD + LOCAL INDEXEDDB BACKUP — MANUAL REFRESH ONLY)
+    // SNAPSHOT ENGINE (FIREBASE CLOUD + LOCAL INDEXEDDB BACKUP — MANUAL SYNC)
     // =========================================================================
     function getFirebaseBaseUrl() {
       const inputVal = document.getElementById("firebase-url-input").value.trim();
       return (inputVal || CONFIG.FIREBASE_DB_URL || "").replace(/\/+$/, "");
     }
 
-    // Local Browser IndexedDB Backup (Guarantees instant load even if Firebase rules block)
     function openLocalSnapshotDB() {
-      return new Promise((resolve, reject) => {
-        const req = indexedDB.open("MI_Overdue_Snapshot_DB", 1);
-        req.onupgradeneeded = (e) => {
-          e.target.result.createObjectStore("snapshots");
-        };
-        req.onsuccess = (e) => resolve(e.target.result);
-        req.onerror = () => resolve(null);
+      return new Promise((resolve) => {
+        try {
+          const req = indexedDB.open("MI_Overdue_Snapshot_DB", 1);
+          req.onupgradeneeded = (e) => {
+            e.target.result.createObjectStore("snapshots");
+          };
+          req.onsuccess = (e) => resolve(e.target.result);
+          req.onerror = () => resolve(null);
+        } catch (err) {
+          resolve(null);
+        }
       });
     }
 
@@ -1589,14 +1604,11 @@
       const fbUrl = getFirebaseBaseUrl();
       if (!fbUrl) return;
       try {
-        const resp = await fetch(`${fbUrl}/mi_dashboard_v1.json`, {
+        await fetch(`${fbUrl}/mi_dashboard_v1.json`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
-        if (!resp.ok) {
-          console.warn("Firebase write returned HTTP " + resp.status + " — check Firebase Realtime Database Rules (.write: true)");
-        }
       } catch (e) {
         console.warn("Firebase cache write skipped:", e);
       }
@@ -1639,23 +1651,13 @@
       }
     }
 
-    function scheduleSidebarAutoClose() {
-      setTimeout(() => {
-        const sb = document.getElementById("app-sidebar");
-        if (sb && !sb.classList.contains("collapsed")) {
-          sb.classList.add("collapsed");
-          setTimeout(() => window.dispatchEvent(new Event("resize")), 250);
-        }
-      }, 3000);
-    }
-
     async function initAppLoad() {
       document.getElementById("sheet-url-input").value = CONFIG.DEFAULT_SHEET_URL;
       document.getElementById("firebase-url-input").value = CONFIG.FIREBASE_DB_URL;
 
       statusTextEl.textContent = "Loading saved snapshot...";
 
-      // 1. Always load from Firebase Cloud Snapshot first (0.3s) — NEVER auto-refresh if snapshot exists
+      // 1. Check Firebase Cloud Snapshot first (0.2s)
       let cached = await loadFromFirebaseCache();
       let sourceText = "Firebase Cloud Snapshot";
 
@@ -1674,34 +1676,9 @@
         populateFilterDropdowns(true);
         renderActivePage();
       } else {
-        // Only if NO snapshot exists anywhere yet (very first run ever), do initial sync
+        // Only if NO snapshot exists anywhere yet (first ever run), do initial sync
         await syncFromGoogleSheets();
       }
-
-      STATE.dataReady = true;
-      spinnerEl.className = "intro-spinner done";
-      spinnerEl.textContent = "✓";
-      statusTextEl.textContent = "Dashboard Ready!";
-      checkDismissOverlay();
-
-      // Auto-close the left sidebar 3 seconds after opening
-      scheduleSidebarAutoClose();
-    }
-      // 1. Try instant 0.3s load from Firebase Realtime Database while video plays
-      const cached = await loadFromFirebaseCache();
-      if (cached) {
-        STATE.masterRows = cached.masterRows;
-        STATE.diagRows = cached.diagRows || [];
-        STATE.todayStr = getTodayIST().formatted;
-        STATE.lastSynced = cached.lastSynced || "-";
-        STATE.sourceLabel = "Firebase Instant Cloud Snapshot";
-      } else {
-        // 2. Fallback: Fetch & parse live from Google Sheets via Vercel /api/sheet
-        await syncFromGoogleSheets();
-      }
-
-      populateFilterDropdowns(true);
-      renderActivePage();
 
       STATE.dataReady = true;
       spinnerEl.className = "intro-spinner done";
@@ -1826,7 +1803,6 @@
         return true;
       });
 
-      // Group by Officer
       const map = new Map();
       validRows.forEach((r) => {
         const name = r[groupKey];
@@ -1864,7 +1840,7 @@
       const odRows = validRows.filter((r) => r.is_overdue);
       const chronicCount = odRows.filter((r) => r.age_bucket === "4. 2 – 5 Years" || r.age_bucket === "5. > 5 Years (Chronic)").length;
 
-      // Render 6 KPI Cards (Emojis Strictly Here)
+      // Render 6 KPI Cards
       document.getElementById("p1-kpi-grid").innerHTML = `
         <div class="kpi-card kpi-sky">
           <div class="kpi-label">📅 Date (Today)</div>
@@ -1954,15 +1930,14 @@
       document.getElementById("p1-scope-badge-3").textContent = scopeLabel;
       document.getElementById("p1-dossier-title").textContent = `Combined Overdue Works by ${viewChoice}`;
 
-      // Filter chart source
       const chartSource = hideZero
         ? summaryList.filter((r) => r.overdue_works > 0 || r.is_unassigned)
         : summaryList;
 
       const plotArr = [...chartSource].reverse();
       const yNames = plotArr.map((r) => r.name);
-      // Add trailing space so Kannada matras/ottaksharas never touch the vertical bar line
-      const yShort = plotArr.map((r) => (r.name.length <= 28 ? r.name : r.name.slice(0, 27) + "…") + "   ");
+      // Non-breaking spaces guarantee a clean gap between Kannada names and the chart axis
+      const yShort = plotArr.map((r) => (r.name.length <= 28 ? r.name : r.name.slice(0, 27) + "…") + "\u00A0\u00A0\u00A0");
 
       const barLabels = plotArr.map((r) => {
         const isShrunk = shrinkOutliers && r.total_works > BAR_SHRINK_THRESHOLD && barMode === "overlay";
@@ -1973,7 +1948,6 @@
         return `  <b>${r.overdue_works} Overdue</b> | ${r.ets_works} ETS / ${r.total_works} Total (${r.overdue_pct.toFixed(1)}%)${shrinkTag}`;
       });
 
-      // Clean multi-line hover data so Kannada text never overflows outside the red box
       const customHoverData = plotArr.map((r) => [
         r.name,
         r.overdue_works,
@@ -2081,13 +2055,14 @@
           tickvals: yNames,
           ticktext: yShort,
           ticks: "outside",
-          ticklen: 10,
-          tickcolor: "rgba(0,0,0,0)",
+          ticklen: 14,
+          tickcolor: "#E8EEF5",
           tickfont: { size: 12, color: "#0F172A" }
         },
         legend: { orientation: "h", y: 1.02, x: 0, traceorder: "reversed" },
-        margin: { l: 235, r: 20, t: 36, b: 40 }
+        margin: { l: 245, r: 20, t: 36, b: 40 }
       }, { responsive: true, displayModeBar: false });
+
       // Populate Section 2 Officer Selectbox
       const offSelect = document.getElementById("p1-officer-select");
       const prevOff = offSelect.value;
@@ -2259,7 +2234,6 @@
       const unexcusedShare = totDelayed > 0 ? ((totOd / totDelayed) * 100).toFixed(1) : "0.0";
       const chronic2Yr = scopeRows.filter((r) => r.is_overdue && (r.age_bucket === "4. 2 – 5 Years" || r.age_bucket === "5. > 5 Years (Chronic)")).length;
 
-      // 6 KPI Cards on Analytics Page (Emojis Kept Strictly Here)
       document.getElementById("p2-kpi-grid").innerHTML = `
         <div class="kpi-card kpi-teal">
           <div class="kpi-label">📋 Total Works in Scope</div>
@@ -2293,7 +2267,6 @@
         </div>
       `;
 
-      // Populate Audit Officer Select
       const auditRole = document.querySelector('input[name="p2-audit-role"]:checked').value;
       const auditList = [...(auditRole === "Assistant Engineer" ? aeStats : aeeStats)]
         .sort((a, b) => (b.overdue_works - a.overdue_works) || (b.ets_works - a.ets_works));
@@ -2370,7 +2343,6 @@
         </div>
       `;
 
-      // Donut Chart
       Plotly.newPlot("p2-donut-chart", [{
         type: "pie",
         labels: ["Overdue ('P')", "Claimed 'ETS'", "On-Track ('P')", "Completed / Rest"],
@@ -2387,7 +2359,6 @@
         annotations: [{ text: `<b>${offRow.total_works}</b><br>Works`, x: 0.5, y: 0.5, showarrow: false, font: { size: 15, color: "#0F172A" } }]
       }, { responsive: true, displayModeBar: false });
 
-      // Proof Table
       const pCols = ["Sl. No.", "Work Name", "Target Date", "Overdue By", "H.O.A."];
       const pRows = offOdRows.map((r, i) => ({
         "Sl. No.": i + 1,
@@ -2481,7 +2452,6 @@
       const highCnt = [...stats].sort((a, b) => (b.overdue_works - a.overdue_works) || (b.overdue_pct - a.overdue_pct) || (b.total_works - a.total_works)).slice(0, topN);
       const highPct = [...qual].sort((a, b) => (b.overdue_pct - a.overdue_pct) || (b.overdue_works - a.overdue_works) || (b.total_works - a.total_works)).slice(0, topN);
 
-      // Strictly exclude 0-Overdue officers from Least Overdue rankings
       let leastPool = qual.filter((r) => r.overdue_works > 0);
       if (!leastPool.length) leastPool = stats.filter((r) => r.overdue_works > 0);
 
@@ -2527,19 +2497,16 @@
       }
     }
 
-    // Sidebar Toggle
     document.getElementById("sidebar-toggle-btn").addEventListener("click", () => {
       document.getElementById("app-sidebar").classList.toggle("collapsed");
-      setTimeout(() => window.dispatchEvent(new Event("resize")), 240);
+      setTimeout(() => window.dispatchEvent(new Event("resize")), 260);
     });
 
-    // Page Switcher
     document.getElementById("page-switch-btn").addEventListener("click", () => {
       STATE.activePage = STATE.activePage === "dashboard" ? "analytics" : "dashboard";
       renderActivePage();
     });
 
-    // Sync Button & Direct File Upload
     document.getElementById("sync-btn").addEventListener("click", syncFromGoogleSheets);
     document.getElementById("xlsx-upload-input").addEventListener("change", async (e) => {
       const file = e.target.files[0];
@@ -2562,7 +2529,6 @@
       renderActivePage();
     });
 
-    // Cascading Filter Listeners
     ["f-div", "f-subdiv", "f-ee", "f-ta", "f-as"].forEach((id) => {
       document.getElementById(id).addEventListener("change", () => {
         populateFilterDropdowns(false);
@@ -2570,7 +2536,6 @@
       });
     });
 
-    // Radio & Checkbox Listeners
     document.querySelectorAll('input[name="denom-mode"], input[name="bar-mode"], input[name="p1-view"], input[name="p1-sort"], #chk-shrink, #chk-hide-zero, #chk-unassigned').forEach((el) => {
       el.addEventListener("change", renderActivePage);
     });
@@ -2610,7 +2575,6 @@
       });
     });
 
-    // Download Excel & CSV Buttons
     document.getElementById("dl-xlsx-btn").addEventListener("click", () => {
       if (!STATE.currentOfficerOverdueRows.length) return;
       const ws = XLSX.utils.json_to_sheet(STATE.currentOfficerOverdueRows);
@@ -2630,7 +2594,6 @@
       a.click();
     });
 
-    // Scroll HUD Listener
     window.addEventListener("scroll", () => {
       const doc = document.documentElement;
       const maxS = Math.max(1, doc.scrollHeight - doc.clientHeight);
@@ -2641,7 +2604,6 @@
       lbl.textContent = Math.round(pct) + "%";
     }, { passive: true });
 
-    // Start App & Background Data Load Immediately
     initAppLoad();
   </script>
 </body>
