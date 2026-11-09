@@ -1657,7 +1657,8 @@
           lastSynced: payload.lastSynced
         };
 
-        const targetUrl = `${fbUrl}/mi_snapshot.json`;
+        const cleanBaseUrl = fbUrl.trim().replace(/\s+/g, '');
+        const targetUrl = `${cleanBaseUrl}/mi_snapshot_v4.json`;
         console.log("Saving to Firebase URL:", targetUrl);
 
         const resp = await fetch(targetUrl, {
@@ -1678,7 +1679,28 @@
         return false;
       }
     }
+    async function loadFromFirebaseCache() {
+      const fbUrl = getFirebaseBaseUrl();
+      if (!fbUrl) return null;
+      try {
+        const cleanBaseUrl = fbUrl.trim().replace(/\s+/g, '');
+        const resp = await fetch(`${cleanBaseUrl}/mi_snapshot_v4.json?t=${Date.now()}`, {
+          cache: "no-store"
+        });
+        if (!resp.ok) return null;
+        const data = await resp.json();
+        if (!data) return null;
 
+        if (typeof data.compressedRows === "string" && data.compressedRows.length > 0) {
+          data.masterRows = unpackRowsFromCloud(data.compressedRows);
+          console.log("Successfully loaded snapshot from Firebase Cloud!");
+          return data;
+        }
+      } catch (e) {
+        console.warn("Firebase read error:", e);
+      }
+      return null;
+    }
     async function syncFromGoogleSheets() {
       const btn = document.getElementById("sync-btn");
       btn.disabled = true;
