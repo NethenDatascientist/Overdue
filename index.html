@@ -1537,80 +1537,88 @@
     // =========================================================================
     // SNAPSHOT ENGINE (FIREBASE CLOUD + LOCAL INDEXEDDB BACKUP — MANUAL SYNC)
     // =========================================================================
-    function getFirebaseBaseUrl() {
-      const inputVal = document.getElementById("firebase-url-input").value.trim();
-      return (inputVal || CONFIG.FIREBASE_DB_URL || "").replace(/\/+$/, "");
+    // =========================================================================
+    // SHARED DAILY SNAPSHOT ENGINE (FIREBASE CLOUD SYNC ACROSS ALL DEVICES)
+    // =========================================================================
+    const ROW_KEYS = [
+      "sheet_name", "work_name", "division_name", "subdivision_name",
+      "ee_name", "ta_name", "as_name", "so_name", "aee_name",
+      "status_raw", "start_date", "target_date", "overdue_by",
+      "hoa", "age_bucket", "tree_bucket",
+      "is_status_p", "is_status_ets", "is_overdue"
+    ];
+
+    function packRowsForCloud(rows) {
+      return rows.map((r) => ROW_KEYS.map((k) => r[k]));
     }
 
-    function openLocalSnapshotDB() {
-      return new Promise((resolve) => {
-        try {
-          const req = indexedDB.open("MI_Overdue_Snapshot_DB", 1);
-          req.onupgradeneeded = (e) => {
-            e.target.result.createObjectStore("snapshots");
-          };
-          req.onsuccess = (e) => resolve(e.target.result);
-          req.onerror = () => resolve(null);
-        } catch (err) {
-          resolve(null);
-        }
+    function unpackRowsFromCloud(packed) {
+      return packed.map((arr) => {
+        const obj = {};
+        ROW_KEYS.forEach((k, i) => { obj[k] = arr[i]; });
+        return obj;
       });
     }
 
-    async function saveLocalSnapshot(payload) {
-      try {
-        const db = await openLocalSnapshotDB();
-        if (!db) return;
-        const tx = db.transaction("snapshots", "readwrite");
-        tx.objectStore("snapshots").put(payload, "latest_v1");
-      } catch (e) {
-        console.warn("IndexedDB save skipped:", e);
-      }
-    }
-
-    async function loadLocalSnapshot() {
-      try {
-        const db = await openLocalSnapshotDB();
-        if (!db) return null;
-        return await new Promise((resolve) => {
-          const tx = db.transaction("snapshots", "readonly");
-          const req = tx.objectStore("snapshots").get("latest_v1");
-          req.onsuccess = () => resolve(req.result || null);
-          req.onerror = () => resolve(null);
-        });
-      } catch (e) {
-        return null;
-      }
+    function getFirebaseBaseUrl() {
+      const inputEl = document.getElementById("firebase-url-input");
+      const inputVal = inputEl ? inputEl.value.trim() : "";
+      return (inputVal || CONFIG.FIREBASE_DB_URL || "").replace(/\/+$/, "");
     }
 
     async function loadFromFirebaseCache() {
       const fbUrl = getFirebaseBaseUrl();
       if (!fbUrl) return null;
       try {
-        const resp = await fetch(`${fbUrl}/mi_dashboard_v1.json`, { cache: "no-store" });
+        const resp = await fetch(`${fbUrl}/mi_daily_snapshot_v2.json?t=${Date.now()}`, {
+          cache: "no-store"
+        });
         if (!resp.ok) return null;
         const data = await resp.json();
-        if (data && Array.isArray(data.masterRows) && data.masterRows.length > 0) {
+        if (!data) return null;
+
+        if (Array.isArray(data.packedRows) && data.packedRows.length > 0) {
+          data.masterRows = unpackRowsFromCloud(data.packedRows);
+          return data;
+        }
+        if (Array.isArray(data.masterRows) && data.masterRows.length > 0) {
           return data;
         }
       } catch (e) {
-        console.warn("Firebase cache read skipped:", e);
+        console.warn("Firebase read error:", e);
       }
       return null;
     }
 
     async function saveToFirebaseCache(payload) {
-      await saveLocalSnapshot(payload);
       const fbUrl = getFirebaseBaseUrl();
-      if (!fbUrl) return;
+      if (!fbUrl) return false;
       try {
-        await fetch(`${fbUrl}/mi_dashboard_v1.json`, {
+        const compactPayload = {
+          packedRows: packRowsForCloud(payload.masterRows),
+          diagRows: payload.diagRows,
+          todayStr: payload.todayStr,
+          lastSynced: payload.lastSynced
+        };
+
+        const resp = await fetch(`${fbUrl}/mi_daily_snapshot_v2.json`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(compactPayload)
         });
+
+        if (!resp.ok) {
+          alert(
+            "Warning: Firebase Cloud rejected saving the snapshot (HTTP " +
+            resp.status +
+            "). Go to Firebase Console -> Realtime Database -> Rules, and set .read: true and .write: true so other devices can use this snapshot."
+          );
+          return false;
+        }
+        return true;
       } catch (e) {
-        console.warn("Firebase cache write skipped:", e);
+        console.warn("Firebase write error:", e);
+        return false;
       }
     }
 
@@ -1618,7 +1626,7 @@
       const btn = document.getElementById("sync-btn");
       btn.disabled = true;
       btn.textContent = "Syncing 23 Sheets...";
-      statusTextEl.textContent = "Downloading & parsing 23 Google Worksheets...";
+      statusTextEl.textContent = "Syncing today's snapshot from 23 Google Worksheets...";
 
       try {
         const sheetUrl = document.getElementById("sheet-url-input").value.trim() || CONFIG.DEFAULT_SHEET_URL;
@@ -1631,15 +1639,17 @@
         STATE.diagRows = parsed.diagRows;
         STATE.todayStr = parsed.todayStr;
         STATE.lastSynced = parsed.lastSynced;
-        STATE.sourceLabel = "Google Sheets Live Snapshot (Saved)";
 
-        await saveToFirebaseCache({
+        const cloudSaved = await saveToFirebaseCache({
           masterRows: STATE.masterRows,
           diagRows: STATE.diagRows,
           todayStr: STATE.todayStr,
-          lastSynced: STATE.lastSynced,
-          sourceLabel: "Saved Cloud Snapshot"
+          lastSynced: STATE.lastSynced
         });
+
+        STATE.sourceLabel = cloudSaved
+          ? "Shared Cloud Snapshot Updated ✓"
+          : "Live Sync (Firebase Locked — Check Rules)";
 
         populateFilterDropdowns(true);
         renderActivePage();
@@ -1655,28 +1665,27 @@
       document.getElementById("sheet-url-input").value = CONFIG.DEFAULT_SHEET_URL;
       document.getElementById("firebase-url-input").value = CONFIG.FIREBASE_DB_URL;
 
-      statusTextEl.textContent = "Loading saved snapshot...";
+      const currentTodayIST = getTodayIST().formatted;
+      statusTextEl.textContent = "Checking today's shared cloud snapshot...";
 
-      // 1. Check Firebase Cloud Snapshot first (0.2s)
-      let cached = await loadFromFirebaseCache();
-      let sourceText = "Firebase Cloud Snapshot";
+      const cached = await loadFromFirebaseCache();
 
-      // 2. Fallback to Local Browser Snapshot if Firebase rules were locked
-      if (!cached) {
-        cached = await loadLocalSnapshot();
-        sourceText = "Saved Browser Snapshot";
-      }
-
-      if (cached && Array.isArray(cached.masterRows) && cached.masterRows.length > 0) {
+      // If Firebase already has a snapshot synced TODAY, load it immediately on all devices!
+      if (
+        cached &&
+        Array.isArray(cached.masterRows) &&
+        cached.masterRows.length > 0 &&
+        cached.todayStr === currentTodayIST
+      ) {
         STATE.masterRows = cached.masterRows;
         STATE.diagRows = cached.diagRows || [];
-        STATE.todayStr = getTodayIST().formatted;
+        STATE.todayStr = cached.todayStr;
         STATE.lastSynced = cached.lastSynced || "-";
-        STATE.sourceLabel = `${sourceText} (Manual Sync Mode)`;
+        STATE.sourceLabel = "Shared Daily Cloud Snapshot (Instant)";
         populateFilterDropdowns(true);
         renderActivePage();
       } else {
-        // Only if NO snapshot exists anywhere yet (first ever run), do initial sync
+        // First open of the day (or no cloud snapshot yet) -> Sync once and save for all devices
         await syncFromGoogleSheets();
       }
 
@@ -1686,7 +1695,6 @@
       statusTextEl.textContent = "Dashboard Ready!";
       checkDismissOverlay();
     }
-
     // =========================================================================
     // CASCADING DROPDOWN FILTERS
     // =========================================================================
