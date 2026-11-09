@@ -1587,6 +1587,60 @@
       return null;
     }
 
+    async function loadFromFirebaseCache() {
+      const fbUrl = getFirebaseBaseUrl();
+      if (!fbUrl) return null;
+      try {
+        const resp = await fetch(`${fbUrl}/mi_snapshot.json?t=${Date.now()}`, {
+          cache: "no-store"
+        });
+        if (!resp.ok) {
+          console.warn("Firebase read HTTP status:", resp.status);
+          return null;
+        }
+        const data = await resp.json();
+        if (!data) return null;
+
+        if (typeof data.compressedRows === "string" && data.compressedRows.length > 0) {
+          data.masterRows = unpackRowsFromCloud(data.compressedRows);
+          console.log("Successfully loaded snapshot from Firebase Cloud!");
+          return data;
+        }
+      } catch (e) {
+        console.warn("Firebase read error:", e);
+      }
+      return null;
+    }
+
+    function openLocalSnapshotDB() {
+      return new Promise((resolve) => {
+        try {
+          const req = indexedDB.open("MI_Overdue_Snapshot_DB", 2);
+          req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains("snapshots")) {
+              db.createObjectStore("snapshots");
+            }
+          };
+          req.onsuccess = (e) => resolve(e.target.result);
+          req.onerror = () => resolve(null);
+        } catch (err) {
+          resolve(null);
+        }
+      });
+    }
+
+    async function saveLocalSnapshot(payload) {
+      try {
+        const db = await openLocalSnapshotDB();
+        if (!db) return;
+        const tx = db.transaction("snapshots", "readwrite");
+        tx.objectStore("snapshots").put(payload, "latest_v2");
+      } catch (e) {
+        console.warn("IndexedDB save warning:", e);
+      }
+    }
+
     async function saveToFirebaseCache(payload) {
       await saveLocalSnapshot(payload);
 
