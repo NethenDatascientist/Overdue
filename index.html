@@ -1522,16 +1522,57 @@
     // =========================================================================
     // FIREBASE REALTIME DATABASE CACHE & SYNC ENGINE
     // =========================================================================
+    // =========================================================================
+    // SNAPSHOT ENGINE (FIREBASE CLOUD + LOCAL INDEXEDDB BACKUP — MANUAL REFRESH ONLY)
+    // =========================================================================
     function getFirebaseBaseUrl() {
       const inputVal = document.getElementById("firebase-url-input").value.trim();
       return (inputVal || CONFIG.FIREBASE_DB_URL || "").replace(/\/+$/, "");
+    }
+
+    // Local Browser IndexedDB Backup (Guarantees instant load even if Firebase rules block)
+    function openLocalSnapshotDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open("MI_Overdue_Snapshot_DB", 1);
+        req.onupgradeneeded = (e) => {
+          e.target.result.createObjectStore("snapshots");
+        };
+        req.onsuccess = (e) => resolve(e.target.result);
+        req.onerror = () => resolve(null);
+      });
+    }
+
+    async function saveLocalSnapshot(payload) {
+      try {
+        const db = await openLocalSnapshotDB();
+        if (!db) return;
+        const tx = db.transaction("snapshots", "readwrite");
+        tx.objectStore("snapshots").put(payload, "latest_v1");
+      } catch (e) {
+        console.warn("IndexedDB save skipped:", e);
+      }
+    }
+
+    async function loadLocalSnapshot() {
+      try {
+        const db = await openLocalSnapshotDB();
+        if (!db) return null;
+        return await new Promise((resolve) => {
+          const tx = db.transaction("snapshots", "readonly");
+          const req = tx.objectStore("snapshots").get("latest_v1");
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => resolve(null);
+        });
+      } catch (e) {
+        return null;
+      }
     }
 
     async function loadFromFirebaseCache() {
       const fbUrl = getFirebaseBaseUrl();
       if (!fbUrl) return null;
       try {
-        const resp = await fetch(`${fbUrl}/mi_dashboard_v1.json`);
+        const resp = await fetch(`${fbUrl}/mi_dashboard_v1.json`, { cache: "no-store" });
         if (!resp.ok) return null;
         const data = await resp.json();
         if (data && Array.isArray(data.masterRows) && data.masterRows.length > 0) {
@@ -1544,14 +1585,18 @@
     }
 
     async function saveToFirebaseCache(payload) {
+      await saveLocalSnapshot(payload);
       const fbUrl = getFirebaseBaseUrl();
       if (!fbUrl) return;
       try {
-        await fetch(`${fbUrl}/mi_dashboard_v1.json`, {
+        const resp = await fetch(`${fbUrl}/mi_dashboard_v1.json`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
+        if (!resp.ok) {
+          console.warn("Firebase write returned HTTP " + resp.status + " — check Firebase Realtime Database Rules (.write: true)");
+        }
       } catch (e) {
         console.warn("Firebase cache write skipped:", e);
       }
@@ -1574,14 +1619,14 @@
         STATE.diagRows = parsed.diagRows;
         STATE.todayStr = parsed.todayStr;
         STATE.lastSynced = parsed.lastSynced;
-        STATE.sourceLabel = "Google Sheets Live Snapshot";
+        STATE.sourceLabel = "Google Sheets Live Snapshot (Saved)";
 
         await saveToFirebaseCache({
           masterRows: STATE.masterRows,
           diagRows: STATE.diagRows,
           todayStr: STATE.todayStr,
           lastSynced: STATE.lastSynced,
-          sourceLabel: "Firebase Cloud Snapshot"
+          sourceLabel: "Saved Cloud Snapshot"
         });
 
         populateFilterDropdowns(true);
@@ -1594,10 +1639,54 @@
       }
     }
 
+    function scheduleSidebarAutoClose() {
+      setTimeout(() => {
+        const sb = document.getElementById("app-sidebar");
+        if (sb && !sb.classList.contains("collapsed")) {
+          sb.classList.add("collapsed");
+          setTimeout(() => window.dispatchEvent(new Event("resize")), 250);
+        }
+      }, 3000);
+    }
+
     async function initAppLoad() {
       document.getElementById("sheet-url-input").value = CONFIG.DEFAULT_SHEET_URL;
       document.getElementById("firebase-url-input").value = CONFIG.FIREBASE_DB_URL;
 
+      statusTextEl.textContent = "Loading saved snapshot...";
+
+      // 1. Always load from Firebase Cloud Snapshot first (0.3s) — NEVER auto-refresh if snapshot exists
+      let cached = await loadFromFirebaseCache();
+      let sourceText = "Firebase Cloud Snapshot";
+
+      // 2. Fallback to Local Browser Snapshot if Firebase rules were locked
+      if (!cached) {
+        cached = await loadLocalSnapshot();
+        sourceText = "Saved Browser Snapshot";
+      }
+
+      if (cached && Array.isArray(cached.masterRows) && cached.masterRows.length > 0) {
+        STATE.masterRows = cached.masterRows;
+        STATE.diagRows = cached.diagRows || [];
+        STATE.todayStr = getTodayIST().formatted;
+        STATE.lastSynced = cached.lastSynced || "-";
+        STATE.sourceLabel = `${sourceText} (Manual Sync Mode)`;
+        populateFilterDropdowns(true);
+        renderActivePage();
+      } else {
+        // Only if NO snapshot exists anywhere yet (very first run ever), do initial sync
+        await syncFromGoogleSheets();
+      }
+
+      STATE.dataReady = true;
+      spinnerEl.className = "intro-spinner done";
+      spinnerEl.textContent = "✓";
+      statusTextEl.textContent = "Dashboard Ready!";
+      checkDismissOverlay();
+
+      // Auto-close the left sidebar 3 seconds after opening
+      scheduleSidebarAutoClose();
+    }
       // 1. Try instant 0.3s load from Firebase Realtime Database while video plays
       const cached = await loadFromFirebaseCache();
       if (cached) {
@@ -1872,7 +1961,8 @@
 
       const plotArr = [...chartSource].reverse();
       const yNames = plotArr.map((r) => r.name);
-      const yShort = plotArr.map((r) => r.name.length <= 28 ? r.name : r.name.slice(0, 27) + "…");
+      // Add trailing space so Kannada matras/ottaksharas never touch the vertical bar line
+      const yShort = plotArr.map((r) => (r.name.length <= 28 ? r.name : r.name.slice(0, 27) + "…") + "   ");
 
       const barLabels = plotArr.map((r) => {
         const isShrunk = shrinkOutliers && r.total_works > BAR_SHRINK_THRESHOLD && barMode === "overlay";
@@ -1882,6 +1972,32 @@
         }
         return `  <b>${r.overdue_works} Overdue</b> | ${r.ets_works} ETS / ${r.total_works} Total (${r.overdue_pct.toFixed(1)}%)${shrinkTag}`;
       });
+
+      // Clean multi-line hover data so Kannada text never overflows outside the red box
+      const customHoverData = plotArr.map((r) => [
+        r.name,
+        r.overdue_works,
+        r.ets_works,
+        r.rest_works,
+        r.total_works,
+        r.overdue_pct.toFixed(1)
+      ]);
+
+      const cleanHoverTemplate =
+        `<b>${viewChoice}:</b> %{customdata[0]}<br>` +
+        `<b>Overdue Works ('P'):</b> %{customdata[1]}<br>` +
+        `<b>ETS Works ('ETS'):</b> %{customdata[2]}<br>` +
+        `<b>Rest of Works:</b> %{customdata[3]}<br>` +
+        `<b>Total Works Assigned:</b> %{customdata[4]}<br>` +
+        `<b>Overdue Percentage:</b> %{customdata[5]}%<extra></extra>`;
+
+      const cleanHoverLabel = {
+        bgcolor: "#0F172A",
+        bordercolor: "#334155",
+        namelength: 0,
+        font: { color: "#FFFFFF", size: 12, family: "Inter, sans-serif" },
+        align: "left"
+      };
 
       let traces = [];
       let maxX = 1;
@@ -1895,7 +2011,10 @@
           type: "bar", orientation: "h", y: yNames, x: xVals,
           name: "Overdue Works ('P')",
           marker: { color: "#DC2626" },
-          text: barLabels, textposition: "outside", cliponaxis: false
+          text: barLabels, textposition: "outside", cliponaxis: false,
+          customdata: customHoverData,
+          hovertemplate: cleanHoverTemplate,
+          hoverlabel: cleanHoverLabel
         });
       } else if (barMode === "pct") {
         const xVals = plotArr.map((r) => r.overdue_pct);
@@ -1905,7 +2024,10 @@
           type: "bar", orientation: "h", y: yNames, x: xVals,
           name: "Overdue %",
           marker: { color: "#DC2626" },
-          text: barLabels, textposition: "outside", cliponaxis: false
+          text: barLabels, textposition: "outside", cliponaxis: false,
+          customdata: customHoverData,
+          hovertemplate: cleanHoverTemplate,
+          hoverlabel: cleanHoverLabel
         });
       } else {
         const visTot = plotArr.map((r) => shrinkOutliers ? compressBarLength(r.total_works) : r.total_works);
@@ -1918,17 +2040,26 @@
             type: "bar", orientation: "h", y: yNames, x: visTot,
             name: "Rest of Works (Other Statuses)",
             marker: { color: "rgba(100, 116, 139, 0.28)", line: { color: "#64748B", width: 1 } },
-            text: barLabels, textposition: "outside", cliponaxis: false
+            text: barLabels, textposition: "outside", cliponaxis: false,
+            customdata: customHoverData,
+            hovertemplate: cleanHoverTemplate,
+            hoverlabel: cleanHoverLabel
           },
           {
             type: "bar", orientation: "h", y: yNames, x: visOdEts,
             name: "ETS Works ('ETS')",
-            marker: { color: "#059669" }
+            marker: { color: "#059669" },
+            customdata: customHoverData,
+            hovertemplate: cleanHoverTemplate,
+            hoverlabel: cleanHoverLabel
           },
           {
             type: "bar", orientation: "h", y: yNames, x: visOd,
             name: "Overdue Works ('P')",
-            marker: { color: "#DC2626" }
+            marker: { color: "#DC2626" },
+            customdata: customHoverData,
+            hovertemplate: cleanHoverTemplate,
+            hoverlabel: cleanHoverLabel
           }
         );
       }
@@ -1945,11 +2076,18 @@
         plot_bgcolor: "#EDF2F7",
         font: { color: "#0F172A", family: "Inter, sans-serif" },
         xaxis: { title: xTitle, range: [0, maxX], gridcolor: "#CBD5E1" },
-        yaxis: { tickmode: "array", tickvals: yNames, ticktext: yShort, tickfont: { size: 12, color: "#0F172A" } },
+        yaxis: {
+          tickmode: "array",
+          tickvals: yNames,
+          ticktext: yShort,
+          ticks: "outside",
+          ticklen: 10,
+          tickcolor: "rgba(0,0,0,0)",
+          tickfont: { size: 12, color: "#0F172A" }
+        },
         legend: { orientation: "h", y: 1.02, x: 0, traceorder: "reversed" },
-        margin: { l: 210, r: 20, t: 36, b: 40 }
+        margin: { l: 235, r: 20, t: 36, b: 40 }
       }, { responsive: true, displayModeBar: false });
-
       // Populate Section 2 Officer Selectbox
       const offSelect = document.getElementById("p1-officer-select");
       const prevOff = offSelect.value;
