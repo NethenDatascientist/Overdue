@@ -11,6 +11,7 @@
 
   <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 
   <style>
     :root { color-scheme: light !important; }
@@ -108,7 +109,7 @@
     <div class="intro-hud-bar">
       <div class="intro-load-status">
         <div id="intro-spinner-icon" class="intro-spinner"></div>
-        <span id="intro-status-text">Loading saved snapshot...</span>
+        <span id="intro-status-text">Loading shared cloud snapshot...</span>
       </div>
       <button type="button" class="intro-btn" id="unmute-video-btn">Unmute Audio</button>
       <button type="button" class="intro-btn" id="skip-intro-btn">Enter Dashboard →</button>
@@ -121,6 +122,7 @@
     <aside class="sidebar" id="app-sidebar">
       <div class="sidebar-title" style="padding-left:28px;">Dashboard Controls</div>
       <div class="ctrl-group"><label>Google Spreadsheet Link</label><input type="text" id="sheet-url-input" class="ctrl-input" /></div>
+      <div class="ctrl-group"><label>Firebase Realtime DB URL</label><input type="text" id="firebase-url-input" class="ctrl-input" /></div>
       <div class="ctrl-group"><label>Or Upload Workbook (.xlsx)</label><input type="file" id="xlsx-upload-input" accept=".xlsx" class="ctrl-input" /></div>
       <button type="button" id="sync-btn" class="btn-primary">Sync Latest Data from Sheets</button>
       <div class="ctrl-group">
@@ -219,6 +221,7 @@
   <script>
     const CONFIG = {
       DEFAULT_SHEET_URL: "https://docs.google.com/spreadsheets/d/13W04z-fdU3RhuVJ5vQFRpK4BBSQRJWfscPqpr7Oj2Y8/edit?usp=sharing",
+      FIREBASE_DB_URL: "https://ae-aee-overdue-default-rtdb.asia-southeast1.firebasedatabase.app",
       INTRO_VIDEO_URL: "/Intro.mp4"
     };
 
@@ -250,10 +253,23 @@
 
     videoEl.play().catch(() => { videoEl.muted = true; videoEl.play().catch(() => {}); });
 
+    function scheduleSidebarAutoClose() {
+      if (STATE.sidebarAutoClosed) return;
+      STATE.sidebarAutoClosed = true;
+      setTimeout(() => {
+        const sb = document.getElementById("app-sidebar");
+        if (sb && !sb.classList.contains("collapsed")) {
+          sb.classList.add("collapsed");
+          setTimeout(() => window.dispatchEvent(new Event("resize")), 260);
+        }
+      }, 3000);
+    }
+
     function checkDismissOverlay() {
       if (STATE.dataReady && STATE.videoEnded) {
         overlayEl.classList.add("hidden-overlay");
         setTimeout(() => { videoEl.pause(); window.dispatchEvent(new Event("resize")); }, 550);
+        scheduleSidebarAutoClose();
       }
     }
 
@@ -263,7 +279,7 @@
       videoEl.muted = !videoEl.muted; e.target.textContent = videoEl.muted ? "Unmute Audio" : "Mute Audio";
     });
     document.getElementById("skip-intro-btn").addEventListener("click", () => {
-      STATE.videoEnded = true; if (STATE.dataReady) checkDismissOverlay();
+      STATE.videoEnded = true; if (STATE.dataReady) checkDismissOverlay(); else statusTextEl.textContent = "Opening dashboard...";
     });
 
     function getTodayIST() {
@@ -467,13 +483,50 @@
     }
 
     // =========================================================================
-    // INSTANT BROWSER INDEXEDDB LOCAL STORAGE (NO SIZE LIMITS)
+    // SHARED CLOUD SNAPSHOT ENGINE (FIREBASE + LOCAL INDEXEDDB BACKUP)
     // =========================================================================
+    function getFirebaseBaseUrl() {
+      const inputEl = document.getElementById("firebase-url-input");
+      const inputVal = inputEl ? inputEl.value.trim() : "";
+      return (inputVal || CONFIG.FIREBASE_DB_URL || "").replace(/\/+$/, "").trim();
+    }
+
+    async function loadFromFirebaseCache() {
+      const fbUrl = getFirebaseBaseUrl();
+      if (!fbUrl) return null;
+      try {
+        const cleanBaseUrl = fbUrl.replace(/\/+$/, '');
+        const targetUrl = `${cleanBaseUrl}/mi_snapshot_v6.json?t=${Date.now()}`;
+        console.log("Checking cloud cache at:", targetUrl);
+
+        const resp = await fetch(targetUrl, { cache: "no-store" });
+        if (!resp.ok) {
+          console.warn("Cloud read returned HTTP " + resp.status);
+          return null;
+        }
+        const wrapper = await resp.json();
+        if (!wrapper || !wrapper.data) return null;
+
+        const jsonStr = LZString.decompressFromUTF16(wrapper.data);
+        const data = JSON.parse(jsonStr);
+        if (data && Array.isArray(data.masterRows) && data.masterRows.length > 0) {
+          console.log("Successfully loaded snapshot from Firebase Cloud across devices!");
+          return data;
+        }
+      } catch (e) {
+        console.warn("Cloud cache read error:", e);
+      }
+      return null;
+    }
+
     function openLocalDB() {
       return new Promise((resolve) => {
         try {
-          const req = indexedDB.open("MI_Dashboard_Storage", 1);
-          req.onupgradeneeded = (e) => { e.target.result.createObjectStore("cache"); };
+          const req = indexedDB.open("MI_Dashboard_Storage", 2);
+          req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains("cache")) db.createObjectStore("cache");
+          };
           req.onsuccess = (e) => resolve(e.target.result);
           req.onerror = () => resolve(null);
         } catch (err) { resolve(null); }
@@ -502,6 +555,36 @@
       } catch (err) { return null; }
     }
 
+    async function saveToFirebaseCache(payload) {
+      await saveLocalSnapshot(payload);
+      const fbUrl = getFirebaseBaseUrl();
+      if (!fbUrl) return false;
+      try {
+        const jsonString = JSON.stringify({
+          masterRows: payload.masterRows, diagRows: payload.diagRows,
+          todayStr: payload.todayStr, lastSynced: payload.lastSynced
+        });
+
+        const compressedData = LZString.compressToUTF16(jsonString);
+        const cleanBaseUrl = fbUrl.replace(/\/+$/, '');
+        const resp = await fetch(`${cleanBaseUrl}/mi_snapshot_v6.json`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data: compressedData })
+        });
+
+        if (!resp.ok) {
+          console.warn("Cloud save returned HTTP " + resp.status);
+          return false;
+        }
+        console.log("Successfully saved compressed snapshot to Firebase Cloud!");
+        return true;
+      } catch (e) {
+        console.warn("Cloud save skipped:", e);
+        return false;
+      }
+    }
+
     async function syncFromGoogleSheets() {
       const btn = document.getElementById("sync-btn");
       if (btn) { btn.disabled = true; btn.textContent = "Syncing 23 Sheets..."; }
@@ -518,13 +601,13 @@
         STATE.diagRows = parsed.diagRows;
         STATE.todayStr = parsed.todayStr;
         STATE.lastSynced = parsed.lastSynced;
-        STATE.sourceLabel = "Local Snapshot Updated ✓ (Instant Load)";
 
-        await saveLocalSnapshot({
+        const cloudSaved = await saveToFirebaseCache({
           masterRows: STATE.masterRows, diagRows: STATE.diagRows,
-          todayStr: STATE.todayStr, lastSynced: STATE.lastSynced, sourceLabel: STATE.sourceLabel
+          todayStr: STATE.todayStr, lastSynced: STATE.lastSynced
         });
 
+        STATE.sourceLabel = cloudSaved ? "Shared Cloud Snapshot Updated ✓" : "Local Browser Snapshot (Cloud Save Pending)";
         populateFilterDropdowns(true);
         renderActivePage();
       } catch (err) {
@@ -536,17 +619,25 @@
 
     async function initAppLoad() {
       document.getElementById("sheet-url-input").value = CONFIG.DEFAULT_SHEET_URL;
-      const currentTodayIST = getTodayIST().formatted;
-      statusTextEl.textContent = "Checking local cached snapshot...";
+      document.getElementById("firebase-url-input").value = CONFIG.FIREBASE_DB_URL;
 
-      const cached = await loadLocalSnapshot();
+      const currentTodayIST = getTodayIST().formatted;
+      statusTextEl.textContent = "Checking shared cloud snapshot...";
+
+      let cached = await loadFromFirebaseCache();
+      let sourceText = "Firebase Cloud Snapshot";
+
+      if (!cached) {
+        cached = await loadLocalSnapshot();
+        sourceText = "Saved Browser Snapshot";
+      }
 
       if (cached && Array.isArray(cached.masterRows) && cached.masterRows.length > 0 && cached.todayStr === currentTodayIST) {
         STATE.masterRows = cached.masterRows;
         STATE.diagRows = cached.diagRows || [];
         STATE.todayStr = cached.todayStr;
         STATE.lastSynced = cached.lastSynced || "-";
-        STATE.sourceLabel = "Saved Browser Snapshot (Instant)";
+        STATE.sourceLabel = `${sourceText} (Instant)`;
         populateFilterDropdowns(true);
         renderActivePage();
       } else {
@@ -817,7 +908,7 @@
       STATE.masterRows = parsed.masterRows; STATE.diagRows = parsed.diagRows;
       STATE.todayStr = parsed.todayStr; STATE.lastSynced = parsed.lastSynced;
       STATE.sourceLabel = `Uploaded (${file.name})`;
-      await saveLocalSnapshot({ masterRows: STATE.masterRows, diagRows: STATE.diagRows, todayStr: STATE.todayStr, lastSynced: STATE.lastSynced, sourceLabel: STATE.sourceLabel });
+      await saveToFirebaseCache({ masterRows: STATE.masterRows, diagRows: STATE.diagRows, todayStr: STATE.todayStr, lastSynced: STATE.lastSynced });
       populateFilterDropdowns(true); renderActivePage();
     });
 
