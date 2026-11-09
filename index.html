@@ -10,9 +10,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
 
-  <!-- Plotly.js & SheetJS (XLSX) -->
+  <!-- Plotly.js, SheetJS (XLSX) & LZ-String Compression -->
   <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 
   <style>
     :root {
@@ -1535,19 +1536,72 @@
     }
 
     // =========================================================================
-    // SNAPSHOT ENGINE (FIREBASE CLOUD + LOCAL INDEXEDDB BACKUP — MANUAL SYNC)
+    // SNAPSHOT ENGINE (FIREBASE CLOUD COMPRESSED + LOCAL INDEXEDDB BACKUP)
     // =========================================================================
+    const ROW_KEYS = [
+      "sheet_name", "work_name", "division_name", "subdivision_name",
+      "ee_name", "ta_name", "as_name", "so_name", "aee_name",
+      "status_raw", "start_date", "target_date", "overdue_by",
+      "hoa", "age_bucket", "tree_bucket",
+      "is_status_p", "is_status_ets", "is_overdue"
+    ];
+
+    function packPayloadForCloud(payload) {
+      const compactObj = {
+        r: payload.masterRows.map((row) => ROW_KEYS.map((k) => row[k])),
+        d: payload.diagRows || [],
+        t: payload.todayStr || "",
+        l: payload.lastSynced || "-"
+      };
+      const rawJson = JSON.stringify(compactObj);
+      if (typeof LZString !== "undefined") {
+        return { v: 2, lz: LZString.compressToBase64(rawJson) };
+      }
+      return { v: 1, b64: btoa(encodeURIComponent(rawJson)) };
+    }
+
+    function unpackPayloadFromCloud(wrapper) {
+      if (!wrapper) return null;
+      let rawJson = "";
+      if (wrapper.v === 2 && wrapper.lz && typeof LZString !== "undefined") {
+        rawJson = LZString.decompressFromBase64(wrapper.lz);
+      } else if (wrapper.v === 1 && wrapper.b64) {
+        rawJson = decodeURIComponent(atob(wrapper.b64));
+      } else if (Array.isArray(wrapper.masterRows)) {
+        return wrapper;
+      } else {
+        return null;
+      }
+      const parsed = JSON.parse(rawJson);
+      if (!parsed || !Array.isArray(parsed.r)) return null;
+      const masterRows = parsed.r.map((arr) => {
+        const obj = {};
+        ROW_KEYS.forEach((k, idx) => { obj[k] = arr[idx]; });
+        return obj;
+      });
+      return {
+        masterRows,
+        diagRows: parsed.d || [],
+        todayStr: parsed.t || "",
+        lastSynced: parsed.l || "-"
+      };
+    }
+
     function getFirebaseBaseUrl() {
-      const inputVal = document.getElementById("firebase-url-input").value.trim();
-      return (inputVal || CONFIG.FIREBASE_DB_URL || "").replace(/\/+$/, "");
+      const inputEl = document.getElementById("firebase-url-input");
+      const inputVal = inputEl ? inputEl.value.trim() : "";
+      return (inputVal || CONFIG.FIREBASE_DB_URL || "").trim().replace(/\s+/g, "").replace(/\/+$/, "");
     }
 
     function openLocalSnapshotDB() {
       return new Promise((resolve) => {
         try {
-          const req = indexedDB.open("MI_Overdue_Snapshot_DB", 1);
+          const req = indexedDB.open("MI_Overdue_Snapshot_DB", 2);
           req.onupgradeneeded = (e) => {
-            e.target.result.createObjectStore("snapshots");
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains("snapshots")) {
+              db.createObjectStore("snapshots");
+            }
           };
           req.onsuccess = (e) => resolve(e.target.result);
           req.onerror = () => resolve(null);
@@ -1562,7 +1616,7 @@
         const db = await openLocalSnapshotDB();
         if (!db) return;
         const tx = db.transaction("snapshots", "readwrite");
-        tx.objectStore("snapshots").put(payload, "latest_v1");
+        tx.objectStore("snapshots").put(payload, "latest_v2");
       } catch (e) {
         console.warn("IndexedDB save skipped:", e);
       }
@@ -1574,7 +1628,7 @@
         if (!db) return null;
         return await new Promise((resolve) => {
           const tx = db.transaction("snapshots", "readonly");
-          const req = tx.objectStore("snapshots").get("latest_v1");
+          const req = tx.objectStore("snapshots").get("latest_v2");
           req.onsuccess = () => resolve(req.result || null);
           req.onerror = () => resolve(null);
         });
@@ -1587,9 +1641,10 @@
       const fbUrl = getFirebaseBaseUrl();
       if (!fbUrl) return null;
       try {
-        const resp = await fetch(`${fbUrl}/mi_dashboard_v1.json`, { cache: "no-store" });
+        const resp = await fetch(`${fbUrl}/mi_daily_snapshot.json?t=${Date.now()}`, { cache: "no-store" });
         if (!resp.ok) return null;
-        const data = await resp.json();
+        const wrapper = await resp.json();
+        const data = unpackPayloadFromCloud(wrapper);
         if (data && Array.isArray(data.masterRows) && data.masterRows.length > 0) {
           return data;
         }
@@ -1602,15 +1657,23 @@
     async function saveToFirebaseCache(payload) {
       await saveLocalSnapshot(payload);
       const fbUrl = getFirebaseBaseUrl();
-      if (!fbUrl) return;
+      if (!fbUrl) return false;
       try {
-        await fetch(`${fbUrl}/mi_dashboard_v1.json`, {
+        const packedWrapper = packPayloadForCloud(payload);
+        const resp = await fetch(`${fbUrl}/mi_daily_snapshot.json`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(packedWrapper)
         });
+        if (!resp.ok) {
+          const errText = await resp.text();
+          console.error("Firebase save HTTP " + resp.status + ":", errText);
+          return false;
+        }
+        return true;
       } catch (e) {
         console.warn("Firebase cache write skipped:", e);
+        return false;
       }
     }
 
@@ -1631,15 +1694,17 @@
         STATE.diagRows = parsed.diagRows;
         STATE.todayStr = parsed.todayStr;
         STATE.lastSynced = parsed.lastSynced;
-        STATE.sourceLabel = "Google Sheets Live Snapshot (Saved)";
 
-        await saveToFirebaseCache({
+        const cloudSaved = await saveToFirebaseCache({
           masterRows: STATE.masterRows,
           diagRows: STATE.diagRows,
           todayStr: STATE.todayStr,
-          lastSynced: STATE.lastSynced,
-          sourceLabel: "Saved Cloud Snapshot"
+          lastSynced: STATE.lastSynced
         });
+
+        STATE.sourceLabel = cloudSaved
+          ? "Google Sheets Live Snapshot (Saved to Cloud ✓)"
+          : "Google Sheets Snapshot (Saved Locally)";
 
         populateFilterDropdowns(true);
         renderActivePage();
@@ -1655,28 +1720,30 @@
       document.getElementById("sheet-url-input").value = CONFIG.DEFAULT_SHEET_URL;
       document.getElementById("firebase-url-input").value = CONFIG.FIREBASE_DB_URL;
 
+      const currentTodayIST = getTodayIST().formatted;
       statusTextEl.textContent = "Loading saved snapshot...";
 
-      // 1. Check Firebase Cloud Snapshot first (0.2s)
+      // 1. Check Firebase Cloud Snapshot first (~0.2s across all devices)
       let cached = await loadFromFirebaseCache();
       let sourceText = "Firebase Cloud Snapshot";
 
-      // 2. Fallback to Local Browser Snapshot if Firebase rules were locked
+      // 2. Fallback to Local Browser Snapshot if offline
       if (!cached) {
         cached = await loadLocalSnapshot();
         sourceText = "Saved Browser Snapshot";
       }
 
-      if (cached && Array.isArray(cached.masterRows) && cached.masterRows.length > 0) {
+      // If a snapshot exists for today, load it immediately without re-syncing
+      if (cached && Array.isArray(cached.masterRows) && cached.masterRows.length > 0 && cached.todayStr === currentTodayIST) {
         STATE.masterRows = cached.masterRows;
         STATE.diagRows = cached.diagRows || [];
-        STATE.todayStr = getTodayIST().formatted;
+        STATE.todayStr = currentTodayIST;
         STATE.lastSynced = cached.lastSynced || "-";
-        STATE.sourceLabel = `${sourceText} (Manual Sync Mode)`;
+        STATE.sourceLabel = `${sourceText} (Instant Load)`;
         populateFilterDropdowns(true);
         renderActivePage();
       } else {
-        // Only if NO snapshot exists anywhere yet (first ever run), do initial sync
+        // First open of the morning (or empty DB): sync once and save to Firebase for everyone
         await syncFromGoogleSheets();
       }
 
