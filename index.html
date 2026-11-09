@@ -45,13 +45,13 @@
        ========================================================================= */
     #intro-video-overlay {
       position: fixed;
-      inset: 0;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
       z-index: 999999;
       background: #0F172A;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
+      overflow: hidden;
       transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.55s ease;
     }
     #intro-video-overlay.hidden-overlay {
@@ -60,11 +60,12 @@
       pointer-events: none;
     }
     #intro-video-player {
-      width: 100%;
-      height: 100%;
-      max-width: 100vw;
-      max-height: 100vh;
-      object-fit: cover;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      object-fit: fill; /* Stretches edge-to-edge with zero side bars */
     }
     .intro-hud-bar {
       position: absolute;
@@ -1271,7 +1272,8 @@
       if (!val) return false;
       const upper = val.toUpperCase().trim();
       if (["-", "--", "---", "NIL", "NA", "N/A", "NONE", "NAN", "NAT", "NULL", "0"].includes(upper)) return false;
-      if (/^[\d\W_]+$/.test(val)) return false;
+      // Reject only if string has NO letters (neither English nor Kannada)
+      if (!/[a-zA-Z\u0C80-\u0CFF]/.test(val)) return false;
       if (["ವಿಭಾಗ", "ವಿಭಾಗದ ಹೆಸರು", "ಒಟ್ಟು", "ಒಟ್ಟು ಮೊತ್ತ", "ಮಹಾ ಒಟ್ಟು"].includes(val)) return false;
       if (["DIVISION", "DIVISION NAME", "TOTAL", "GRAND TOTAL", "SUB TOTAL"].includes(upper)) return false;
       if (val.startsWith("ಒಟ್ಟು ") || val.endsWith(" ಒಟ್ಟು") || upper.startsWith("TOTAL ")) return false;
@@ -1281,7 +1283,7 @@
     function mapOptionalField(name) {
       if (!name) return UNSPECIFIED_LABEL;
       const upper = name.toUpperCase().trim();
-      if (["NAN", "NONE", "-", "--", "---", "NIL", "NA", "N/A", "0", "ಇಲ್ಲ", "ಖಾಲಿ"].includes(upper) || /^[\d\W_]+$/.test(name)) {
+      if (["NAN", "NONE", "-", "--", "---", "NIL", "NA", "N/A", "0", "ಇಲ್ಲ", "ಖಾಲಿ"].includes(upper) || !/[a-zA-Z\u0C80-\u0CFF]/.test(name)) {
         return UNSPECIFIED_LABEL;
       }
       if (
@@ -1361,7 +1363,7 @@
     // 23-WORKSHEET EXCEL PARSER (RUNS IN BROWSER VIA SHEETJS)
     // =========================================================================
     function parseWorkbookArrayBuffer(arrayBuffer) {
-      const wb = XLSX.read(arrayBuffer, { type: "array", cellDates: true });
+      const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: "array", cellDates: true });
       const availableMap = {};
       wb.SheetNames.forEach((name) => {
         availableMap[normalizeText(name).toLowerCase()] = name;
