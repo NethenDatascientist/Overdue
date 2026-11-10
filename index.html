@@ -1238,12 +1238,12 @@
           sb.classList.add("collapsed");
           setTimeout(() => window.dispatchEvent(new Event("resize")), 260);
         }
-      }, 1000);
+      }, 3000);
     }
 
     function checkDismissOverlay() {
       if (STATE.dataReady && STATE.videoEnded) {
-        overlayEl.classList.add("hidden-overlay");
+        if (overlayEl) overlayEl.classList.add("hidden-overlay");
         setTimeout(() => {
           window.dispatchEvent(new Event("resize"));
         }, 550);
@@ -1251,20 +1251,23 @@
       }
     }
 
-    // Automatically finish the intro animation after 4 seconds (4000ms)
+    // Automatically finish the start screen animation at exactly 1.5 seconds
     setTimeout(() => {
       STATE.videoEnded = true;
       checkDismissOverlay();
-    }, 2000);
+    }, 1500);
 
-    document.getElementById("skip-intro-btn").addEventListener("click", () => {
-      STATE.videoEnded = true;
-      if (STATE.dataReady) {
-        checkDismissOverlay();
-      } else {
-        statusTextEl.textContent = "Finishing data preparation, opening immediately...";
-      }
-    });
+    const skipBtnEl = document.getElementById("skip-intro-btn");
+    if (skipBtnEl) {
+      skipBtnEl.addEventListener("click", () => {
+        STATE.videoEnded = true;
+        if (STATE.dataReady) {
+          checkDismissOverlay();
+        } else if (statusTextEl) {
+          statusTextEl.textContent = "Finishing data preparation, opening immediately...";
+        }
+      });
+    }
 
     // =========================================================================
     // DATE & STRING HELPER FUNCTIONS
