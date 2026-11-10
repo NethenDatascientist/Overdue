@@ -57,15 +57,10 @@
       align-items: center;
       justify-content: center;
       overflow: hidden;
-      perspective: 1200px;
-      will-change: opacity, transform;
-      transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1),
-                  transform 0.65s cubic-bezier(0.16, 1, 0.3, 1),
-                  visibility 0.65s ease;
+      transition: opacity 0.45s ease, visibility 0.45s ease;
     }
     #intro-video-overlay.hidden-overlay {
       opacity: 0;
-      transform: scale(1.06);
       visibility: hidden;
       pointer-events: none;
     }
@@ -1303,9 +1298,13 @@
     // =========================================================================
     // 1. ARGON INTRO CONTROLLER (ZERO FPS DROP HAND-OFF)
     // =========================================================================
+    // =========================================================================
+    // 1. ARGON INTRO CONTROLLER (PRE-RENDERS BEHIND CURTAIN — ZERO BLANK FLASH)
+    // =========================================================================
     const overlayEl = document.getElementById("intro-video-overlay");
     const statusTextEl = document.getElementById("intro-status-text");
     const spinnerEl = document.getElementById("intro-spinner-icon");
+    const introStartTime = performance.now();
 
     function scheduleSidebarAutoClose() {
       if (STATE.sidebarAutoClosed) return;
@@ -1319,26 +1318,31 @@
       }, 3000);
     }
 
-    function dismissOverlayAndRender() {
-      if (STATE.overlayDismissed) return;
-      STATE.overlayDismissed = true;
-
+    function ensureDashboardRenderedBehindCurtain() {
+      if (STATE.dashboardRendered || !STATE.dataReady) return;
+      STATE.dashboardRendered = true;
+      populateFilterDropdowns(true);
+      renderActivePage();
       if (spinnerEl) {
         spinnerEl.className = "intro-spinner done";
         spinnerEl.textContent = "✓";
       }
       if (statusTextEl) statusTextEl.textContent = "Dashboard Ready";
+    }
 
-      // Start GPU fade-out of the Argon intro screen first
+    function dismissOverlayAndRender() {
+      if (STATE.overlayDismissed) return;
+      STATE.overlayDismissed = true;
+
+      // Ensure all KPIs, dropdowns & Plotly bars are already painted underneath
+      ensureDashboardRenderedBehindCurtain();
+
+      // Wait 2 paint frames so the browser finishes layout before fading out the curtain
       requestAnimationFrame(() => {
-        if (overlayEl) overlayEl.classList.add("hidden-overlay");
-        // Render heavy Plotly charts right as the curtain lifts so intro animation never stutters
-        setTimeout(() => {
-          populateFilterDropdowns(true);
-          renderActivePage();
-          window.dispatchEvent(new Event("resize"));
+        requestAnimationFrame(() => {
+          if (overlayEl) overlayEl.classList.add("hidden-overlay");
           scheduleSidebarAutoClose();
-        }, 280);
+        });
       });
     }
 
@@ -1348,7 +1352,6 @@
       }
     }
 
-    // Let the staggered Argon card entrance complete (1.65s)
     setTimeout(() => {
       STATE.videoEnded = true;
       checkDismissOverlay();
