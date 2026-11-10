@@ -42,13 +42,16 @@
     /* =========================================================================
        1. ARGON HIGH-END GPU-ACCELERATED INTRO OVERLAY (NO LOADING BAR)
        ========================================================================= */
+    /* =========================================================================
+       1. ARGON HIGH-END GPU-ACCELERATED INTRO OVERLAY (WHITE + COLOUR GRADIENTS)
+       ========================================================================= */
     #intro-video-overlay {
       position: fixed;
       inset: 0;
       width: 100vw;
       height: 100vh;
       z-index: 999999;
-      background: radial-gradient(circle at 50% 20%, #1E293B 0%, #0F172A 60%, #020617 100%);
+      background: radial-gradient(circle at 50% 20%, #FFFFFF 0%, #F8FAFC 60%, #E2E8F0 100%);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -67,37 +70,37 @@
       pointer-events: none;
     }
 
-    /* Ambient Argon Mesh Orbs (Pure GPU Composited) */
+    /* Ambient Argon Colour Gradient Orbs on White Background */
     .argon-bg-orb {
       position: absolute;
       border-radius: 50%;
       filter: blur(75px);
-      opacity: 0.45;
+      opacity: 0.38;
       pointer-events: none;
       will-change: transform;
     }
     .argon-orb-1 {
-      width: 480px;
-      height: 480px;
+      width: 500px;
+      height: 500px;
       background: radial-gradient(circle, #3B82F6 0%, transparent 70%);
       top: -120px;
-      left: 12%;
+      left: 10%;
       animation: orbFloat1 6s ease-in-out infinite alternate;
     }
     .argon-orb-2 {
-      width: 420px;
-      height: 420px;
+      width: 440px;
+      height: 440px;
       background: radial-gradient(circle, #10B981 0%, transparent 70%);
       bottom: -100px;
-      right: 12%;
+      right: 10%;
       animation: orbFloat2 7s ease-in-out infinite alternate;
     }
     .argon-orb-3 {
-      width: 340px;
-      height: 340px;
+      width: 380px;
+      height: 380px;
       background: radial-gradient(circle, #6366F1 0%, transparent 70%);
-      top: 35%;
-      right: 28%;
+      top: 32%;
+      right: 26%;
       animation: orbFloat1 5s ease-in-out infinite alternate-reverse;
     }
 
@@ -106,8 +109,8 @@
       position: absolute;
       inset: 0;
       background-image:
-        linear-gradient(to right, rgba(148, 163, 184, 0.06) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+        linear-gradient(to right, rgba(15, 23, 42, 0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(15, 23, 42, 0.05) 1px, transparent 1px);
       background-size: 44px 44px;
       mask-image: radial-gradient(circle at 50% 45%, black 25%, transparent 75%);
       -webkit-mask-image: radial-gradient(circle at 50% 45%, black 25%, transparent 75%);
@@ -122,115 +125,54 @@
       flex-direction: column;
       align-items: center;
       text-align: center;
-      max-width: 960px;
+      max-width: 980px;
       padding: 0 24px;
     }
 
-    /* Emblem Orbital Halo */
-    .argon-emblem-halo {
-      position: relative;
-      width: 118px;
-      height: 118px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 18px;
-      opacity: 0;
-      transform: translate3d(0, 20px, 0) scale(0.85);
-      animation: argonReveal 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.05s forwards;
-    }
-    .argon-ring-outer {
-      position: absolute;
-      inset: 0;
-      border-radius: 50%;
-      border: 1.5px dashed rgba(96, 165, 250, 0.55);
-      animation: argonSpin 14s linear infinite;
-    }
-    .argon-ring-inner {
-      position: absolute;
-      inset: 10px;
-      border-radius: 50%;
-      border: 2px solid rgba(52, 211, 153, 0.45);
-      border-top-color: #60A5FA;
-      border-bottom-color: #34D399;
-      box-shadow: 0 0 28px rgba(59, 130, 246, 0.35);
-      animation: argonSpinReverse 4.5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
-    }
-    .argon-emblem-img {
-      width: 74px;
-      height: auto;
-      position: relative;
-      z-index: 2;
-      filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.55));
-    }
-
-    /* Staggered Typography */
-    .argon-dept-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 5px 15px;
-      border-radius: 999px;
-      background: rgba(30, 41, 59, 0.75);
-      border: 1px solid rgba(96, 165, 250, 0.35);
-      color: #93C5FD;
-      font-size: 0.74rem;
-      font-weight: 800;
-      letter-spacing: 1.2px;
-      text-transform: uppercase;
-      margin-bottom: 14px;
-      opacity: 0;
-      transform: translate3d(0, 16px, 0);
-      animation: argonReveal 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards;
-    }
-    .argon-live-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #34D399;
-      box-shadow: 0 0 10px #34D399;
-      animation: argonPulseDot 1.4s ease-in-out infinite;
-    }
+    /* Full Line-Height & Vertical Padding so Kannada Ottakshara Never Clip */
     .argon-kn-title {
-      font-size: clamp(1.45rem, 3.4vw, 2.5rem);
+      font-size: clamp(1.5rem, 3.5vw, 2.55rem);
       font-weight: 800;
-      background: linear-gradient(95deg, #FFFFFF 0%, #E2E8F0 55%, #93C5FD 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      line-height: 1.28;
-      margin-bottom: 6px;
+      color: #0F172A;
+      line-height: 1.65;
+      padding-top: 6px;
+      padding-bottom: 8px;
+      margin-bottom: 2px;
       opacity: 0;
       transform: translate3d(0, 18px, 0);
-      animation: argonReveal 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.24s forwards;
+      animation: argonReveal 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.10s forwards;
     }
     .argon-kn-subtitle {
-      font-size: clamp(0.95rem, 1.8vw, 1.28rem);
+      font-size: clamp(1.0rem, 1.9vw, 1.32rem);
       font-weight: 700;
-      color: #93C5FD;
-      margin-bottom: 6px;
+      color: #1E3A8A;
+      line-height: 1.65;
+      padding-top: 2px;
+      padding-bottom: 6px;
+      margin-bottom: 4px;
       opacity: 0;
       transform: translate3d(0, 18px, 0);
-      animation: argonReveal 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.32s forwards;
+      animation: argonReveal 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.20s forwards;
     }
     .argon-en-subtitle {
       font-family: 'Montserrat', sans-serif;
       font-size: clamp(0.76rem, 1.3vw, 0.94rem);
       font-weight: 700;
-      color: #94A3B8;
+      color: #475569;
       text-transform: uppercase;
-      letter-spacing: 1.4px;
+      letter-spacing: 1.3px;
       margin-bottom: 28px;
       opacity: 0;
       transform: translate3d(0, 18px, 0);
-      animation: argonReveal 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.40s forwards;
+      animation: argonReveal 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.30s forwards;
     }
 
-    /* 3D Glassmorphic Argon Feature Cards (No Loading Bars) */
+    /* 3D Glassmorphic Argon Feature Cards on White Background */
     .argon-cards-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 16px;
-      width: min(820px, 92vw);
+      width: min(840px, 92vw);
     }
     @media (max-width: 680px) {
       .argon-cards-grid {
@@ -239,30 +181,30 @@
     }
     .argon-glass-card {
       position: relative;
-      background: linear-gradient(145deg, rgba(30, 41, 59, 0.72) 0%, rgba(15, 23, 42, 0.88) 100%);
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.88) 0%, rgba(241, 245, 249, 0.92) 100%);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(148, 163, 184, 0.22);
+      border: 1px solid rgba(148, 163, 184, 0.35);
       border-radius: 16px;
       padding: 16px 18px;
       text-align: left;
-      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.38);
+      box-shadow: 0 16px 36px rgba(15, 23, 42, 0.09);
       overflow: hidden;
       opacity: 0;
       transform: translate3d(0, 24px, 0) rotateX(8deg);
       will-change: transform, opacity;
     }
     .argon-glass-card:nth-child(1) {
-      border-top: 3px solid #3B82F6;
-      animation: argonCardPop 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.46s forwards;
+      border-top: 3.5px solid #2563EB;
+      animation: argonCardPop 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.38s forwards;
     }
     .argon-glass-card:nth-child(2) {
-      border-top: 3px solid #EF4444;
-      animation: argonCardPop 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.56s forwards;
+      border-top: 3.5px solid #DC2626;
+      animation: argonCardPop 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.48s forwards;
     }
     .argon-glass-card:nth-child(3) {
-      border-top: 3px solid #10B981;
-      animation: argonCardPop 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.66s forwards;
+      border-top: 3.5px solid #059669;
+      animation: argonCardPop 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.58s forwards;
     }
     .argon-card-shimmer {
       position: absolute;
@@ -270,9 +212,9 @@
       left: -120%;
       width: 80%;
       height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+      background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.08), transparent);
       transform: skewX(-20deg);
-      animation: argonShimmerSweep 2.2s ease-in-out 0.7s infinite;
+      animation: argonShimmerSweep 2.4s ease-in-out 0.6s infinite;
     }
     .argon-card-top {
       display: flex;
@@ -294,13 +236,13 @@
     .argon-card-title {
       font-size: 1.08rem;
       font-weight: 800;
-      color: #F8FAFC;
+      color: #0F172A;
       margin-bottom: 3px;
     }
     .argon-card-desc {
       font-size: 0.74rem;
       font-weight: 600;
-      color: #94A3B8;
+      color: #475569;
     }
 
     /* Bottom Floating HUD Pill */
@@ -313,18 +255,18 @@
       align-items: center;
       justify-content: center;
       gap: 14px;
-      background: rgba(15, 23, 42, 0.82);
+      background: rgba(15, 23, 42, 0.90);
       backdrop-filter: blur(14px);
-      border: 1px solid rgba(148, 163, 184, 0.32);
+      border: 1px solid rgba(148, 163, 184, 0.35);
       padding: 8px 18px;
       border-radius: 999px;
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.22);
       z-index: 10;
     }
     .intro-load-status {
       font-size: 0.80rem;
       font-weight: 700;
-      color: #E2E8F0;
+      color: #F8FAFC;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -361,7 +303,6 @@
       transform: translateY(-1px);
     }
 
-    /* Keyframes */
     @keyframes argonReveal {
       to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
     }
@@ -370,13 +311,6 @@
     }
     @keyframes argonSpin {
       to { transform: rotate(360deg); }
-    }
-    @keyframes argonSpinReverse {
-      to { transform: rotate(-360deg); }
-    }
-    @keyframes argonPulseDot {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.35); opacity: 0.55; }
     }
     @keyframes argonShimmerSweep {
       0% { left: -120%; }
@@ -1056,6 +990,9 @@
   <!-- =========================================================================
        ARGON HIGH-END GPU-ACCELERATED INTRO OVERLAY (NO LOADING BAR)
        ========================================================================= -->
+  <!-- =========================================================================
+       ARGON HIGH-END GPU-ACCELERATED INTRO OVERLAY (WHITE + COLOUR GRADIENTS)
+       ========================================================================= -->
   <div id="intro-video-overlay">
     <div class="argon-bg-orb argon-orb-1"></div>
     <div class="argon-bg-orb argon-orb-2"></div>
@@ -1063,22 +1000,6 @@
     <div class="argon-grid-mesh"></div>
 
     <div class="argon-stage">
-      <div class="argon-emblem-halo">
-        <div class="argon-ring-outer"></div>
-        <div class="argon-ring-inner"></div>
-        <img
-          class="argon-emblem-img"
-          src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/aa/Seal_of_Karnataka.svg/240px-Seal_of_Karnataka.svg.png"
-          alt="Government of Karnataka"
-          onerror="this.style.display='none'"
-        />
-      </div>
-
-      <div class="argon-dept-pill">
-        <span class="argon-live-dot"></span>
-        <span>GOVERNMENT OF KARNATAKA • EXECUTIVE PORTAL</span>
-      </div>
-
       <div class="argon-kn-title">ಸಣ್ಣ ನೀರಾವರಿ ಮತ್ತು ಅಂತರ್ಜಲ ಅಭಿವೃದ್ಧಿ ಇಲಾಖೆ</div>
       <div class="argon-kn-subtitle">ಮುಖ್ಯ ಅಭಿಯಂತರರು, ಸಣ್ಣ ನೀರಾವರಿ ಮತ್ತು ಅಂತರ್ಜಲ ಅಭಿವೃದ್ಧಿ ದಕ್ಷಿಣ ವಲಯ</div>
       <div class="argon-en-subtitle">Minor Irrigation &amp; Ground Water Development Department — South Zone, Bengaluru</div>
@@ -1087,7 +1008,7 @@
         <div class="argon-glass-card">
           <div class="argon-card-shimmer"></div>
           <div class="argon-card-top">
-            <span class="argon-card-tag" style="background:rgba(59,130,246,0.18);color:#93C5FD;border:1px solid rgba(59,130,246,0.35);">23 WORKSHEETS</span>
+            <span class="argon-card-tag" style="background:#DBEAFE;color:#1E40AF;border:1px solid #93C5FD;">23 WORKSHEETS</span>
             <span class="argon-card-icon">📊</span>
           </div>
           <div class="argon-card-title">Division Abstract</div>
@@ -1097,7 +1018,7 @@
         <div class="argon-glass-card">
           <div class="argon-card-shimmer"></div>
           <div class="argon-card-top">
-            <span class="argon-card-tag" style="background:rgba(239,68,68,0.18);color:#FCA5A5;border:1px solid rgba(239,68,68,0.35);">OVERDUE WORKS ('P')</span>
+            <span class="argon-card-tag" style="background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;">OVERDUE WORKS ('P')</span>
             <span class="argon-card-icon">🎯</span>
           </div>
           <div class="argon-card-title">AE &amp; AEE Tracking</div>
@@ -1107,10 +1028,10 @@
         <div class="argon-glass-card">
           <div class="argon-card-shimmer"></div>
           <div class="argon-card-top">
-            <span class="argon-card-tag" style="background:rgba(16,185,129,0.18);color:#6EE7B7;border:1px solid rgba(16,185,129,0.35);">CE ANALYTICS SUITE</span>
+            <span class="argon-card-tag" style="background:#D1FAE5;color:#065F46;border:1px solid #6EE7B7;">CE ANALYTICS SUITE</span>
             <span class="argon-card-icon">⚡</span>
           </div>
-          <div class="argon-card-title">ETS and Dashboard</div>
+          <div class="argon-card-title">Overdue and ETS</div>
           <div class="argon-card-desc">Executive cadre leaderboards &amp; live status verification</div>
         </div>
       </div>
@@ -1431,7 +1352,7 @@
     setTimeout(() => {
       STATE.videoEnded = true;
       checkDismissOverlay();
-    }, 1650);
+    }, 3150);
 
     document.getElementById("skip-intro-btn").addEventListener("click", () => {
       STATE.videoEnded = true;
@@ -2936,7 +2857,7 @@
       } else {
         dashSec.style.display = "none";
         anSec.style.display = "block";
-        titleEl.textContent = "Minor Irrigation — CE Analytics & ETS and Dashboard";
+        titleEl.textContent = "Minor Irrigation — CE Analytics & Overdue and ETS";
         switchBtn.textContent = "← Main Dashboard";
         renderAnalyticsPage();
       }
