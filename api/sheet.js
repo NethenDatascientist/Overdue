@@ -1,76 +1,3055 @@
-export default async function handler(req, res) {
-  // Handle CORS preflight requests
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Minor Irrigation — Overdue Works Dashboard</title>
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
 
-  const defaultUrl =
-    "https://docs.google.com/spreadsheets/d/13W04z-fdU3RhuVJ5vQFRpK4BBSQRJWfscPqpr7Oj2Y8/edit?usp=sharing";
-  const rawUrl = (req.query && req.query.url) ? String(req.query.url).trim() : defaultUrl;
+  <!-- Plotly.js & SheetJS (XLSX) -->
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-  // Extract the Google Spreadsheet ID
-  const match = rawUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-  if (!match || !match[1]) {
-    return res.status(400).json({ error: "Invalid Google Spreadsheet URL." });
-  }
+  <style>
+    :root {
+      color-scheme: light !important;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-  const sheetId = match[1];
-  const exportUrls = [
-    `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx&t=${Date.now()}`,
-    `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx&id=${sheetId}&t=${Date.now()}`
-  ];
+    @media (min-width: 1024px) {
+      .app-layout {
+        zoom: 90%;
+      }
+    }
 
-  let lastError = "Unknown download error";
+    body {
+      background: linear-gradient(180deg, #DCE4EE 0%, #E2E8F0 50%, #CBD5E1 100%);
+      background-attachment: fixed;
+      color: #0F172A;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
 
-  for (let attempt = 0; attempt < exportUrls.length; attempt++) {
-    try {
-      const response = await fetch(exportUrls[attempt], {
-        method: "GET",
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
-          "Accept":
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,*/*"
-        },
-        redirect: "follow",
-        cache: "no-store"
+    /* =========================================================================
+       1. ARGON HIGH-END GPU-ACCELERATED INTRO OVERLAY (NO LOADING BAR)
+       ========================================================================= */
+    #intro-video-overlay {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 999999;
+      background: radial-gradient(circle at 50% 20%, #1E293B 0%, #0F172A 60%, #020617 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      perspective: 1200px;
+      will-change: opacity, transform;
+      transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+                  visibility 0.65s ease;
+    }
+    #intro-video-overlay.hidden-overlay {
+      opacity: 0;
+      transform: scale(1.06);
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    /* Ambient Argon Mesh Orbs (Pure GPU Composited) */
+    .argon-bg-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(75px);
+      opacity: 0.45;
+      pointer-events: none;
+      will-change: transform;
+    }
+    .argon-orb-1 {
+      width: 480px;
+      height: 480px;
+      background: radial-gradient(circle, #3B82F6 0%, transparent 70%);
+      top: -120px;
+      left: 12%;
+      animation: orbFloat1 6s ease-in-out infinite alternate;
+    }
+    .argon-orb-2 {
+      width: 420px;
+      height: 420px;
+      background: radial-gradient(circle, #10B981 0%, transparent 70%);
+      bottom: -100px;
+      right: 12%;
+      animation: orbFloat2 7s ease-in-out infinite alternate;
+    }
+    .argon-orb-3 {
+      width: 340px;
+      height: 340px;
+      background: radial-gradient(circle, #6366F1 0%, transparent 70%);
+      top: 35%;
+      right: 28%;
+      animation: orbFloat1 5s ease-in-out infinite alternate-reverse;
+    }
+
+    /* Subtle Perspective Grid Floor */
+    .argon-grid-mesh {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(to right, rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+      background-size: 44px 44px;
+      mask-image: radial-gradient(circle at 50% 45%, black 25%, transparent 75%);
+      -webkit-mask-image: radial-gradient(circle at 50% 45%, black 25%, transparent 75%);
+      pointer-events: none;
+    }
+
+    /* Center Stage Container */
+    .argon-stage {
+      position: relative;
+      z-index: 5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      max-width: 960px;
+      padding: 0 24px;
+    }
+
+    /* Emblem Orbital Halo */
+    .argon-emblem-halo {
+      position: relative;
+      width: 118px;
+      height: 118px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 18px;
+      opacity: 0;
+      transform: translate3d(0, 20px, 0) scale(0.85);
+      animation: argonReveal 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.05s forwards;
+    }
+    .argon-ring-outer {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 1.5px dashed rgba(96, 165, 250, 0.55);
+      animation: argonSpin 14s linear infinite;
+    }
+    .argon-ring-inner {
+      position: absolute;
+      inset: 10px;
+      border-radius: 50%;
+      border: 2px solid rgba(52, 211, 153, 0.45);
+      border-top-color: #60A5FA;
+      border-bottom-color: #34D399;
+      box-shadow: 0 0 28px rgba(59, 130, 246, 0.35);
+      animation: argonSpinReverse 4.5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+    }
+    .argon-emblem-img {
+      width: 74px;
+      height: auto;
+      position: relative;
+      z-index: 2;
+      filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.55));
+    }
+
+    /* Staggered Typography */
+    .argon-dept-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 15px;
+      border-radius: 999px;
+      background: rgba(30, 41, 59, 0.75);
+      border: 1px solid rgba(96, 165, 250, 0.35);
+      color: #93C5FD;
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      opacity: 0;
+      transform: translate3d(0, 16px, 0);
+      animation: argonReveal 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards;
+    }
+    .argon-live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #34D399;
+      box-shadow: 0 0 10px #34D399;
+      animation: argonPulseDot 1.4s ease-in-out infinite;
+    }
+    .argon-kn-title {
+      font-size: clamp(1.45rem, 3.4vw, 2.5rem);
+      font-weight: 800;
+      background: linear-gradient(95deg, #FFFFFF 0%, #E2E8F0 55%, #93C5FD 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1.28;
+      margin-bottom: 6px;
+      opacity: 0;
+      transform: translate3d(0, 18px, 0);
+      animation: argonReveal 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.24s forwards;
+    }
+    .argon-kn-subtitle {
+      font-size: clamp(0.95rem, 1.8vw, 1.28rem);
+      font-weight: 700;
+      color: #93C5FD;
+      margin-bottom: 6px;
+      opacity: 0;
+      transform: translate3d(0, 18px, 0);
+      animation: argonReveal 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.32s forwards;
+    }
+    .argon-en-subtitle {
+      font-family: 'Montserrat', sans-serif;
+      font-size: clamp(0.76rem, 1.3vw, 0.94rem);
+      font-weight: 700;
+      color: #94A3B8;
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+      margin-bottom: 28px;
+      opacity: 0;
+      transform: translate3d(0, 18px, 0);
+      animation: argonReveal 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.40s forwards;
+    }
+
+    /* 3D Glassmorphic Argon Feature Cards (No Loading Bars) */
+    .argon-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      width: min(820px, 92vw);
+    }
+    @media (max-width: 680px) {
+      .argon-cards-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .argon-glass-card {
+      position: relative;
+      background: linear-gradient(145deg, rgba(30, 41, 59, 0.72) 0%, rgba(15, 23, 42, 0.88) 100%);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      border-radius: 16px;
+      padding: 16px 18px;
+      text-align: left;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.38);
+      overflow: hidden;
+      opacity: 0;
+      transform: translate3d(0, 24px, 0) rotateX(8deg);
+      will-change: transform, opacity;
+    }
+    .argon-glass-card:nth-child(1) {
+      border-top: 3px solid #3B82F6;
+      animation: argonCardPop 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.46s forwards;
+    }
+    .argon-glass-card:nth-child(2) {
+      border-top: 3px solid #EF4444;
+      animation: argonCardPop 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.56s forwards;
+    }
+    .argon-glass-card:nth-child(3) {
+      border-top: 3px solid #10B981;
+      animation: argonCardPop 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.66s forwards;
+    }
+    .argon-card-shimmer {
+      position: absolute;
+      top: 0;
+      left: -120%;
+      width: 80%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+      transform: skewX(-20deg);
+      animation: argonShimmerSweep 2.2s ease-in-out 0.7s infinite;
+    }
+    .argon-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .argon-card-tag {
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      padding: 3px 9px;
+      border-radius: 999px;
+    }
+    .argon-card-icon {
+      font-size: 1.15rem;
+    }
+    .argon-card-title {
+      font-size: 1.08rem;
+      font-weight: 800;
+      color: #F8FAFC;
+      margin-bottom: 3px;
+    }
+    .argon-card-desc {
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: #94A3B8;
+    }
+
+    /* Bottom Floating HUD Pill */
+    .intro-hud-bar {
+      position: absolute;
+      bottom: 26px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      background: rgba(15, 23, 42, 0.82);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(148, 163, 184, 0.32);
+      padding: 8px 18px;
+      border-radius: 999px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+      z-index: 10;
+    }
+    .intro-load-status {
+      font-size: 0.80rem;
+      font-weight: 700;
+      color: #E2E8F0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .intro-spinner {
+      width: 14px;
+      height: 14px;
+      border: 2.5px solid #60A5FA;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: argonSpin 0.7s linear infinite;
+    }
+    .intro-spinner.done {
+      border: none;
+      width: auto;
+      height: auto;
+      animation: none;
+      color: #34D399;
+      font-weight: 800;
+    }
+    .intro-btn {
+      background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+      color: #FFFFFF;
+      border: 1px solid #60A5FA;
+      border-radius: 999px;
+      padding: 6px 15px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+    .intro-btn:hover {
+      background: #1E40AF;
+      transform: translateY(-1px);
+    }
+
+    /* Keyframes */
+    @keyframes argonReveal {
+      to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+    }
+    @keyframes argonCardPop {
+      to { opacity: 1; transform: translate3d(0, 0, 0) rotateX(0deg); }
+    }
+    @keyframes argonSpin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes argonSpinReverse {
+      to { transform: rotate(-360deg); }
+    }
+    @keyframes argonPulseDot {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.35); opacity: 0.55; }
+    }
+    @keyframes argonShimmerSweep {
+      0% { left: -120%; }
+      100% { left: 160%; }
+    }
+    @keyframes orbFloat1 {
+      0% { transform: translate3d(0, 0, 0) scale(1); }
+      100% { transform: translate3d(40px, 30px, 0) scale(1.12); }
+    }
+    @keyframes orbFloat2 {
+      0% { transform: translate3d(0, 0, 0) scale(1); }
+      100% { transform: translate3d(-40px, -25px, 0) scale(1.15); }
+    }
+
+    /* =========================================================================
+       2. APP SHELL LAYOUT (SIDEBAR + MAIN CONTENT)
+       ========================================================================= */
+    .app-layout {
+      display: flex;
+      min-height: 100vh;
+      width: 100%;
+    }
+
+    .sidebar {
+      width: 220px;
+      min-width: 220px;
+      max-width: 220px;
+      background: linear-gradient(180deg, #CFD9E6 0%, #DAE2ED 100%);
+      border-right: 1px solid #94A3B8;
+      padding: 1rem 0.7rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      transition: margin-left 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+      z-index: 100;
+    }
+    .sidebar.collapsed {
+      margin-left: -220px;
+    }
+    .sidebar-title {
+      font-size: 0.92rem;
+      font-weight: 800;
+      color: #0F172A;
+      padding-bottom: 0.45rem;
+      border-bottom: 1px solid #94A3B8;
+    }
+    .ctrl-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #0F172A;
+    }
+    .ctrl-input {
+      width: 100%;
+      padding: 6px 8px;
+      border-radius: 7px;
+      border: 1px solid #64748B;
+      background: #F1F5F9;
+      color: #0F172A;
+      font-size: 0.76rem;
+      font-weight: 600;
+    }
+    .radio-stack, .check-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      font-size: 0.76rem;
+      font-weight: 600;
+      color: #1E293B;
+    }
+    .radio-stack label, .check-stack label {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      cursor: pointer;
+      line-height: 1.3;
+    }
+
+    #sidebar-toggle-btn {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 9990;
+      background: #CBD5E1;
+      border: 1.5px solid #475569;
+      border-radius: 9px;
+      color: #0F172A;
+      width: 34px;
+      height: 34px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+    }
+    #sidebar-toggle-btn:hover {
+      background: #BFDBFE;
+      border-color: #1D4ED8;
+      color: #1E3A8A;
+    }
+
+    .main-container {
+      flex: 1;
+      min-width: 0;
+      padding: 1.1rem 1.35rem 2.2rem 1.35rem;
+    }
+
+    .top-header-row {
+      display: grid;
+      grid-template-columns: 150px 1fr 170px;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.55rem;
+    }
+    @media (max-width: 768px) {
+      .top-header-row {
+        grid-template-columns: 1fr;
+        text-align: center;
+      }
+    }
+    .main-title {
+      font-family: 'Montserrat', sans-serif;
+      font-size: clamp(1.0rem, 3.2vw, 1.68rem);
+      font-weight: 800;
+      color: #0F172A;
+      text-align: center;
+      letter-spacing: -0.3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .btn-primary {
+      background: linear-gradient(180deg, #1E40AF 0%, #1E3A8A 100%);
+      border: 1px solid #1E3A8A;
+      border-radius: 10px;
+      color: #FFFFFF;
+      font-family: 'Inter', sans-serif;
+      font-weight: 700;
+      font-size: 0.84rem;
+      padding: 0.5rem 0.95rem;
+      cursor: pointer;
+      box-shadow: 0 3px 8px rgba(30, 58, 138, 0.22);
+      transition: all 0.16s ease;
+      text-align: center;
+      width: 100%;
+    }
+    .btn-primary:hover {
+      background: linear-gradient(180deg, #2563EB 0%, #1D4ED8 100%);
+      transform: translateY(-1px);
+    }
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .mi-status-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem 1.2rem;
+      padding: 0.45rem 0.95rem;
+      margin-bottom: 0.75rem;
+      border-radius: 10px;
+      background: #D5E0ED;
+      border: 1px solid #94A3B8;
+      font-size: 0.80rem;
+      color: #0F172A;
+    }
+    .mi-status-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.14rem 0.65rem;
+      border-radius: 999px;
+      background: #1E3A8A;
+      color: #FFFFFF;
+      font-weight: 700;
+      font-size: 0.74rem;
+    }
+
+    .filter-grid-5 {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 0.65rem;
+    }
+    @media (max-width: 992px) {
+      .filter-grid-5 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    .filter-card {
+      border-radius: 11px;
+      padding: 0.45rem 0.6rem;
+      background: linear-gradient(145deg, #E8EFF7 0%, #DCE6F2 100%);
+      border: 1px solid #94A3B8;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
+    }
+    .filter-card label {
+      display: block;
+      font-size: 0.74rem;
+      font-weight: 800;
+      color: #0F172A;
+      margin-bottom: 4px;
+    }
+    .filter-select {
+      width: 100%;
+      padding: 6px 8px;
+      border-radius: 7px;
+      border: 1px solid #64748B;
+      background: #F1F5F9;
+      color: #0F172A;
+      font-weight: 700;
+      font-size: 0.80rem;
+      cursor: pointer;
+    }
+
+    .sub-controls-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 0.65rem;
+    }
+    @media (max-width: 768px) {
+      .sub-controls-row {
+        grid-template-columns: 1fr;
+      }
+    }
+    .inline-radio-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.45rem 0.75rem;
+      border-radius: 10px;
+      background: linear-gradient(145deg, #E8EFF7 0%, #DCE6F2 100%);
+      border: 1px solid #94A3B8;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #0F172A;
+    }
+    .inline-radio-bar label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .kpi-grid-6 {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 11px;
+      margin-bottom: 12px;
+    }
+    @media (max-width: 1024px) {
+      .kpi-grid-6 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+    @media (max-width: 600px) {
+      .kpi-grid-6 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    .kpi-card {
+      border-radius: 12px;
+      padding: 0.65rem 0.85rem;
+      box-shadow: 0 3px 10px rgba(15, 23, 42, 0.07);
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+    .kpi-card:hover {
+      transform: translateY(-2px);
+    }
+    .kpi-label {
+      font-size: 0.74rem;
+      font-weight: 800;
+      color: #1E293B;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .kpi-val {
+      font-size: 1.42rem;
+      font-weight: 800;
+      color: #0F172A;
+      line-height: 1.15;
+    }
+    .kpi-sub {
+      font-size: 0.70rem;
+      font-weight: 700;
+      color: #334155;
+      margin-top: 3px;
+    }
+
+    .kpi-sky {
+      border: 1px solid #93C5FD;
+      border-top: 4px solid #1D4ED8;
+      background: linear-gradient(145deg, #DBEAFE 0%, #E0F2FE 100%);
+    }
+    .kpi-lavender {
+      border: 1px solid #C4B5FD;
+      border-top: 4px solid #6D28D9;
+      background: linear-gradient(145deg, #EDE9FE 0%, #E0E7FF 100%);
+    }
+    .kpi-teal {
+      border: 1px solid #67E8F9;
+      border-top: 4px solid #0E7490;
+      background: linear-gradient(145deg, #CFFAFE 0%, #E0F2FE 100%);
+    }
+    .kpi-rose {
+      border: 1px solid #FCA5A5;
+      border-top: 4px solid #B91C1C;
+      background: linear-gradient(145deg, #FEE2E2 0%, #FECDD3 100%);
+    }
+    .kpi-amber {
+      border: 1px solid #FCD34D;
+      border-top: 4px solid #B45309;
+      background: linear-gradient(145deg, #FEF3C7 0%, #FDE68A 100%);
+    }
+    .kpi-sage {
+      border: 1px solid #6EE7B7;
+      border-top: 4px solid #047857;
+      background: linear-gradient(145deg, #D1FAE5 0%, #A7F3D0 100%);
+    }
+    .kpi-pink {
+      border: 1px solid #F472B6;
+      border-top: 4px solid #BE185D;
+      background: linear-gradient(145deg, #FCE7F3 0%, #FBCFE8 100%);
+    }
+
+    .p1-age-card {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      background: linear-gradient(145deg, #FFE4E6 0%, #FECDD3 100%);
+      border: 1px solid #FDA4AF;
+      border-top: 3.5px solid #BE123C;
+      border-radius: 10px;
+      padding: 9px 11px;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.07);
+    }
+
+    .exec-section-banner {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem 1rem;
+      padding: 0.6rem 1.05rem;
+      margin-top: 0.5rem;
+      margin-bottom: 0.65rem;
+      border-radius: 10px;
+      background: linear-gradient(90deg, #CFD9E6 0%, #DEE7F2 100%);
+      border: 1px solid #94A3B8;
+      border-left: 5px solid #1D4ED8;
+    }
+    .exec-section-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #0F172A;
+    }
+    .exec-scope-badge {
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.22rem 0.75rem;
+      border-radius: 999px;
+      background: #DBEAFE;
+      border: 1px solid #60A5FA;
+      color: #1E3A8A;
+    }
+
+    .chart-box {
+      border-radius: 12px;
+      background: #E8EEF5;
+      border: 1px solid #94A3B8;
+      padding: 8px;
+      box-shadow: 0 3px 10px rgba(15, 23, 42, 0.06);
+      margin-bottom: 1rem;
+    }
+
+    .ce-table-wrapper {
+      max-height: 560px;
+      overflow-y: auto;
+      overflow-x: auto;
+      border: 1px solid #94A3B8;
+      border-radius: 12px;
+      background: #E8EEF5;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+      margin-top: 0.4rem;
+      margin-bottom: 0.85rem;
+    }
+    table.ce-overdue-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.83rem;
+      color: #0F172A;
+    }
+    table.ce-overdue-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #CBD5E1;
+      color: #0F172A;
+      font-weight: 800;
+      text-align: left;
+      padding: 10px;
+      border-bottom: 2.5px solid #1E3A8A;
+      white-space: nowrap;
+    }
+    table.ce-overdue-table tbody tr {
+      border-bottom: 1px solid #CBD5E1;
+      background: #EDF2F7;
+    }
+    table.ce-overdue-table tbody tr:nth-child(even) {
+      background: #E2E8F0;
+    }
+    table.ce-overdue-table tbody tr:hover {
+      background: #DBEAFE;
+    }
+    table.ce-overdue-table td {
+      padding: 8px 10px;
+      vertical-align: middle;
+      line-height: 1.35;
+      color: #0F172A;
+      font-weight: 600;
+    }
+    .ce-work-name-cell {
+      width: 28%;
+      min-width: 260px;
+      max-width: 380px;
+      white-space: normal;
+      font-weight: 700 !important;
+    }
+    .ce-date-overdue {
+      color: #B91C1C !important;
+      font-weight: 800 !important;
+      white-space: nowrap;
+    }
+    .ce-sl-cell {
+      text-align: center;
+      font-weight: 800;
+      color: #334155;
+      width: 44px;
+    }
+
+    .truth-audit-box {
+      background: linear-gradient(145deg, #E2E8F0 0%, #EDF2F7 100%);
+      border: 1px solid #94A3B8;
+      border-left: 6px solid #B91C1C;
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin-top: 8px;
+      margin-bottom: 14px;
+    }
+    .lb-grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    @media (max-width: 900px) {
+      .lb-grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+    .exec-lb-panel {
+      border-radius: 14px;
+      padding: 15px 16px;
+      margin-bottom: 14px;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+    }
+    .exec-lb-panel-danger {
+      background: linear-gradient(160deg, #F8E8EA 0%, #EDEFF5 100%);
+      border: 1px solid #FDA4AF;
+      border-top: 4.5px solid #B91C1C;
+    }
+    .exec-lb-panel-success {
+      background: linear-gradient(160deg, #E3F5EE 0%, #EDEFF5 100%);
+      border: 1px solid #6EE7B7;
+      border-top: 4.5px solid #047857;
+    }
+    .exec-lb-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #CBD5E1;
+    }
+    .exec-lb-title {
+      font-size: 0.98rem;
+      font-weight: 800;
+      color: #0F172A;
+    }
+    .exec-lb-sub {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #1E293B;
+      background: #DCE6F2;
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1px solid #94A3B8;
+    }
+    .exec-lb-row {
+      background: #E2E8F0;
+      border: 1px solid #B8C4D4;
+      border-radius: 10px;
+      padding: 9px 11px;
+      margin-bottom: 8px;
+    }
+    .exec-lb-row-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .exec-lb-officer-wrap {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+    }
+    .exec-lb-rank {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 26px;
+      height: 22px;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      font-weight: 800;
+      background: #1E3A8A;
+      color: #FFFFFF;
+    }
+    .exec-lb-name {
+      font-size: 0.88rem;
+      font-weight: 800;
+      color: #0F172A;
+    }
+    .exec-lb-div-tag {
+      font-size: 0.70rem;
+      font-weight: 700;
+      color: #1E293B;
+      background: #CBD5E1;
+      border: 1px solid #94A3B8;
+      padding: 2px 7px;
+      border-radius: 6px;
+    }
+    .exec-lb-badges {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .exec-pill-danger {
+      background: #FEE2E2;
+      color: #991B1B;
+      border: 1px solid #F87171;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 0.74rem;
+    }
+    .exec-pill-success {
+      background: #D1FAE5;
+      color: #065F46;
+      border: 1px solid #34D399;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 0.74rem;
+    }
+    .exec-pill-ets {
+      background: #FEF3C7;
+      color: #92400E;
+      border: 1px solid #FBBF24;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 0.72rem;
+    }
+    .exec-pill-total {
+      color: #1E3A8A;
+      font-weight: 800;
+      font-size: 0.74rem;
+    }
+    .exec-lb-bar-bg {
+      width: 100%;
+      height: 6px;
+      background: #CBD5E1;
+      border-radius: 999px;
+      overflow: hidden;
+      display: flex;
+    }
+    .exec-lb-bar-od {
+      background: linear-gradient(90deg, #B91C1C, #EF4444);
+      height: 100%;
+    }
+    .exec-lb-bar-ets {
+      background: linear-gradient(90deg, #047857, #10B981);
+      height: 100%;
+    }
+
+    .tab-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .tab-btn {
+      background: #DCE6F2;
+      border: 1px solid #94A3B8;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #1E293B;
+      cursor: pointer;
+    }
+    .tab-btn.active {
+      background: #1E3A8A;
+      border-color: #1E3A8A;
+      color: #FFFFFF;
+    }
+
+    details.exec-expander {
+      background: #DCE6F2;
+      border: 1px solid #94A3B8;
+      border-radius: 10px;
+      padding: 0.55rem 0.85rem;
+      margin-bottom: 0.75rem;
+    }
+    details.exec-expander summary {
+      font-weight: 800;
+      font-size: 0.85rem;
+      color: #0F172A;
+      cursor: pointer;
+    }
+
+    #scroll-hud-root {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 14px;
+      height: 100vh;
+      z-index: 9990;
+      pointer-events: none;
+      font-family: monospace;
+    }
+    #scroll-hud-indicator {
+      position: absolute;
+      right: 0;
+      width: 14px;
+      top: 25%;
+    }
+    #scroll-hud-line {
+      width: 14px;
+      height: 2px;
+      background: #1E3A8A;
+    }
+    #scroll-hud-pct {
+      font-size: 7.5px;
+      font-weight: 800;
+      color: #1E3A8A;
+      text-align: right;
+      padding-right: 1px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- =========================================================================
+       ARGON HIGH-END GPU-ACCELERATED INTRO OVERLAY (NO LOADING BAR)
+       ========================================================================= -->
+  <div id="intro-video-overlay">
+    <div class="argon-bg-orb argon-orb-1"></div>
+    <div class="argon-bg-orb argon-orb-2"></div>
+    <div class="argon-bg-orb argon-orb-3"></div>
+    <div class="argon-grid-mesh"></div>
+
+    <div class="argon-stage">
+      <div class="argon-emblem-halo">
+        <div class="argon-ring-outer"></div>
+        <div class="argon-ring-inner"></div>
+        <img
+          class="argon-emblem-img"
+          src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/aa/Seal_of_Karnataka.svg/240px-Seal_of_Karnataka.svg.png"
+          alt="Government of Karnataka"
+          onerror="this.style.display='none'"
+        />
+      </div>
+
+      <div class="argon-dept-pill">
+        <span class="argon-live-dot"></span>
+        <span>GOVERNMENT OF KARNATAKA • EXECUTIVE PORTAL</span>
+      </div>
+
+      <div class="argon-kn-title">ಸಣ್ಣ ನೀರಾವರಿ ಮತ್ತು ಅಂತರ್ಜಲ ಅಭಿವೃದ್ಧಿ ಇಲಾಖೆ</div>
+      <div class="argon-kn-subtitle">ಮುಖ್ಯ ಅಭಿಯಂತರರು, ಸಣ್ಣ ನೀರಾವರಿ ಮತ್ತು ಅಂತರ್ಜಲ ಅಭಿವೃದ್ಧಿ ದಕ್ಷಿಣ ವಲಯ</div>
+      <div class="argon-en-subtitle">Minor Irrigation &amp; Ground Water Development Department — South Zone, Bengaluru</div>
+
+      <div class="argon-cards-grid">
+        <div class="argon-glass-card">
+          <div class="argon-card-shimmer"></div>
+          <div class="argon-card-top">
+            <span class="argon-card-tag" style="background:rgba(59,130,246,0.18);color:#93C5FD;border:1px solid rgba(59,130,246,0.35);">23 WORKSHEETS</span>
+            <span class="argon-card-icon">📊</span>
+          </div>
+          <div class="argon-card-title">Division Abstract</div>
+          <div class="argon-card-desc">Unified real-time cloud snapshot across all 23 scheme heads</div>
+        </div>
+
+        <div class="argon-glass-card">
+          <div class="argon-card-shimmer"></div>
+          <div class="argon-card-top">
+            <span class="argon-card-tag" style="background:rgba(239,68,68,0.18);color:#FCA5A5;border:1px solid rgba(239,68,68,0.35);">OVERDUE WORKS ('P')</span>
+            <span class="argon-card-icon">🎯</span>
+          </div>
+          <div class="argon-card-title">AE &amp; AEE Tracking</div>
+          <div class="argon-card-desc">6-bucket ageing tree &amp; instant officer dossier downloads</div>
+        </div>
+
+        <div class="argon-glass-card">
+          <div class="argon-card-shimmer"></div>
+          <div class="argon-card-top">
+            <span class="argon-card-tag" style="background:rgba(16,185,129,0.18);color:#6EE7B7;border:1px solid rgba(16,185,129,0.35);">CE ANALYTICS SUITE</span>
+            <span class="argon-card-icon">⚡</span>
+          </div>
+          <div class="argon-card-title">ETS and Dashboard</div>
+          <div class="argon-card-desc">Executive cadre leaderboards &amp; live status verification</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="intro-hud-bar">
+      <div class="intro-load-status">
+        <div id="intro-spinner-icon" class="intro-spinner"></div>
+        <span id="intro-status-text">Synchronising cloud snapshot...</span>
+      </div>
+      <button type="button" class="intro-btn" id="skip-intro-btn">Enter Dashboard →</button>
+    </div>
+  </div>
+
+  <!-- Sidebar Collapse/Expand Toggle -->
+  <button id="sidebar-toggle-btn" title="Toggle Controls Sidebar">☰</button>
+
+  <!-- Right-Edge Scroll Ruler -->
+  <div id="scroll-hud-root">
+    <div id="scroll-hud-indicator">
+      <div id="scroll-hud-line"></div>
+      <div id="scroll-hud-pct">0%</div>
+    </div>
+  </div>
+
+  <div class="app-layout">
+    <!-- =======================================================================
+         LEFT SIDEBAR CONTROLS
+         ======================================================================= -->
+    <aside class="sidebar" id="app-sidebar">
+      <div class="sidebar-title" style="padding-left:28px;">Dashboard Controls</div>
+
+      <div class="ctrl-group">
+        <label for="sheet-url-input">Google Spreadsheet Link</label>
+        <input type="text" id="sheet-url-input" class="ctrl-input" />
+      </div>
+
+      <div class="ctrl-group">
+        <label for="firebase-url-input">Firebase Realtime DB URL</label>
+        <input type="text" id="firebase-url-input" class="ctrl-input" />
+      </div>
+
+      <div class="ctrl-group">
+        <label for="xlsx-upload-input">Or Upload Workbook (.xlsx)</label>
+        <input type="file" id="xlsx-upload-input" accept=".xlsx" class="ctrl-input" />
+      </div>
+
+      <button type="button" id="sync-btn" class="btn-primary">
+        Sync Latest Data from Google Sheets
+      </button>
+
+      <div class="ctrl-group">
+        <span>Total Works Assigned Count Basis:</span>
+        <div class="radio-stack">
+          <label><input type="radio" name="denom-mode" value="all" checked /> All Works Assigned (All Statuses)</label>
+          <label><input type="radio" name="denom-mode" value="ongoing" /> Only Ongoing Works (Status = 'P')</label>
+        </div>
+      </div>
+
+      <div class="ctrl-group">
+        <span>Bar Width Mode:</span>
+        <div class="radio-stack">
+          <label><input type="radio" name="bar-mode" value="overlay" checked /> Overlay (Overdue + ETS + Rest)</label>
+          <label><input type="radio" name="bar-mode" value="overdue" /> Scale by Overdue Works</label>
+          <label><input type="radio" name="bar-mode" value="pct" /> Scale by Overdue Percentage (%)</label>
+        </div>
+      </div>
+
+      <div class="check-stack">
+        <label><input type="checkbox" id="chk-shrink" checked /> Shrink long bars above 250 works</label>
+        <label><input type="checkbox" id="chk-hide-zero" checked /> Show only officers with Overdue &gt; 0</label>
+        <label><input type="checkbox" id="chk-unassigned" checked /> Include Empty / Unassigned Officer bar</label>
+        <label><input type="checkbox" id="chk-scroll-hud" checked /> Show Right-Edge Scroll HUD Ruler</label>
+      </div>
+    </aside>
+
+    <!-- =======================================================================
+         MAIN CONTENT AREA
+         ======================================================================= -->
+    <main class="main-container">
+      <div class="top-header-row">
+        <div></div>
+        <h1 class="main-title" id="page-main-title">Minor Irrigation — Overdue Works Dashboard</h1>
+        <button type="button" id="page-switch-btn" class="btn-primary">Analytics View →</button>
+      </div>
+
+      <div class="mi-status-bar">
+        <span class="mi-status-pill" id="status-source-pill">Loading...</span>
+        <span><b>Last Synced:</b> <span id="status-time-label">-</span> IST</span>
+        <span><b>Row Rule:</b> Valid text in <b>Division</b> column (empty <b>Sub-division</b> rows included)</span>
+      </div>
+
+      <div class="filter-grid-5">
+        <div class="filter-card">
+          <label for="f-div">Select Division:</label>
+          <select id="f-div" class="filter-select"></select>
+        </div>
+        <div class="filter-card">
+          <label for="f-subdiv">Select Sub-division:</label>
+          <select id="f-subdiv" class="filter-select"></select>
+        </div>
+        <div class="filter-card">
+          <label for="f-ee">Select Executive Engineer:</label>
+          <select id="f-ee" class="filter-select"></select>
+        </div>
+        <div class="filter-card">
+          <label for="f-ta">Select Technical Assistant:</label>
+          <select id="f-ta" class="filter-select"></select>
+        </div>
+        <div class="filter-card">
+          <label for="f-as">Select Account Superintendent:</label>
+          <select id="f-as" class="filter-select"></select>
+        </div>
+      </div>
+
+      <!-- =====================================================================
+           PAGE 1: MAIN OVERDUE WORKS DASHBOARD
+           ===================================================================== -->
+      <section id="page-dashboard">
+        <div class="sub-controls-row">
+          <div class="inline-radio-bar">
+            <span>Officer View:</span>
+            <label><input type="radio" name="p1-view" value="Assistant Engineer" checked /> Assistant Engineer</label>
+            <label><input type="radio" name="p1-view" value="Assistant Executive Engineer" /> Assistant Executive Engineer</label>
+          </div>
+          <div class="inline-radio-bar">
+            <span>Sort Order:</span>
+            <label><input type="radio" name="p1-sort" value="count" checked /> Highest Overdue Count at Top</label>
+            <label><input type="radio" name="p1-sort" value="pct" /> Highest Overdue Percentage (%) at Top</label>
+          </div>
+        </div>
+
+        <div class="kpi-grid-6" id="p1-kpi-grid"></div>
+        <div id="p1-ageing-tree"></div>
+
+        <div class="exec-section-banner">
+          <div class="exec-section-title" id="p1-chart-title">Overdue &amp; ETS Works</div>
+          <div class="exec-scope-badge" id="p1-scope-badge-1"></div>
+        </div>
+        <div class="chart-box">
+          <div id="p1-bar-chart" style="width:100%;min-height:480px;"></div>
+        </div>
+
+        <div class="exec-section-banner">
+          <div class="exec-section-title" id="p1-dossier-title">Combined Overdue Works</div>
+          <div class="exec-scope-badge" id="p1-scope-badge-2"></div>
+        </div>
+        <div class="filter-card" style="margin-bottom:10px;">
+          <label for="p1-officer-select" id="p1-officer-select-label">Select Officer to view and download their Overdue Works:</label>
+          <select id="p1-officer-select" class="filter-select"></select>
+        </div>
+        <div id="p1-officer-meta" style="font-size:0.84rem;margin-bottom:8px;font-weight:600;"></div>
+        <div style="display:flex;gap:10px;max-width:420px;margin-bottom:8px;">
+          <button type="button" id="dl-xlsx-btn" class="btn-primary">Download Excel (.xlsx)</button>
+          <button type="button" id="dl-csv-btn" class="btn-primary">Download CSV (.csv)</button>
+        </div>
+        <div id="p1-overdue-table-wrap"></div>
+
+        <div class="exec-section-banner">
+          <div class="exec-section-title">Officer-Wise Summary Table</div>
+          <div class="exec-scope-badge" id="p1-scope-badge-3"></div>
+        </div>
+        <div id="p1-summary-table-wrap"></div>
+
+        <details class="exec-expander">
+          <summary>Inspect Worksheet Loading Status (23 Target Sheets)</summary>
+          <div id="p1-diag-table-wrap" style="margin-top:8px;"></div>
+        </details>
+
+        <details class="exec-expander">
+          <summary>Inspect Unassigned / Missing Officer Fields Across Worksheets</summary>
+          <div id="p1-debug-table-wrap" style="margin-top:8px;"></div>
+        </details>
+      </section>
+
+      <!-- =====================================================================
+           PAGE 2: CE ANALYTICS & ETS AND DASHBOARD
+           ===================================================================== -->
+      <section id="page-analytics" style="display:none;">
+        <div class="kpi-grid-6" id="p2-kpi-grid"></div>
+
+        <div class="filter-card" style="padding:14px;margin-bottom:14px;">
+          <div class="inline-radio-bar" style="margin-bottom:10px;">
+            <span>Select Officer Cadre:</span>
+            <label><input type="radio" name="p2-audit-role" value="Assistant Engineer" checked /> Assistant Engineer</label>
+            <label><input type="radio" name="p2-audit-role" value="Assistant Executive Engineer" /> Assistant Executive Engineer</label>
+          </div>
+          <label for="p2-audit-officer-select" id="p2-audit-select-lbl">Select Officer to verify their ETS claim:</label>
+          <select id="p2-audit-officer-select" class="filter-select" style="margin-bottom:10px;"></select>
+
+          <div id="p2-truth-verdict-box"></div>
+
+          <div class="lb-grid-2" style="align-items:center;">
+            <div class="chart-box" style="margin-bottom:0;">
+              <div id="p2-donut-chart" style="width:100%;height:300px;"></div>
+            </div>
+            <div id="p2-proof-table-wrap"></div>
+          </div>
+        </div>
+
+        <div class="sub-controls-row">
+          <div class="inline-radio-bar">
+            <label for="p2-min-works">Min. Works for Ranking: <span id="p2-min-works-val">1</span></label>
+            <input type="range" id="p2-min-works" min="1" max="50" value="1" style="flex:1;cursor:pointer;" />
+          </div>
+          <div class="inline-radio-bar">
+            <span>Leaderboard Depth:</span>
+            <label><input type="radio" name="p2-top-n" value="5" checked /> Top 5</label>
+            <label><input type="radio" name="p2-top-n" value="10" /> Top 10</label>
+          </div>
+        </div>
+
+        <div class="exec-section-banner">
+          <div class="exec-section-title">Executive Leaderboards — Highest &amp; Least Overdue</div>
+          <div class="exec-scope-badge" id="p2-lb-badge">Min. 1 assigned works • Least Overdue excludes 0-OD</div>
+        </div>
+
+        <div class="tab-bar">
+          <button type="button" class="tab-btn active" data-cadre="Assistant Engineer">Assistant Engineer (AE)</button>
+          <button type="button" class="tab-btn" data-cadre="Assistant Executive Engineer">Assistant Executive Engineer (AEE)</button>
+          <button type="button" class="tab-btn" data-cadre="Technical Assistant">Technical Assistant (TA)</button>
+          <button type="button" class="tab-btn" data-cadre="Account Superintendent">Account Superintendent (AS)</button>
+        </div>
+
+        <div id="p2-leaderboards-wrap"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- =========================================================================
+       APPLICATION LOGIC
+       ========================================================================= -->
+  <script>
+    const CONFIG = {
+      DEFAULT_SHEET_URL: "https://docs.google.com/spreadsheets/d/13W04z-fdU3RhuVJ5vQFRpK4BBSQRJWfscPqpr7Oj2Y8/edit?usp=sharing",
+      FIREBASE_DB_URL: "https://ae-aee-overdue-default-rtdb.asia-southeast1.firebasedatabase.app"
+    };
+
+    const TARGET_SHEETS = [
+      "4702_MOT", "4702-New Tanks", "4702-LIS", "4702_A&P", "PMKSY-SMI-RRR",
+      "4702_Paschima Vahini", "4711__Other Flood Control", "4702-Kharland",
+      "NABARD - New Tank", "SDMF", "KMERC", "NABARD - A&P", "ATAL BHUJAL",
+      "NABARD_MOT", "NABARD - LIS", "other dept funds", "SCP (LIS)",
+      "SCP (Borewell)", "SCP (Checkdam)", "TSP (Checkdam)", "TSP (Borewell)",
+      "TSP (LIS)", "NABARD - Other Flood Control"
+    ];
+
+    const ALL_OPTION = "ALL";
+    const UNSPECIFIED_LABEL = "Not Specified (Empty)";
+    const UNASSIGNED_LABEL = "Unassigned (Empty)";
+    const BAR_SHRINK_THRESHOLD = 250;
+    const BAR_SHRINK_MAX_EXTRA = 18.0;
+
+    let STATE = {
+      activePage: "dashboard",
+      activeLbCadre: "Assistant Engineer",
+      masterRows: [],
+      diagRows: [],
+      todayStr: "",
+      lastSynced: "-",
+      sourceLabel: "Initialising...",
+      dataReady: false,
+      videoEnded: false,
+       overlayDismissed: false,
+      sidebarAutoClosed: false,
+      currentOfficerOverdueRows: []
+    };
+
+    // =========================================================================
+    // 1. ARGON INTRO CONTROLLER (ZERO FPS DROP HAND-OFF)
+    // =========================================================================
+    const overlayEl = document.getElementById("intro-video-overlay");
+    const statusTextEl = document.getElementById("intro-status-text");
+    const spinnerEl = document.getElementById("intro-spinner-icon");
+
+    function scheduleSidebarAutoClose() {
+      if (STATE.sidebarAutoClosed) return;
+      STATE.sidebarAutoClosed = true;
+      setTimeout(() => {
+        const sb = document.getElementById("app-sidebar");
+        if (sb && !sb.classList.contains("collapsed")) {
+          sb.classList.add("collapsed");
+          setTimeout(() => window.dispatchEvent(new Event("resize")), 260);
+        }
+      }, 3000);
+    }
+
+    function dismissOverlayAndRender() {
+      if (STATE.overlayDismissed) return;
+      STATE.overlayDismissed = true;
+
+      if (spinnerEl) {
+        spinnerEl.className = "intro-spinner done";
+        spinnerEl.textContent = "✓";
+      }
+      if (statusTextEl) statusTextEl.textContent = "Dashboard Ready";
+
+      // Start GPU fade-out of the Argon intro screen first
+      requestAnimationFrame(() => {
+        if (overlayEl) overlayEl.classList.add("hidden-overlay");
+        // Render heavy Plotly charts right as the curtain lifts so intro animation never stutters
+        setTimeout(() => {
+          populateFilterDropdowns(true);
+          renderActivePage();
+          window.dispatchEvent(new Event("resize"));
+          scheduleSidebarAutoClose();
+        }, 280);
+      });
+    }
+
+    function checkDismissOverlay() {
+      if (STATE.dataReady && STATE.videoEnded) {
+        dismissOverlayAndRender();
+      }
+    }
+
+    // Let the staggered Argon card entrance complete (1.65s)
+    setTimeout(() => {
+      STATE.videoEnded = true;
+      checkDismissOverlay();
+    }, 1650);
+
+    document.getElementById("skip-intro-btn").addEventListener("click", () => {
+      STATE.videoEnded = true;
+      if (STATE.dataReady) {
+        dismissOverlayAndRender();
+      } else {
+        statusTextEl.textContent = "Finishing data preparation, opening immediately...";
+      }
+    });
+
+    // =========================================================================
+    // 2. DATE & STRING HELPER FUNCTIONS
+    // =========================================================================
+    function getTodayIST() {
+      const istDate = new Date(Date.now() + 19800000);
+      const y = istDate.getUTCFullYear();
+      const m = istDate.getUTCMonth() + 1;
+      const d = istDate.getUTCDate();
+      return {
+        y, m, d,
+        dateObj: new Date(Date.UTC(y, m - 1, d)),
+        formatted: `${String(d).padStart(2, "0")}-${String(m).padStart(2, "0")}-${y}`
+      };
+    }
+
+    function getISTTimestamp() {
+      return new Date().toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        day: "2-digit", month: "2-digit", year: "numeric",
+        hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true
+      });
+    }
+
+    function normalizeText(val) {
+      if (val === null || val === undefined) return "";
+      if (val instanceof Date && !isNaN(val)) {
+        const d = String(val.getUTCDate()).padStart(2, "0");
+        const m = String(val.getUTCMonth() + 1).padStart(2, "0");
+        const y = val.getUTCFullYear();
+        return `${d}-${m}-${y}`;
+      }
+      return String(val).replace(/\s+/g, " ").trim();
+    }
+
+    function parseIndianDate(rawVal) {
+      if (rawVal === null || rawVal === undefined || rawVal === "") return null;
+      if (rawVal instanceof Date && !isNaN(rawVal)) {
+        return new Date(Date.UTC(rawVal.getFullYear(), rawVal.getMonth(), rawVal.getDate()));
+      }
+      if (typeof rawVal === "number" && rawVal > 10000 && rawVal < 80000) {
+        const utcDays = Math.floor(rawVal - 25569);
+        const d = new Date(utcDays * 86400 * 1000);
+        return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+      }
+      let s = normalizeText(rawVal);
+      if (!s || ["-", "--", "---", "NIL", "NA", "N/A", "NONE"].includes(s.toUpperCase())) return null;
+      s = s.replace(/[./]/g, "-").trim();
+      const m = s.match(/(\d{1,4})-(\d{1,2})-(\d{1,4})/);
+      if (m) {
+        let p1 = parseInt(m[1], 10), p2 = parseInt(m[2], 10), p3 = parseInt(m[3], 10);
+        let yr, mo, da;
+        if (p1 > 31) { yr = p1; mo = p2; da = p3; }
+        else { da = p1; mo = p2; yr = p3 < 100 ? p3 + 2000 : p3; }
+        if (mo >= 1 && mo <= 12 && da >= 1 && da <= 31) {
+          return new Date(Date.UTC(yr, mo - 1, da));
+        }
+      }
+      return null;
+    }
+
+    function formatDateObj(dt) {
+      if (!dt) return "";
+      const d = String(dt.getUTCDate()).padStart(2, "0");
+      const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
+      const y = dt.getUTCFullYear();
+      return `${d}-${m}-${y}`;
+    }
+
+    function isEmptyDate(rawVal) {
+      if (rawVal === null || rawVal === undefined) return true;
+      const dt = parseIndianDate(rawVal);
+      if (dt) return false;
+      const s = normalizeText(rawVal).toUpperCase();
+      return ["", "-", "--", "---", "NIL", "NA", "N/A", "NONE", "NAT"].includes(s);
+    }
+
+    function daysInMonth(year, month1Based) {
+      return new Date(Date.UTC(year, month1Based, 0)).getUTCDate();
+    }
+
+    function calcOverdueDuration(targetDt, todayDt) {
+      if (!targetDt || targetDt >= todayDt) return "-";
+      let y = todayDt.getUTCFullYear() - targetDt.getUTCFullYear();
+      let m = (todayDt.getUTCMonth() + 1) - (targetDt.getUTCMonth() + 1);
+      let d = todayDt.getUTCDate() - targetDt.getUTCDate() + 1;
+
+      if (d <= 0) {
+        m -= 1;
+        const curM = todayDt.getUTCMonth() + 1;
+        const prevM = curM > 1 ? curM - 1 : 12;
+        const prevY = curM > 1 ? todayDt.getUTCFullYear() : todayDt.getUTCFullYear() - 1;
+        d += daysInMonth(prevY, prevM);
+      }
+      if (m < 0) {
+        y -= 1;
+        m += 12;
+      }
+      const dim = daysInMonth(todayDt.getUTCFullYear(), todayDt.getUTCMonth() + 1);
+      if (d > dim) {
+        d -= dim;
+        m += 1;
+        if (m >= 12) { m -= 12; y += 1; }
+      }
+      const parts = [];
+      if (y > 0) parts.push(`${y} year${y > 1 ? "s" : ""}`);
+      if (m > 0) parts.push(`${m} month${m > 1 ? "s" : ""}`);
+      if (d > 0) parts.push(`${d} day${d > 1 ? "s" : ""}`);
+      return parts.length ? `(${parts.join(", ")})` : "(0 days)";
+    }
+
+    function getAgeBuckets(targetDt, todayDt) {
+      if (!targetDt || targetDt >= todayDt) return { age_bucket: "Unknown", tree_bucket: "Unknown" };
+      const days = Math.floor((todayDt - targetDt) / 86400000);
+      let age_bucket = "5. > 5 Years (Chronic)";
+      if (days <= 180) age_bucket = "1. < 6 Months";
+      else if (days <= 365) age_bucket = "2. 6 – 12 Months";
+      else if (days <= 730) age_bucket = "3. 1 – 2 Years";
+      else if (days <= 1825) age_bucket = "4. 2 – 5 Years";
+
+      let tree_bucket = "4+ Years";
+      if (days <= 180) tree_bucket = "Under 6 Months";
+      else if (days <= 365) tree_bucket = "6 Months to 1 Year";
+      else if (days <= 730) tree_bucket = "1 - 2 Years";
+      else if (days <= 1095) tree_bucket = "2 - 3 Years";
+      else if (days <= 1460) tree_bucket = "3 - 4 Years";
+
+      return { age_bucket, tree_bucket };
+    }
+
+    function isValidDivisionText(val) {
+      if (!val) return false;
+      const upper = val.toUpperCase().trim();
+      if (["-", "--", "---", "NIL", "NA", "N/A", "NONE", "NAN", "NAT", "NULL", "0"].includes(upper)) return false;
+      if (!/[a-zA-Z\u0C80-\u0CFF]/.test(val)) return false;
+      if (["ವಿಭಾಗ", "ವಿಭಾಗದ ಹೆಸರು", "ಒಟ್ಟು", "ಒಟ್ಟು ಮೊತ್ತ", "ಮಹಾ ಒಟ್ಟು"].includes(val)) return false;
+      if (["DIVISION", "DIVISION NAME", "TOTAL", "GRAND TOTAL", "SUB TOTAL"].includes(upper)) return false;
+      if (val.startsWith("ಒಟ್ಟು ") || val.endsWith(" ಒಟ್ಟು") || upper.startsWith("TOTAL ")) return false;
+      return true;
+    }
+
+    function mapOptionalField(name) {
+      if (!name) return UNSPECIFIED_LABEL;
+      const upper = name.toUpperCase().trim();
+      if (["NAN", "NONE", "-", "--", "---", "NIL", "NA", "N/A", "0", "ಇಲ್ಲ", "ಖಾಲಿ"].includes(upper) || !/[a-zA-Z\u0C80-\u0CFF]/.test(name)) {
+        return UNSPECIFIED_LABEL;
+      }
+      if (
+        name.length > 75 || name.includes("ಒಟ್ಟು") || upper.includes("TOTAL") ||
+        ["ಉಪವಿಭಾಗ", "ಉಪ ವಿಭಾಗ", "ಉಪವಿಭಾಗದ ಹೆಸರು"].includes(name) ||
+        ["EXECUTIVE ENGINEER", "TECHNICAL ASSISTANT", "ACCOUNT SUPERINTENDENT", "ACCOUNTS SUPERINTENDENT"].includes(upper)
+      ) {
+        return UNSPECIFIED_LABEL;
+      }
+      return name;
+    }
+
+    function mapOfficerOrUnassigned(name) {
+      if (!name) return UNASSIGNED_LABEL;
+      const upper = name.toUpperCase().trim();
+      if (["NAN", "NONE", "-", "--", "---", "NIL", "NA", "N/A", "0", "ಇಲ್ಲ", "ಖಾಲಿ"].includes(upper) || /^\d+$/.test(name)) {
+        return UNASSIGNED_LABEL;
+      }
+      if (name.length > 65 || name.includes("ಒಟ್ಟು") || upper.includes("TOTAL") || name.includes("ಶಾಖಾಧಿಕಾರಿಯ ಹೆಸರು") || name.includes("ಸಹಾಯಕ ಕಾರ್ಯಪಾಲಕ ಇಂಜಿನಿಯರ್ ಹೆಸರು")) {
+        return UNASSIGNED_LABEL;
+      }
+      return name;
+    }
+
+    function findMatchingColumnIndices(headers) {
+      const map = {};
+      headers.forEach((col, idx) => {
+        const norm = normalizeText(col);
+        const upper = norm.toUpperCase();
+        const compact = norm.replace(/[\s\-_]+/g, "");
+        if ((norm === "ವಿಭಾಗ" || norm === "ವಿಭಾಗದ ಹೆಸರು") && map.division === undefined) map.division = idx;
+        else if ((compact === "ಉಪವಿಭಾಗ" || compact === "ಉಪವಿಭಾಗದಹೆಸರು") && map.subdivision === undefined) map.subdivision = idx;
+        else if (upper === "EXECUTIVE ENGINEER" && map.ee === undefined) map.ee = idx;
+        else if (upper === "TECHNICAL ASSISTANT" && map.ta === undefined) map.ta = idx;
+        else if ((upper === "ACCOUNT SUPERINTENDENT" || upper === "ACCOUNTS SUPERINTENDENT") && map.as_off === undefined) map.as_off = idx;
+        else if (["ಕಾಮಗಾರಿ ಹೆಸರು", "ಕಾಮಗಾರಿಯ ಹೆಸರು", "ಕಾಮಗಾರಿಗಳ ಹೆಸರು", "WORK NAME", "NAME OF WORK"].includes(norm) && map.work_name === undefined) map.work_name = idx;
+        else if ((compact === "ಲೆಕ್ಕಶೀರ್ಷಿಕೆ" || compact === "ಲೆಕ್ಕಶೀರ್ಷಿಕೆಹೆಸರು") && map.hoa === undefined) map.hoa = idx;
       });
 
-      if (!response.ok) {
-        lastError = `Google Sheets returned HTTP ${response.status}`;
-        continue;
+      headers.forEach((col, idx) => {
+        const norm = normalizeText(col);
+        const upper = norm.toUpperCase();
+        const compactUpper = upper.replace(/\s+/g, "");
+        if ((norm.includes("ಉಪವಿಭಾಗ") || norm.includes("ಉಪ ವಿಭಾಗ") || norm.includes("ಉಪ-ವಿಭಾಗ")) && map.subdivision === undefined) map.subdivision = idx;
+        else if (norm.includes("ವಿಭಾಗ") && !norm.includes("ಉಪ") && !upper.includes("SUB") && map.division === undefined) map.division = idx;
+        else if (norm.includes("ಶಾಖಾಧಿಕಾರಿ") && map.so === undefined) map.so = idx;
+        else if (norm.includes("ಸಹಾಯಕ ಕಾರ್ಯಪಾಲಕ ಇಂಜಿನಿಯರ್") && map.aee === undefined) map.aee = idx;
+        else if (((upper.includes("EXECUTIVE ENGINEER") && !upper.includes("ASSISTANT")) || (norm.includes("ಕಾರ್ಯಪಾಲಕ ಇಂಜಿನಿಯರ್") && !norm.includes("ಸಹಾಯಕ"))) && map.ee === undefined) map.ee = idx;
+        else if ((upper.includes("TECHNICAL ASSISTANT") || norm.includes("ತಾಂತ್ರಿಕ ಸಹಾಯಕ")) && map.ta === undefined) map.ta = idx;
+        else if ((upper.includes("ACCOUNT SUPERINTENDENT") || upper.includes("ACCOUNTS SUPERINTENDENT") || norm.includes("ಲೆಕ್ಕ ಅಧೀಕ್ಷಕ")) && map.as_off === undefined) map.as_off = idx;
+        else if (norm.includes("ಮುಕ್ತಾಯಗೊಳಿಸಬೇಕಾದ ದಿನಾಂಕ") && map.target_date === undefined) map.target_date = idx;
+        else if (norm.includes("ಮುಕ್ತಾಯವಾದ ದಿನಾಂಕ") && !norm.includes("ಮುಕ್ತಾಯಗೊಳಿಸಬೇಕಾದ") && map.actual_date === undefined) map.actual_date = idx;
+        else if ((norm.includes("ಪ್ರಾರಂಭಿಸಿದ ದಿನಾಂಕ") || norm.includes("ಪ್ರಾರಂಭವಾದ ದಿನಾಂಕ") || norm.includes("ಪ್ರಾರಂಭ ದಿನಾಂಕ")) && map.start_date === undefined) map.start_date = idx;
+        else if ((norm.includes("ಕಾಮಗಾರಿ ಹೆಸರು") || norm.includes("ಕಾಮಗಾರಿಯ ಹೆಸರು") || norm.includes("ಕಾಮಗಾರಿಗಳ ಹೆಸರು")) && !norm.includes("ದಿನಾಂಕ") && map.work_name === undefined) map.work_name = idx;
+        else if ((norm.includes("ಲೆಕ್ಕಶೀರ್ಷಿಕೆ") || norm.includes("ಲೆಕ್ಕ ಶೀರ್ಷಿಕೆ")) && map.hoa === undefined) map.hoa = idx;
+        else if (compactUpper.includes("CP/CF") && map.status === undefined) map.status = idx;
+      });
+
+      if (map.work_name === undefined) {
+        const used = new Set(Object.values(map));
+        headers.forEach((col, idx) => {
+          const norm = normalizeText(col);
+          const upper = norm.toUpperCase();
+          if (
+            (norm.includes("ಕಾಮಗಾರಿ") || upper.includes("WORK NAME") || upper.includes("NAME OF WORK")) &&
+            !norm.includes("ದಿನಾಂಕ") && !norm.includes("ಮೊತ್ತ") && !norm.includes("ಸಂಖ್ಯೆ") && !norm.includes("ಹಂತ") &&
+            !used.has(idx) && map.work_name === undefined
+          ) {
+            map.work_name = idx;
+          }
+        });
       }
-
-      const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-
-      // Verify we received a valid workbook and not an empty/error response
-      if (buffer.length < 1000) {
-        lastError = "Downloaded file is too small or empty.";
-        continue;
-      }
-
-      res.setHeader(
-        "Content-Type",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-      );
-      res.setHeader(
-        "Cache-Control",
-        "no-store, no-cache, must-revalidate, proxy-revalidate"
-      );
-      res.setHeader("Content-Length", buffer.length);
-
-      return res.status(200).send(buffer);
-    } catch (err) {
-      lastError = err.message || String(err);
+      return map;
     }
-  }
 
-  return res.status(502).json({
-    error: `Failed to fetch workbook from Google Sheets: ${lastError}`
-  });
-}
+    // =========================================================================
+    // 3. 23-WORKSHEET EXCEL PARSER
+    // =========================================================================
+    function parseWorkbookArrayBuffer(arrayBuffer) {
+      const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: "array", cellDates: true });
+      const availableMap = {};
+      wb.SheetNames.forEach((name) => {
+        availableMap[normalizeText(name).toLowerCase()] = name;
+      });
+
+      const todayInfo = getTodayIST();
+      const todayDt = todayInfo.dateObj;
+      const masterRows = [];
+      const diagRows = [];
+
+      TARGET_SHEETS.forEach((target) => {
+        const actualName = availableMap[normalizeText(target).toLowerCase()];
+        if (!actualName) {
+          diagRows.push({
+            Sheet: target, Status: "Missing in Workbook",
+            "Sub-division Col": "N/A", "EE / TA / AS Cols": "N/A",
+            "Rows Loaded": 0, "Overdue ('P')": 0, ETS: 0
+          });
+          return;
+        }
+
+        const ws = wb.Sheets[actualName];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+        if (!rows || !rows.length) {
+          diagRows.push({
+            Sheet: target, Status: "Empty Sheet",
+            "Sub-division Col": "N/A", "EE / TA / AS Cols": "N/A",
+            "Rows Loaded": 0, "Overdue ('P')": 0, ETS: 0
+          });
+          return;
+        }
+
+        let headerIdx = null;
+        for (let i = 0; i < Math.min(30, rows.length); i++) {
+          const rowText = rows[i].map(normalizeText).join(" | ");
+          if (rowText.includes("ಶಾಖಾಧಿಕಾರಿ") || rowText.includes("ಸಹಾಯಕ ಕಾರ್ಯಪಾಲಕ ಇಂಜಿನಿಯರ್")) {
+            headerIdx = i;
+            break;
+          }
+        }
+
+        if (headerIdx === null) {
+          diagRows.push({
+            Sheet: target, Status: "Header Row Not Found",
+            "Sub-division Col": "N/A", "EE / TA / AS Cols": "N/A",
+            "Rows Loaded": 0, "Overdue ('P')": 0, ETS: 0
+          });
+          return;
+        }
+
+        const rawHeaders = rows[headerIdx].map(normalizeText);
+        const colMap = findMatchingColumnIndices(rawHeaders);
+
+        if (headerIdx + 1 < rows.length) {
+          const nextRow = rows[headerIdx + 1].map(normalizeText);
+          const combined = rawHeaders.map((h, i) => `${h} ${nextRow[i] || ""}`.trim());
+          const altMap = findMatchingColumnIndices(combined);
+          Object.keys(altMap).forEach((k) => { if (colMap[k] === undefined) colMap[k] = altMap[k]; });
+        }
+        if (headerIdx > 0) {
+          const prevRow = rows[headerIdx - 1].map(normalizeText);
+          const combinedPrev = rawHeaders.map((h, i) => `${prevRow[i] || ""} ${h}`.trim());
+          const altPrev = findMatchingColumnIndices(combinedPrev);
+          Object.keys(altPrev).forEach((k) => { if (colMap[k] === undefined) colMap[k] = altPrev[k]; });
+        }
+
+        const reqKeys = ["division", "so", "aee", "target_date", "actual_date", "status"];
+        const missing = reqKeys.filter((k) => colMap[k] === undefined);
+        if (missing.length) {
+          diagRows.push({
+            Sheet: target, Status: `Missing: ${missing.join(", ")}`,
+            "Sub-division Col": colMap.subdivision !== undefined ? "Found" : "Missing",
+            "EE / TA / AS Cols": `EE:${colMap.ee !== undefined ? "Y" : "N"} TA:${colMap.ta !== undefined ? "Y" : "N"} AS:${colMap.as_off !== undefined ? "Y" : "N"}`,
+            "Rows Loaded": 0, "Overdue ('P')": 0, ETS: 0
+          });
+          return;
+        }
+
+        let loadedCount = 0, odCount = 0, etsCount = 0;
+
+        for (let rIdx = headerIdx + 1; rIdx < rows.length; rIdx++) {
+          const r = rows[rIdx];
+          const divRaw = normalizeText(r[colMap.division]);
+          if (!isValidDivisionText(divRaw)) continue;
+
+          const subdivMapped = mapOptionalField(colMap.subdivision !== undefined ? normalizeText(r[colMap.subdivision]) : "");
+          const soMapped = mapOfficerOrUnassigned(normalizeText(r[colMap.so]));
+          const aeeMapped = mapOfficerOrUnassigned(normalizeText(r[colMap.aee]));
+          const eeMapped = mapOptionalField(colMap.ee !== undefined ? normalizeText(r[colMap.ee]) : "");
+          const taMapped = mapOptionalField(colMap.ta !== undefined ? normalizeText(r[colMap.ta]) : "");
+          const asMapped = mapOptionalField(colMap.as_off !== undefined ? normalizeText(r[colMap.as_off]) : "");
+          const workName = colMap.work_name !== undefined ? normalizeText(r[colMap.work_name]) : "";
+          const startDateStr = colMap.start_date !== undefined ? (formatDateObj(parseIndianDate(r[colMap.start_date])) || normalizeText(r[colMap.start_date])) : "";
+          const hoaRaw = colMap.hoa !== undefined ? normalizeText(r[colMap.hoa]) : "";
+          const hoa = hoaRaw || target;
+
+          const statusRaw = normalizeText(r[colMap.status]);
+          const statusUpper = statusRaw.toUpperCase().trim();
+          const targetCell = r[colMap.target_date];
+          const actualCell = r[colMap.actual_date];
+
+          const targetDt = parseIndianDate(targetCell);
+          const targetFormatted = targetDt ? formatDateObj(targetDt) : normalizeText(targetCell);
+          const actualEmpty = isEmptyDate(actualCell);
+
+          const isStatusP = statusUpper === "P";
+          const isStatusEts = statusUpper === "ETS";
+          const isOverdue = isStatusP && targetDt !== null && targetDt < todayDt && actualEmpty;
+
+          const overdueBy = isOverdue ? calcOverdueDuration(targetDt, todayDt) : "-";
+          const { age_bucket, tree_bucket } = isOverdue ? getAgeBuckets(targetDt, todayDt) : { age_bucket: "Unknown", tree_bucket: "Unknown" };
+
+          loadedCount++;
+          if (isOverdue) odCount++;
+          if (isStatusEts) etsCount++;
+
+          masterRows.push({
+            sheet_name: target,
+            work_name: workName,
+            division_name: divRaw,
+            subdivision_name: subdivMapped,
+            ee_name: eeMapped,
+            ta_name: taMapped,
+            as_name: asMapped,
+            so_name: soMapped,
+            aee_name: aeeMapped,
+            status_raw: statusRaw,
+            start_date: startDateStr,
+            target_date: targetFormatted,
+            overdue_by: overdueBy,
+            hoa: hoa,
+            age_bucket,
+            tree_bucket,
+            is_status_p: isStatusP ? 1 : 0,
+            is_status_ets: isStatusEts ? 1 : 0,
+            is_overdue: isOverdue ? 1 : 0
+          });
+        }
+
+        diagRows.push({
+          Sheet: target, Status: "Loaded",
+          "Sub-division Col": colMap.subdivision !== undefined ? "Found" : "Missing",
+          "EE / TA / AS Cols": `EE:${colMap.ee !== undefined ? "Y" : "N"} TA:${colMap.ta !== undefined ? "Y" : "N"} AS:${colMap.as_off !== undefined ? "Y" : "N"}`,
+          "Rows Loaded": loadedCount, "Overdue ('P')": odCount, ETS: etsCount
+        });
+      });
+
+      return {
+        masterRows,
+        diagRows,
+        todayStr: todayInfo.formatted,
+        lastSynced: getISTTimestamp()
+      };
+    }
+
+    // =========================================================================
+    // 4. SNAPSHOT ENGINE (NATIVE GZIP CLOUD CACHE + LOCAL INDEXEDDB BACKUP)
+    // =========================================================================
+    function getSafeTodayIST() {
+      const istDate = new Date(Date.now() + 19800000);
+      const d = String(istDate.getUTCDate()).padStart(2, "0");
+      const m = String(istDate.getUTCMonth() + 1).padStart(2, "0");
+      const y = istDate.getUTCFullYear();
+      return `${d}-${m}-${y}`;
+    }
+
+    function uint8ToBase64(bytes) {
+      let binary = "";
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+      }
+      return btoa(binary);
+    }
+
+    function base64ToUint8(b64) {
+      const binary = atob(b64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes;
+    }
+
+    async function compressString(str) {
+      const rawBytes = new TextEncoder().encode(str);
+      if (typeof CompressionStream !== "undefined") {
+        try {
+          const cs = new CompressionStream("gzip");
+          const writer = cs.writable.getWriter();
+          writer.write(rawBytes);
+          writer.close();
+          const compressedBuf = await new Response(cs.readable).arrayBuffer();
+          return { fmt: "gzip", data: uint8ToBase64(new Uint8Array(compressedBuf)) };
+        } catch (e) {
+          console.warn("Gzip fallback to raw base64:", e);
+        }
+      }
+      return { fmt: "raw", data: uint8ToBase64(rawBytes) };
+    }
+
+    async function decompressString(b64, fmt) {
+      const bytes = base64ToUint8(b64);
+      if (fmt === "gzip" && typeof DecompressionStream !== "undefined") {
+        const ds = new DecompressionStream("gzip");
+        const writer = ds.writable.getWriter();
+        writer.write(bytes);
+        writer.close();
+        const decompressedBuf = await new Response(ds.readable).arrayBuffer();
+        return new TextDecoder().decode(decompressedBuf);
+      }
+      return new TextDecoder().decode(bytes);
+    }
+
+    async function packPayloadForCloud(payload) {
+      const strMap = new Map();
+      const strList = [];
+      function getStrId(val) {
+        const s = val === null || val === undefined ? "" : String(val);
+        if (strMap.has(s)) return strMap.get(s);
+        const id = strList.length;
+        strList.push(s);
+        strMap.set(s, id);
+        return id;
+      }
+
+      const packedRows = payload.masterRows.map((row) => [
+        getStrId(row.sheet_name),
+        getStrId(row.work_name),
+        getStrId(row.division_name),
+        getStrId(row.subdivision_name),
+        getStrId(row.ee_name),
+        getStrId(row.ta_name),
+        getStrId(row.as_name),
+        getStrId(row.so_name),
+        getStrId(row.aee_name),
+        getStrId(row.status_raw),
+        getStrId(row.start_date),
+        getStrId(row.target_date),
+        getStrId(row.overdue_by),
+        getStrId(row.hoa),
+        getStrId(row.age_bucket),
+        getStrId(row.tree_bucket),
+        row.is_status_p ? 1 : 0,
+        row.is_status_ets ? 1 : 0,
+        row.is_overdue ? 1 : 0
+      ]);
+
+      const rawJson = JSON.stringify({
+        s: strList,
+        r: packedRows,
+        d: payload.diagRows || [],
+        t: payload.todayStr || getSafeTodayIST(),
+        l: payload.lastSynced || "-"
+      });
+
+      const compressed = await compressString(rawJson);
+      return {
+        v: 8,
+        fmt: compressed.fmt,
+        todayStr: payload.todayStr || getSafeTodayIST(),
+        lastSynced: payload.lastSynced || "-",
+        data: compressed.data
+      };
+    }
+
+    async function unpackPayloadFromCloud(wrapper) {
+      if (!wrapper || !wrapper.data) return null;
+      const rawJson = await decompressString(wrapper.data, wrapper.fmt);
+      const parsed = JSON.parse(rawJson);
+      if (!parsed || !Array.isArray(parsed.r) || !Array.isArray(parsed.s)) return null;
+
+      const s = parsed.s;
+      const masterRows = parsed.r.map((arr) => ({
+        sheet_name: s[arr[0]] || "",
+        work_name: s[arr[1]] || "",
+        division_name: s[arr[2]] || "",
+        subdivision_name: s[arr[3]] || "",
+        ee_name: s[arr[4]] || "",
+        ta_name: s[arr[5]] || "",
+        as_name: s[arr[6]] || "",
+        so_name: s[arr[7]] || "",
+        aee_name: s[arr[8]] || "",
+        status_raw: s[arr[9]] || "",
+        start_date: s[arr[10]] || "",
+        target_date: s[arr[11]] || "",
+        overdue_by: s[arr[12]] || "-",
+        hoa: s[arr[13]] || "",
+        age_bucket: s[arr[14]] || "Unknown",
+        tree_bucket: s[arr[15]] || "Unknown",
+        is_status_p: arr[16] ? 1 : 0,
+        is_status_ets: arr[17] ? 1 : 0,
+        is_overdue: arr[18] ? 1 : 0
+      }));
+
+      return {
+        masterRows,
+        diagRows: parsed.d || [],
+        todayStr: parsed.t || wrapper.todayStr || "",
+        lastSynced: parsed.l || wrapper.lastSynced || "-"
+      };
+    }
+
+    function getFirebaseBaseUrl() {
+      const inputEl = document.getElementById("firebase-url-input");
+      const inputVal = inputEl ? inputEl.value.trim() : "";
+      return (inputVal || CONFIG.FIREBASE_DB_URL || "").trim().replace(/\s+/g, "").replace(/\/+$/, "");
+    }
+
+    function openLocalSnapshotDB() {
+      return new Promise((resolve) => {
+        try {
+          const req = indexedDB.open("MI_Overdue_Snapshot_DB_v8", 1);
+          req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains("snapshots")) {
+              db.createObjectStore("snapshots");
+            }
+          };
+          req.onsuccess = (e) => resolve(e.target.result);
+          req.onerror = () => resolve(null);
+        } catch (err) {
+          resolve(null);
+        }
+      });
+    }
+
+    async function saveLocalSnapshot(payload) {
+      try {
+        const db = await openLocalSnapshotDB();
+        if (!db) return;
+        await new Promise((resolve) => {
+          const tx = db.transaction("snapshots", "readwrite");
+          tx.objectStore("snapshots").put(payload, "latest_v8");
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+        });
+      } catch (e) {
+        console.warn("IndexedDB save skipped:", e);
+      }
+    }
+
+    async function loadLocalSnapshot() {
+      try {
+        const db = await openLocalSnapshotDB();
+        if (!db) return null;
+        return await new Promise((resolve) => {
+          const tx = db.transaction("snapshots", "readonly");
+          const req = tx.objectStore("snapshots").get("latest_v8");
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => resolve(null);
+        });
+      } catch (e) {
+        return null;
+      }
+    }
+
+    async function loadFromFirebaseCache() {
+      const fbUrl = getFirebaseBaseUrl();
+      if (!fbUrl) return null;
+      try {
+        const resp = await fetch(`${fbUrl}/mi_cloud_cache_v8.json`, { cache: "no-store" });
+        if (!resp.ok) return null;
+        const wrapper = await resp.json();
+        if (!wrapper) return null;
+        const data = await unpackPayloadFromCloud(wrapper);
+        if (data && Array.isArray(data.masterRows) && data.masterRows.length > 0) {
+          return data;
+        }
+      } catch (e) {
+        console.warn("Firebase cache read error:", e);
+      }
+      return null;
+    }
+
+    async function saveToFirebaseCache(payload) {
+      const cleanPayload = {
+        masterRows: payload.masterRows,
+        diagRows: payload.diagRows || [],
+        todayStr: getSafeTodayIST(),
+        lastSynced: payload.lastSynced || getISTTimestamp()
+      };
+
+      await saveLocalSnapshot(cleanPayload);
+
+      const fbUrl = getFirebaseBaseUrl();
+      if (!fbUrl) return false;
+      try {
+        const packedWrapper = await packPayloadForCloud(cleanPayload);
+        const bodyStr = JSON.stringify(packedWrapper);
+        const resp = await fetch(`${fbUrl}/mi_cloud_cache_v8.json`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: bodyStr
+        });
+        return resp.ok;
+      } catch (e) {
+        console.error("Firebase cache write error:", e);
+        return false;
+      }
+    }
+
+    async function syncFromGoogleSheets(skipRender = false) {
+      const btn = document.getElementById("sync-btn");
+      btn.disabled = true;
+      btn.textContent = "Syncing 23 Sheets...";
+      statusTextEl.textContent = "Downloading & parsing 23 Google Worksheets...";
+
+      try {
+        const sheetUrl = document.getElementById("sheet-url-input").value.trim() || CONFIG.DEFAULT_SHEET_URL;
+        const resp = await fetch(`/api/sheet?url=${encodeURIComponent(sheetUrl)}`);
+        if (!resp.ok) throw new Error(`Server returned ${resp.status}`);
+        const arrayBuffer = await resp.arrayBuffer();
+        const parsed = parseWorkbookArrayBuffer(arrayBuffer);
+
+        const currentTodayIST = getSafeTodayIST();
+        STATE.masterRows = parsed.masterRows;
+        STATE.diagRows = parsed.diagRows;
+        STATE.todayStr = currentTodayIST;
+        STATE.lastSynced = parsed.lastSynced;
+
+        const cloudSaved = await saveToFirebaseCache({
+          masterRows: STATE.masterRows,
+          diagRows: STATE.diagRows,
+          todayStr: currentTodayIST,
+          lastSynced: STATE.lastSynced
+        });
+
+        STATE.sourceLabel = cloudSaved
+          ? "Google Sheets Live Snapshot (Saved to Cloud ✓)"
+          : "Google Sheets Snapshot (Saved Locally)";
+
+        if (!skipRender) {
+          populateFilterDropdowns(true);
+          renderActivePage();
+        }
+      } catch (err) {
+        alert("Could not sync from Google Sheets: " + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Sync Latest Data from Google Sheets";
+      }
+    }
+
+    async function initAppLoad() {
+      document.getElementById("sheet-url-input").value = CONFIG.DEFAULT_SHEET_URL;
+      document.getElementById("firebase-url-input").value = CONFIG.FIREBASE_DB_URL;
+
+      const currentTodayIST = getSafeTodayIST();
+      statusTextEl.textContent = "Synchronising cloud snapshot...";
+
+      let cached = await loadFromFirebaseCache();
+      let sourceText = "Firebase Cloud Snapshot";
+
+      if (!cached) {
+        cached = await loadLocalSnapshot();
+        sourceText = "Saved Browser Snapshot";
+      }
+
+      if (cached && Array.isArray(cached.masterRows) && cached.masterRows.length > 0 && cached.todayStr === currentTodayIST) {
+        STATE.masterRows = cached.masterRows;
+        STATE.diagRows = cached.diagRows || [];
+        STATE.todayStr = currentTodayIST;
+        STATE.lastSynced = cached.lastSynced || "-";
+        STATE.sourceLabel = `${sourceText} (Instant Load)`;
+      } else {
+        await syncFromGoogleSheets(true);
+      }
+
+      STATE.dataReady = true;
+      checkDismissOverlay();
+    }
+
+    // =========================================================================
+    // 5. CASCADING DROPDOWN FILTERS
+    // =========================================================================
+    function buildOptionsList(rows, key) {
+      const set = new Set();
+      let hasUnspecified = false;
+      rows.forEach((r) => {
+        const v = r[key];
+        if (!v) return;
+        if (v === UNSPECIFIED_LABEL) hasUnspecified = true;
+        else set.add(v);
+      });
+      const sorted = Array.from(set).sort((a, b) => a.localeCompare(b));
+      const opts = [ALL_OPTION, ...sorted];
+      if (hasUnspecified) opts.push(UNSPECIFIED_LABEL);
+      return opts;
+    }
+
+    function setSelectOptions(selectEl, options, prevVal) {
+      selectEl.innerHTML = options
+        .map((o) => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`)
+        .join("");
+      selectEl.value = options.includes(prevVal) ? prevVal : ALL_OPTION;
+    }
+
+    function populateFilterDropdowns(resetAll = false) {
+      const selDiv = document.getElementById("f-div");
+      const selSub = document.getElementById("f-subdiv");
+      const selEe = document.getElementById("f-ee");
+      const selTa = document.getElementById("f-ta");
+      const selAs = document.getElementById("f-as");
+
+      const prevDiv = resetAll ? ALL_OPTION : selDiv.value;
+      const prevSub = resetAll ? ALL_OPTION : selSub.value;
+      const prevEe = resetAll ? ALL_OPTION : selEe.value;
+      const prevTa = resetAll ? ALL_OPTION : selTa.value;
+      const prevAs = resetAll ? ALL_OPTION : selAs.value;
+
+      const divOpts = buildOptionsList(STATE.masterRows, "division_name");
+      setSelectOptions(selDiv, divOpts, prevDiv);
+
+      const s1 = selDiv.value !== ALL_OPTION ? STATE.masterRows.filter((r) => r.division_name === selDiv.value) : STATE.masterRows;
+      setSelectOptions(selSub, buildOptionsList(s1, "subdivision_name"), prevSub);
+
+      const s2 = selSub.value !== ALL_OPTION ? s1.filter((r) => r.subdivision_name === selSub.value) : s1;
+      setSelectOptions(selEe, buildOptionsList(s2, "ee_name"), prevEe);
+
+      const s3 = selEe.value !== ALL_OPTION ? s2.filter((r) => r.ee_name === selEe.value) : s2;
+      setSelectOptions(selTa, buildOptionsList(s3, "ta_name"), prevTa);
+
+      const s4 = selTa.value !== ALL_OPTION ? s3.filter((r) => r.ta_name === selTa.value) : s3;
+      setSelectOptions(selAs, buildOptionsList(s4, "as_name"), prevAs);
+    }
+
+    function getFilteredScopeRows() {
+      const d = document.getElementById("f-div").value;
+      const s = document.getElementById("f-subdiv").value;
+      const ee = document.getElementById("f-ee").value;
+      const ta = document.getElementById("f-ta").value;
+      const asOff = document.getElementById("f-as").value;
+      const denomMode = document.querySelector('input[name="denom-mode"]:checked').value;
+
+      return STATE.masterRows.filter((r) => {
+        if (d !== ALL_OPTION && r.division_name !== d) return false;
+        if (s !== ALL_OPTION && r.subdivision_name !== s) return false;
+        if (ee !== ALL_OPTION && r.ee_name !== ee) return false;
+        if (ta !== ALL_OPTION && r.ta_name !== ta) return false;
+        if (asOff !== ALL_OPTION && r.as_name !== asOff) return false;
+        if (denomMode === "ongoing" && !r.is_status_p) return false;
+        return true;
+      });
+    }
+
+    function getFilterScopeLabel() {
+      const d = document.getElementById("f-div").value;
+      const s = document.getElementById("f-subdiv").value;
+      const ee = document.getElementById("f-ee").value;
+      const ta = document.getElementById("f-ta").value;
+      const asOff = document.getElementById("f-as").value;
+      return `Division: ${d} | Sub-division: ${s} | EE: ${ee} | TA: ${ta} | AS: ${asOff}`;
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function compressBarLength(val) {
+      const v = Number(val);
+      if (v <= BAR_SHRINK_THRESHOLD) return v;
+      const excess = v - BAR_SHRINK_THRESHOLD;
+      return BAR_SHRINK_THRESHOLD + BAR_SHRINK_MAX_EXTRA * (excess / (excess + 120.0));
+    }
+
+    // =========================================================================
+    // 6. RENDER PAGE 1: MAIN OVERDUE WORKS DASHBOARD
+    // =========================================================================
+    function renderDashboardPage() {
+      const scopeRows = getFilteredScopeRows();
+      const viewChoice = document.querySelector('input[name="p1-view"]:checked').value;
+      const sortChoice = document.querySelector('input[name="p1-sort"]:checked').value;
+      const barMode = document.querySelector('input[name="bar-mode"]:checked').value;
+      const shrinkOutliers = document.getElementById("chk-shrink").checked;
+      const hideZero = document.getElementById("chk-hide-zero").checked;
+      const includeUnassigned = document.getElementById("chk-unassigned").checked;
+
+      const groupKey = viewChoice === "Assistant Engineer" ? "so_name" : "aee_name";
+      const validRows = scopeRows.filter((r) => {
+        if (!r[groupKey]) return false;
+        if (!includeUnassigned && r[groupKey] === UNASSIGNED_LABEL) return false;
+        return true;
+      });
+
+      const map = new Map();
+      validRows.forEach((r) => {
+        const name = r[groupKey];
+        if (!map.has(name)) {
+          map.set(name, { name, total_works: 0, ongoing_p_works: 0, ets_works: 0, overdue_works: 0 });
+        }
+        const g = map.get(name);
+        g.total_works += 1;
+        g.ongoing_p_works += r.is_status_p;
+        g.ets_works += r.is_status_ets;
+        g.overdue_works += r.is_overdue;
+      });
+
+      const summaryList = Array.from(map.values()).map((g) => {
+        const rest_works = Math.max(0, g.total_works - g.overdue_works - g.ets_works);
+        const overdue_pct = g.total_works > 0 ? Number(((g.overdue_works / g.total_works) * 100).toFixed(1)) : 0.0;
+        return { ...g, rest_works, overdue_pct, is_unassigned: g.name === UNASSIGNED_LABEL };
+      });
+
+      summaryList.sort((a, b) => {
+        if (a.is_unassigned !== b.is_unassigned) return a.is_unassigned ? 1 : -1;
+        if (sortChoice === "pct") {
+          return (b.overdue_pct - a.overdue_pct) || (b.overdue_works - a.overdue_works) || (b.total_works - a.total_works);
+        }
+        return (b.overdue_works - a.overdue_works) || (b.overdue_pct - a.overdue_pct) || (b.total_works - a.total_works);
+      });
+
+      const totalAssignedAll = summaryList.reduce((acc, r) => acc + r.total_works, 0);
+      const totalOverdueAll = summaryList.reduce((acc, r) => acc + r.overdue_works, 0);
+      const totalEtsAll = summaryList.reduce((acc, r) => acc + r.ets_works, 0);
+      const overallOdPct = totalAssignedAll > 0 ? ((totalOverdueAll / totalAssignedAll) * 100).toFixed(1) : "0.0";
+
+      const namedOfficersCount = summaryList.filter((r) => !r.is_unassigned && (!hideZero || r.overdue_works > 0)).length;
+
+      const odRows = validRows.filter((r) => r.is_overdue);
+      const chronicCount = odRows.filter((r) => r.age_bucket === "4. 2 – 5 Years" || r.age_bucket === "5. > 5 Years (Chronic)").length;
+
+      document.getElementById("p1-kpi-grid").innerHTML = `
+        <div class="kpi-card kpi-sky">
+          <div class="kpi-label">📅 Date (Today)</div>
+          <div class="kpi-val">${escapeHtml(STATE.todayStr)}</div>
+        </div>
+        <div class="kpi-card kpi-lavender">
+          <div class="kpi-label">👥 ${escapeHtml(viewChoice)}s</div>
+          <div class="kpi-val">${namedOfficersCount.toLocaleString()}</div>
+        </div>
+        <div class="kpi-card kpi-teal">
+          <div class="kpi-label">📋 Total Works</div>
+          <div class="kpi-val">${totalAssignedAll.toLocaleString()}</div>
+        </div>
+        <div class="kpi-card kpi-rose">
+          <div class="kpi-label">🔴 Overdue Works ('P')</div>
+          <div class="kpi-val">${totalOverdueAll.toLocaleString()} (${overallOdPct}%)</div>
+        </div>
+        <div class="kpi-card kpi-amber">
+          <div class="kpi-label">⏳ Chronic Overdue (&gt;2 Yrs)</div>
+          <div class="kpi-val">${chronicCount.toLocaleString()}</div>
+        </div>
+        <div class="kpi-card kpi-sage">
+          <div class="kpi-label">🟢 'ETS' Works</div>
+          <div class="kpi-val">${totalEtsAll.toLocaleString()}</div>
+        </div>
+      `;
+
+      const treeCounts = {
+        "Under 6 Months": 0, "6 Months to 1 Year": 0, "1 - 2 Years": 0,
+        "2 - 3 Years": 0, "3 - 4 Years": 0, "4+ Years": 0
+      };
+      odRows.forEach((r) => { if (treeCounts[r.tree_bucket] !== undefined) treeCounts[r.tree_bucket]++; });
+
+      const bucketsMeta = [
+        ["UNDER 6 MONTHS", treeCounts["Under 6 Months"], "first"],
+        ["6 MONTHS – 1 YR", treeCounts["6 Months to 1 Year"], "mid"],
+        ["1 – 2 YEARS", treeCounts["1 - 2 Years"], "mid"],
+        ["2 – 3 YEARS", treeCounts["2 - 3 Years"], "parent_col"],
+        ["3 – 4 YEARS", treeCounts["3 - 4 Years"], "mid"],
+        ["4+ YEARS", treeCounts["4+ Years"], "last"]
+      ];
+      const denomOd = Math.max(totalOverdueAll, 1);
+
+      const cardsHtml = bucketsMeta.map(([lbl, val, pos]) => {
+        const pct = totalOverdueAll > 0 ? ((val / denomOd) * 100).toFixed(1) : "0.0";
+        const hLine = pos === "first" ? "left:50%;right:-0.5rem;" : pos === "last" ? "left:-0.5rem;right:50%;" : "left:-0.5rem;right:-0.5rem;";
+        const dot = pos === "parent_col"
+          ? `<div style="position:absolute;top:-3.5px;left:50%;transform:translateX(-50%);width:8px;height:8px;border-radius:50%;background:#BE123C;border:2px solid #E2E8F0;z-index:4;"></div>`
+          : "";
+        return `
+          <div style="display:flex;flex-direction:column;align-items:center;">
+            <div style="position:relative;width:100%;height:13px;">
+              <div style="position:absolute;top:0;${hLine}height:1.5px;background:rgba(190,18,60,0.55);"></div>
+              ${dot}
+              <div style="width:1.5px;height:13px;background:rgba(190,18,60,0.55);margin:0 auto;"></div>
+            </div>
+            <div class="p1-age-card">
+              <div style="display:flex;align-items:center;gap:5px;min-width:0;">
+                <span style="font-size:0.68rem;color:#881337;font-weight:800;white-space:nowrap;">${lbl} :</span>
+                <span style="font-size:1.1rem;font-weight:800;color:#0F172A;">${val.toLocaleString()}</span>
+              </div>
+              <span style="font-size:0.70rem;color:#9F1239;background:#FFE4E6;border:1px solid #FB7185;padding:2px 7px;border-radius:999px;font-weight:800;">${pct}%</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      document.getElementById("p1-ageing-tree").innerHTML = `
+        <div style="width:100%;margin-top:-6px;margin-bottom:14px;">
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);column-gap:11px;width:100%;">
+            <div></div><div></div><div></div>
+            <div style="display:flex;justify-content:center;"><div style="width:1.5px;height:11px;background:rgba(190,18,60,0.55);"></div></div>
+            <div></div><div></div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);column-gap:11px;width:100%;">
+            ${cardsHtml}
+          </div>
+        </div>
+      `;
+
+      const scopeLabel = getFilterScopeLabel();
+      document.getElementById("p1-chart-title").textContent =
+        `Overdue & ETS Works by ${viewChoice} (${sortChoice === "pct" ? "Highest Overdue Percentage (%) at Top" : "Highest Overdue Count at Top"})`;
+      document.getElementById("p1-scope-badge-1").textContent = scopeLabel;
+      document.getElementById("p1-scope-badge-2").textContent = scopeLabel;
+      document.getElementById("p1-scope-badge-3").textContent = scopeLabel;
+      document.getElementById("p1-dossier-title").textContent = `Combined Overdue Works by ${viewChoice}`;
+
+      const chartSource = hideZero
+        ? summaryList.filter((r) => r.overdue_works > 0 || r.is_unassigned)
+        : summaryList;
+
+      const plotArr = [...chartSource].reverse();
+      const yNames = plotArr.map((r) => r.name);
+      const yShort = plotArr.map((r) => (r.name.length <= 28 ? r.name : r.name.slice(0, 27) + "…") + "\u00A0\u00A0\u00A0");
+
+      const barLabels = plotArr.map((r) => {
+        const isShrunk = shrinkOutliers && r.total_works > BAR_SHRINK_THRESHOLD && barMode === "overlay";
+        const shrinkTag = isShrunk ? ` [>${BAR_SHRINK_THRESHOLD} Shrunk]` : "";
+        if (sortChoice === "pct") {
+          return `  <b>${r.overdue_pct.toFixed(1)}% Overdue</b> (${r.overdue_works} Overdue | ${r.ets_works} ETS / ${r.total_works} Total)${shrinkTag}`;
+        }
+        return `  <b>${r.overdue_works} Overdue</b> | ${r.ets_works} ETS / ${r.total_works} Total (${r.overdue_pct.toFixed(1)}%)${shrinkTag}`;
+      });
+
+      const customHoverData = plotArr.map((r) => [
+        r.name,
+        r.overdue_works,
+        r.ets_works,
+        r.rest_works,
+        r.total_works,
+        r.overdue_pct.toFixed(1)
+      ]);
+
+      const cleanHoverTemplate =
+        `<b>${viewChoice}:</b> %{customdata[0]}<br>` +
+        `<b>Overdue Works ('P'):</b> %{customdata[1]}<br>` +
+        `<b>ETS Works ('ETS'):</b> %{customdata[2]}<br>` +
+        `<b>Rest of Works:</b> %{customdata[3]}<br>` +
+        `<b>Total Works Assigned:</b> %{customdata[4]}<br>` +
+        `<b>Overdue Percentage:</b> %{customdata[5]}%<extra></extra>`;
+
+      const cleanHoverLabel = {
+        bgcolor: "#0F172A",
+        bordercolor: "#334155",
+        namelength: 0,
+        font: { color: "#FFFFFF", size: 12, family: "Inter, sans-serif" },
+        align: "left"
+      };
+
+      let traces = [];
+      let maxX = 1;
+      let xTitle = "Number of Works";
+
+      if (barMode === "overdue") {
+        const xVals = plotArr.map((r) => r.overdue_works);
+        maxX = Math.max(...xVals, 1) * 1.28;
+        xTitle = "Number of Overdue Works";
+        traces.push({
+          type: "bar", orientation: "h", y: yNames, x: xVals,
+          name: "Overdue Works ('P')",
+          marker: { color: "#DC2626" },
+          text: barLabels, textposition: "outside", cliponaxis: false,
+          customdata: customHoverData,
+          hovertemplate: cleanHoverTemplate,
+          hoverlabel: cleanHoverLabel
+        });
+      } else if (barMode === "pct") {
+        const xVals = plotArr.map((r) => r.overdue_pct);
+        maxX = Math.max(...xVals, 1) * 1.28;
+        xTitle = "Overdue Percentage (%)";
+        traces.push({
+          type: "bar", orientation: "h", y: yNames, x: xVals,
+          name: "Overdue %",
+          marker: { color: "#DC2626" },
+          text: barLabels, textposition: "outside", cliponaxis: false,
+          customdata: customHoverData,
+          hovertemplate: cleanHoverTemplate,
+          hoverlabel: cleanHoverLabel
+        });
+      } else {
+        const visTot = plotArr.map((r) => shrinkOutliers ? compressBarLength(r.total_works) : r.total_works);
+        const visOdEts = plotArr.map((r) => shrinkOutliers ? compressBarLength(r.overdue_works + r.ets_works) : (r.overdue_works + r.ets_works));
+        const visOd = plotArr.map((r) => shrinkOutliers ? compressBarLength(r.overdue_works) : r.overdue_works);
+        maxX = Math.max(...visTot, 1) * 1.28;
+
+        traces.push(
+          {
+            type: "bar", orientation: "h", y: yNames, x: visTot,
+            name: "Rest of Works (Other Statuses)",
+            marker: { color: "rgba(100, 116, 139, 0.28)", line: { color: "#64748B", width: 1 } },
+            text: barLabels, textposition: "outside", cliponaxis: false,
+            customdata: customHoverData,
+            hovertemplate: cleanHoverTemplate,
+            hoverlabel: cleanHoverLabel
+          },
+          {
+            type: "bar", orientation: "h", y: yNames, x: visOdEts,
+            name: "ETS Works ('ETS')",
+            marker: { color: "#059669" },
+            customdata: customHoverData,
+            hovertemplate: cleanHoverTemplate,
+            hoverlabel: cleanHoverLabel
+          },
+          {
+            type: "bar", orientation: "h", y: yNames, x: visOd,
+            name: "Overdue Works ('P')",
+            marker: { color: "#DC2626" },
+            customdata: customHoverData,
+            hovertemplate: cleanHoverTemplate,
+            hoverlabel: cleanHoverLabel
+          }
+        );
+      }
+
+      const chartHeight = Math.max(460, plotArr.length * 36 + 90);
+      const chartEl = document.getElementById("p1-bar-chart");
+      chartEl.style.height = chartHeight + "px";
+
+      Plotly.newPlot(chartEl, traces, {
+        barmode: "overlay",
+        height: chartHeight,
+        bargap: 0.22,
+        paper_bgcolor: "#E8EEF5",
+        plot_bgcolor: "#EDF2F7",
+        font: { color: "#0F172A", family: "Inter, sans-serif" },
+        xaxis: { title: xTitle, range: [0, maxX], gridcolor: "#CBD5E1" },
+        yaxis: {
+          tickmode: "array",
+          tickvals: yNames,
+          ticktext: yShort,
+          ticks: "outside",
+          ticklen: 14,
+          tickcolor: "#E8EEF5",
+          tickfont: { size: 12, color: "#0F172A" }
+        },
+        legend: { orientation: "h", y: 1.02, x: 0, traceorder: "reversed" },
+        margin: { l: 245, r: 20, t: 36, b: 40 }
+      }, { responsive: true, displayModeBar: false });
+
+      const offSelect = document.getElementById("p1-officer-select");
+      const prevOff = offSelect.value;
+      const offPool = chartSource.length ? chartSource : summaryList;
+      offSelect.innerHTML = offPool.map((r) =>
+        `<option value="${escapeHtml(r.name)}">${escapeHtml(r.name)} — (${r.overdue_works} Overdue | ${r.ets_works} ETS / ${r.total_works} Total | ${r.overdue_pct.toFixed(1)}%)</option>`
+      ).join("");
+      if (offPool.some((r) => r.name === prevOff)) offSelect.value = prevOff;
+
+      renderSelectedOfficerOverdueTable(scopeRows, viewChoice);
+
+      const sumCols = ["Sl. No.", viewChoice, "Total Works Assigned", "Overdue Works ('P')", "ETS Works ('ETS')", "Rest of Works", "Ongoing Works ('P')", "Overdue %"];
+      const sumRows = summaryList.map((r, i) => ({
+        "Sl. No.": i + 1,
+        [viewChoice]: r.name,
+        "Total Works Assigned": r.total_works,
+        "Overdue Works ('P')": r.overdue_works,
+        "ETS Works ('ETS')": r.ets_works,
+        "Rest of Works": r.rest_works,
+        "Ongoing Works ('P')": r.ongoing_p_works,
+        "Overdue %": `${r.overdue_pct.toFixed(1)}%`
+      }));
+      document.getElementById("p1-summary-table-wrap").innerHTML = buildHtmlTable(sumCols, sumRows, 460);
+
+      const diagCols = ["Sl. No.", "Sheet", "Status", "Sub-division Col", "EE / TA / AS Cols", "Rows Loaded", "Overdue ('P')", "ETS"];
+      const diagNumbered = STATE.diagRows.map((d, i) => ({ "Sl. No.": i + 1, ...d }));
+      document.getElementById("p1-diag-table-wrap").innerHTML = buildHtmlTable(diagCols, diagNumbered, 420);
+
+      const emptySet = new Set([UNASSIGNED_LABEL, UNSPECIFIED_LABEL, "", "-"]);
+      const missingRows = scopeRows.filter((r) =>
+        emptySet.has(r.subdivision_name) || emptySet.has(r.so_name) || emptySet.has(r.aee_name) ||
+        emptySet.has(r.ee_name) || emptySet.has(r.ta_name) || emptySet.has(r.as_name)
+      );
+      const dbgCols = ["Sl. No.", "Sheet", "Missing Column(s)", "Work Name", "Division", "Sub-division", "AE", "AEE", "EE", "TA", "AS", "Status"];
+      const dbgData = missingRows.map((r, idx) => {
+        const m = [];
+        if (emptySet.has(r.subdivision_name)) m.push("Sub-division");
+        if (emptySet.has(r.so_name)) m.push("AE");
+        if (emptySet.has(r.aee_name)) m.push("AEE");
+        if (emptySet.has(r.ee_name)) m.push("EE");
+        if (emptySet.has(r.ta_name)) m.push("TA");
+        if (emptySet.has(r.as_name)) m.push("AS");
+        return {
+          "Sl. No.": idx + 1,
+          Sheet: r.sheet_name,
+          "Missing Column(s)": m.join(", "),
+          "Work Name": r.work_name || "-",
+          Division: r.division_name,
+          "Sub-division": r.subdivision_name,
+          AE: r.so_name,
+          AEE: r.aee_name,
+          EE: r.ee_name,
+          TA: r.ta_name,
+          AS: r.as_name,
+          Status: r.status_raw
+        };
+      });
+      document.getElementById("p1-debug-table-wrap").innerHTML = buildHtmlTable(dbgCols, dbgData, 420);
+    }
+
+    function renderSelectedOfficerOverdueTable(scopeRows, viewChoice) {
+      const selName = document.getElementById("p1-officer-select").value;
+      const groupKey = viewChoice === "Assistant Engineer" ? "so_name" : "aee_name";
+      const oppKey = viewChoice === "Assistant Engineer" ? "aee_name" : "so_name";
+      const oppLabel = viewChoice === "Assistant Engineer" ? "Assistant Executive Engineer" : "Assistant Engineer";
+
+      const odRows = scopeRows.filter((r) => r.is_overdue && r[groupKey] === selName);
+      const cols = ["Sl. No.", "Work Name", "Division", "Sub-division", oppLabel, "Technical Assistant", "Account Superintendent", "Executive Engineer", "Start Date", "Target Date", "Overdue By", "H.O.A."];
+
+      const formattedRows = odRows.map((r, i) => ({
+        "Sl. No.": i + 1,
+        "Work Name": r.work_name || "-",
+        "Division": r.division_name || "-",
+        "Sub-division": [UNSPECIFIED_LABEL, UNASSIGNED_LABEL].includes(r.subdivision_name) ? "-" : r.subdivision_name,
+        [oppLabel]: [UNSPECIFIED_LABEL, UNASSIGNED_LABEL].includes(r[oppKey]) ? "-" : r[oppKey],
+        "Technical Assistant": [UNSPECIFIED_LABEL, UNASSIGNED_LABEL].includes(r.ta_name) ? "-" : r.ta_name,
+        "Account Superintendent": [UNSPECIFIED_LABEL, UNASSIGNED_LABEL].includes(r.as_name) ? "-" : r.as_name,
+        "Executive Engineer": [UNSPECIFIED_LABEL, UNASSIGNED_LABEL].includes(r.ee_name) ? "-" : r.ee_name,
+        "Start Date": r.start_date || "-",
+        "Target Date": r.target_date || "-",
+        "Overdue By": r.overdue_by || "-",
+        "H.O.A.": r.hoa || "-"
+      }));
+
+      STATE.currentOfficerOverdueRows = formattedRows;
+      const hoas = Array.from(new Set(formattedRows.map((r) => r["H.O.A."]))).join(", ");
+      document.getElementById("p1-officer-meta").innerHTML =
+        `<b>Selected ${escapeHtml(viewChoice)}:</b> ${escapeHtml(selName)} &nbsp;|&nbsp; <b>Total Overdue Works:</b> ${formattedRows.length} &nbsp;|&nbsp; <b>Account Heads (H.O.A.):</b> ${escapeHtml(hoas || "-")}`;
+
+      document.getElementById("p1-overdue-table-wrap").innerHTML = buildHtmlTable(cols, formattedRows, 540);
+    }
+
+    function buildHtmlTable(columns, rows, maxHeight = 540) {
+      if (!rows.length) {
+        return `<div class="filter-card" style="padding:12px;font-weight:700;">No matching overdue works in the selected scope.</div>`;
+      }
+      const thead = columns.map((c) => `<th>${escapeHtml(c)}</th>`).join("");
+      const tbody = rows.map((r) => {
+        const tds = columns.map((col, idx) => {
+          const val = escapeHtml(r[col] ?? "-");
+          if (idx === 0) return `<td class="ce-sl-cell">${val}</td>`;
+          if (col === "Work Name") return `<td class="ce-work-name-cell" title="${val}">${val}</td>`;
+          if (["Target Date", "Overdue By", "Overdue Works ('P')", "Overdue %"].includes(col)) {
+            return `<td class="ce-date-overdue">${val}</td>`;
+          }
+          return `<td>${val}</td>`;
+        }).join("");
+        return `<tr>${tds}</tr>`;
+      }).join("");
+
+      return `
+        <div class="ce-table-wrapper" style="max-height:${maxHeight}px;">
+          <table class="ce-overdue-table">
+            <thead><tr>${thead}</tr></thead>
+            <tbody>${tbody}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 7. RENDER PAGE 2: CE ANALYTICS & ETS AND DASHBOARD
+    // =========================================================================
+    function buildOfficerAnalyticsList(scopeRows, colKey) {
+      const map = new Map();
+      scopeRows.forEach((r) => {
+        const name = r[colKey];
+        if (!name || name === UNASSIGNED_LABEL || name === UNSPECIFIED_LABEL) return;
+        if (!map.has(name)) {
+          map.set(name, { name, total_works: 0, ongoing_p_works: 0, ets_works: 0, overdue_works: 0, divCounts: {} });
+        }
+        const g = map.get(name);
+        g.total_works += 1;
+        g.ongoing_p_works += r.is_status_p;
+        g.ets_works += r.is_status_ets;
+        g.overdue_works += r.is_overdue;
+        g.divCounts[r.division_name] = (g.divCounts[r.division_name] || 0) + 1;
+      });
+
+      return Array.from(map.values()).map((g) => {
+        let primary_div = "-";
+        let maxD = 0;
+        Object.entries(g.divCounts).forEach(([d, cnt]) => {
+          if (cnt > maxD) { maxD = cnt; primary_div = d; }
+        });
+        const on_track_p = Math.max(0, g.ongoing_p_works - g.overdue_works);
+        const rest_works = Math.max(0, g.total_works - g.overdue_works - g.ets_works);
+        const overdue_pct = g.total_works > 0 ? Number(((g.overdue_works / g.total_works) * 100).toFixed(1)) : 0.0;
+        const delayed_exposure = g.overdue_works + g.ets_works;
+        const unexcused_ratio_pct = delayed_exposure > 0 ? Number(((g.overdue_works / delayed_exposure) * 100).toFixed(1)) : 0.0;
+        return { ...g, primary_div, on_track_p, rest_works, overdue_pct, delayed_exposure, unexcused_ratio_pct };
+      });
+    }
+
+    function renderAnalyticsPage() {
+      const scopeRows = getFilteredScopeRows();
+      const aeStats = buildOfficerAnalyticsList(scopeRows, "so_name");
+      const aeeStats = buildOfficerAnalyticsList(scopeRows, "aee_name");
+
+      const totWorks = scopeRows.length;
+      const totOd = scopeRows.reduce((a, r) => a + r.is_overdue, 0);
+      const totEts = scopeRows.reduce((a, r) => a + r.is_status_ets, 0);
+      const odPct = totWorks > 0 ? ((totOd / totWorks) * 100).toFixed(1) : "0.0";
+      const etsPct = totWorks > 0 ? ((totEts / totWorks) * 100).toFixed(1) : "0.0";
+      const totDelayed = totOd + totEts;
+      const unexcusedShare = totDelayed > 0 ? ((totOd / totDelayed) * 100).toFixed(1) : "0.0";
+      const chronic2Yr = scopeRows.filter((r) => r.is_overdue && (r.age_bucket === "4. 2 – 5 Years" || r.age_bucket === "5. > 5 Years (Chronic)")).length;
+
+      document.getElementById("p2-kpi-grid").innerHTML = `
+        <div class="kpi-card kpi-teal">
+          <div class="kpi-label">📋 Total Works in Scope</div>
+          <div class="kpi-val">${totWorks.toLocaleString()}</div>
+          <div class="kpi-sub">${aeStats.length} AEs &bull; ${aeeStats.length} AEEs</div>
+        </div>
+        <div class="kpi-card kpi-rose">
+          <div class="kpi-label">🔴 True Overdue ('P')</div>
+          <div class="kpi-val" style="color:#991B1B;">${totOd.toLocaleString()} (${odPct}%)</div>
+          <div class="kpi-sub">Past Target Date &amp; Not in ETS</div>
+        </div>
+        <div class="kpi-card kpi-sage">
+          <div class="kpi-label">🟢 Claimed 'ETS' Works</div>
+          <div class="kpi-val" style="color:#065F46;">${totEts.toLocaleString()} (${etsPct}%)</div>
+          <div class="kpi-sub">Extension of Time Status</div>
+        </div>
+        <div class="kpi-card kpi-amber">
+          <div class="kpi-label">⚠️ Total Delayed Exposure</div>
+          <div class="kpi-val" style="color:#92400E;">${totDelayed.toLocaleString()}</div>
+          <div class="kpi-sub">Overdue ('P') + 'ETS' Combined</div>
+        </div>
+        <div class="kpi-card kpi-pink">
+          <div class="kpi-label">🕵️ Unexcused Overdue Ratio</div>
+          <div class="kpi-val" style="color:#9D174D;">${unexcusedShare}%</div>
+          <div class="kpi-sub">Of delayed works are NOT in ETS</div>
+        </div>
+        <div class="kpi-card kpi-lavender">
+          <div class="kpi-label">⏳ Chronic Overdue (&gt;2 Yrs)</div>
+          <div class="kpi-val" style="color:#5B21B6;">${chronic2Yr.toLocaleString()}</div>
+          <div class="kpi-sub">Target elapsed by 2+ years</div>
+        </div>
+      `;
+
+      const auditRole = document.querySelector('input[name="p2-audit-role"]:checked').value;
+      const auditList = [...(auditRole === "Assistant Engineer" ? aeStats : aeeStats)]
+        .sort((a, b) => (b.overdue_works - a.overdue_works) || (b.ets_works - a.ets_works));
+
+      const auditSel = document.getElementById("p2-audit-officer-select");
+      const prevPicked = auditSel.value;
+      auditSel.innerHTML = auditList.map((r) => `<option value="${escapeHtml(r.name)}">${escapeHtml(r.name)} (${r.overdue_works} OD | ${r.ets_works} ETS)</option>`).join("");
+      if (auditList.some((r) => r.name === prevPicked)) auditSel.value = prevPicked;
+
+      renderAuditOfficerDetails(scopeRows, auditRole, auditList);
+      renderAllLeaderboards(scopeRows);
+    }
+
+    function renderAuditOfficerDetails(scopeRows, auditRole, auditList) {
+      const picked = document.getElementById("p2-audit-officer-select").value;
+      const offRow = auditList.find((r) => r.name === picked);
+      if (!offRow) return;
+
+      let vColor = "#B45309", vTitle = "", vMsg = "";
+      if (offRow.overdue_works === 0 && offRow.ets_works === 0) {
+        vColor = "#047857";
+        vTitle = "CLEAN RECORD (0 Overdue, 0 ETS)";
+        vMsg = `<b>${escapeHtml(picked)}</b> has zero overdue works and zero ETS works across <b>${offRow.total_works}</b> assigned works.`;
+      } else if (offRow.overdue_works > 0 && offRow.ets_works === 0) {
+        vColor = "#B91C1C";
+        vTitle = "100% UNEXCUSED OVERDUE (ZERO ETS)";
+        vMsg = `If <b>${escapeHtml(picked)}</b> claims their delayed works are in ETS, <b>that is inaccurate</b>: <b>${offRow.overdue_works} work(s)</b> are sitting in Overdue ('P') and <b>0 works</b> are in ETS.`;
+      } else if (offRow.overdue_works > offRow.ets_works) {
+        vColor = "#C2410C";
+        vTitle = `MORE OVERDUE THAN ETS (${offRow.unexcused_ratio_pct.toFixed(1)}% Unexcused)`;
+        vMsg = `Out of <b>${offRow.overdue_works + offRow.ets_works}</b> delayed works under <b>${escapeHtml(picked)}</b>, only <b>${offRow.ets_works}</b> are in ETS while <b>${offRow.overdue_works} works (${offRow.unexcused_ratio_pct.toFixed(1)}%)</b> are sitting in Overdue ('P').`;
+      } else {
+        vColor = "#B45309";
+        vTitle = `ETS HEAVY (${offRow.ets_works} in ETS vs. ${offRow.overdue_works} Overdue)`;
+        vMsg = `<b>${escapeHtml(picked)}</b> has placed <b>${offRow.ets_works}</b> works in ETS, and still has <b>${offRow.overdue_works}</b> active Overdue ('P') work(s) (${offRow.overdue_pct.toFixed(1)}% of total).`;
+      }
+
+      const colKey = auditRole === "Assistant Engineer" ? "so_name" : "aee_name";
+      const offOdRows = scopeRows.filter((r) => r.is_overdue && r[colKey] === picked);
+
+      const tc = { "Under 6 Months": 0, "6 Months to 1 Year": 0, "1 - 2 Years": 0, "2 - 3 Years": 0, "3 - 4 Years": 0, "4+ Years": 0 };
+      offOdRows.forEach((r) => { if (tc[r.tree_bucket] !== undefined) tc[r.tree_bucket]++; });
+
+      document.getElementById("p2-truth-verdict-box").innerHTML = `
+        <div class="truth-audit-box" style="border-left-color:${vColor};">
+          <div style="font-size:0.95rem;font-weight:800;color:${vColor};margin-bottom:6px;">${vTitle}</div>
+          <div style="font-size:0.86rem;color:#0F172A;line-height:1.45;margin-bottom:14px;">${vMsg}</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;text-align:center;">
+            <div style="background:#FEE2E2;border:1.5px solid #F87171;border-radius:8px;padding:10px;">
+              <div style="font-size:0.73rem;color:#991B1B;font-weight:800;">OVERDUE ('P')</div>
+              <div style="font-size:1.45rem;font-weight:800;color:#991B1B;">${offRow.overdue_works}</div>
+            </div>
+            <div style="background:#D1FAE5;border:1.5px solid #34D399;border-radius:8px;padding:10px;">
+              <div style="font-size:0.73rem;color:#065F46;font-weight:800;">IN 'ETS'</div>
+              <div style="font-size:1.45rem;font-weight:800;color:#065F46;">${offRow.ets_works}</div>
+            </div>
+            <div style="background:#DBEAFE;border:1.5px solid #60A5FA;border-radius:8px;padding:10px;">
+              <div style="font-size:0.73rem;color:#1E40AF;font-weight:800;">ON-TRACK ('P')</div>
+              <div style="font-size:1.45rem;font-weight:800;color:#1E3A8A;">${offRow.on_track_p}</div>
+            </div>
+            <div style="background:#CBD5E1;border:1.5px solid #94A3B8;border-radius:8px;padding:10px;">
+              <div style="font-size:0.73rem;color:#1E293B;font-weight:800;">TOTAL WORKS</div>
+              <div style="font-size:1.45rem;font-weight:800;color:#0F172A;">${offRow.total_works}</div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:12px;text-align:center;">
+            <div style="background:#FECDD3;border:1px solid #FB7185;border-radius:8px;padding:7px;"><div style="font-size:0.66rem;font-weight:800;color:#881337;">UNDER 6 MOS</div><div style="font-size:1.2rem;font-weight:800;">${tc["Under 6 Months"]}</div></div>
+            <div style="background:#FECDD3;border:1px solid #FB7185;border-radius:8px;padding:7px;"><div style="font-size:0.66rem;font-weight:800;color:#881337;">6–12 MOS</div><div style="font-size:1.2rem;font-weight:800;">${tc["6 Months to 1 Year"]}</div></div>
+            <div style="background:#FECDD3;border:1px solid #FB7185;border-radius:8px;padding:7px;"><div style="font-size:0.66rem;font-weight:800;color:#881337;">1–2 YRS</div><div style="font-size:1.2rem;font-weight:800;">${tc["1 - 2 Years"]}</div></div>
+            <div style="background:#FECDD3;border:1px solid #FB7185;border-radius:8px;padding:7px;"><div style="font-size:0.66rem;font-weight:800;color:#881337;">2–3 YRS</div><div style="font-size:1.2rem;font-weight:800;">${tc["2 - 3 Years"]}</div></div>
+            <div style="background:#FECDD3;border:1px solid #FB7185;border-radius:8px;padding:7px;"><div style="font-size:0.66rem;font-weight:800;color:#881337;">3–4 YRS</div><div style="font-size:1.2rem;font-weight:800;">${tc["3 - 4 Years"]}</div></div>
+            <div style="background:#FECDD3;border:1px solid #FB7185;border-radius:8px;padding:7px;"><div style="font-size:0.66rem;font-weight:800;color:#881337;">4+ YRS</div><div style="font-size:1.2rem;font-weight:800;">${tc["4+ Years"]}</div></div>
+          </div>
+        </div>
+      `;
+
+      Plotly.newPlot("p2-donut-chart", [{
+        type: "pie",
+        labels: ["Overdue ('P')", "Claimed 'ETS'", "On-Track ('P')", "Completed / Rest"],
+        values: [offRow.overdue_works, offRow.ets_works, offRow.on_track_p, offRow.rest_works],
+        hole: 0.56,
+        marker: { colors: ["#DC2626", "#059669", "#2563EB", "#64748B"], line: { color: "#E2E8F0", width: 3 } },
+        textinfo: "label+value",
+        textfont: { size: 12, color: "#0F172A" }
+      }], {
+        height: 290,
+        margin: { l: 10, r: 10, t: 10, b: 10 },
+        paper_bgcolor: "#E8EEF5",
+        showlegend: false,
+        annotations: [{ text: `<b>${offRow.total_works}</b><br>Works`, x: 0.5, y: 0.5, showarrow: false, font: { size: 15, color: "#0F172A" } }]
+      }, { responsive: true, displayModeBar: false });
+
+      const pCols = ["Sl. No.", "Work Name", "Target Date", "Overdue By", "H.O.A."];
+      const pRows = offOdRows.map((r, i) => ({
+        "Sl. No.": i + 1,
+        "Work Name": r.work_name || "-",
+        "Target Date": r.target_date || "-",
+        "Overdue By": r.overdue_by || "-",
+        "H.O.A.": r.hoa || "-"
+      }));
+      document.getElementById("p2-proof-table-wrap").innerHTML = buildHtmlTable(pCols, pRows, 275);
+    }
+
+    function buildLeaderboardPanelHtml(slice, title, subtitle, isDanger, metric) {
+      const panelCls = isDanger ? "exec-lb-panel-danger" : "exec-lb-panel-success";
+      const pillCls = isDanger ? "exec-pill-danger" : "exec-pill-success";
+
+      if (!slice.length) {
+        return `
+          <div class="exec-lb-panel ${panelCls}">
+            <div class="exec-lb-header">
+              <span class="exec-lb-title">${escapeHtml(title)}</span>
+              <span class="exec-lb-sub">${escapeHtml(subtitle)}</span>
+            </div>
+            <div style="padding:10px 0;font-size:0.82rem;font-weight:600;">No officers with overdue works match the current filter criteria.</div>
+          </div>
+        `;
+      }
+
+      const maxOd = Math.max(...slice.map((r) => r.overdue_works), 1);
+      const rowsHtml = slice.map((r, i) => {
+        const tot = Math.max(r.total_works, 1);
+        const mainBadge = metric === "pct"
+          ? `<span class="${pillCls}">${r.overdue_pct.toFixed(1)}% (${r.overdue_works} OD)</span>`
+          : `<span class="${pillCls}">${r.overdue_works} OD (${r.overdue_pct.toFixed(1)}%)</span>`;
+        const odW = metric === "pct"
+          ? Math.min(100, Math.max(r.overdue_works > 0 ? 2 : 0, r.overdue_pct))
+          : (isDanger && r.overdue_works > 0 ? Math.min(100, Math.max(4, (r.overdue_works / maxOd) * 100)) : Math.min(100, (r.overdue_works / tot) * 100));
+        const etsW = Math.min(100 - odW, (r.ets_works / tot) * 100);
+        const etsBadge = r.ets_works > 0 ? `<span class="exec-pill-ets">${r.ets_works} ETS</span>` : `<span style="font-size:0.72rem;font-weight:700;color:#475569;">0 ETS</span>`;
+
+        return `
+          <div class="exec-lb-row">
+            <div class="exec-lb-row-top">
+              <div class="exec-lb-officer-wrap">
+                <span class="exec-lb-rank">#${i + 1}</span>
+                <span class="exec-lb-name">${escapeHtml(r.name)}</span>
+                <span class="exec-lb-div-tag">${escapeHtml(r.primary_div)}</span>
+              </div>
+              <div class="exec-lb-badges">
+                ${mainBadge}
+                ${etsBadge}
+                <span class="exec-pill-total">${r.total_works} Total</span>
+              </div>
+            </div>
+            <div class="exec-lb-bar-bg">
+              <div class="exec-lb-bar-od" style="width:${odW.toFixed(1)}%;"></div>
+              <div class="exec-lb-bar-ets" style="width:${etsW.toFixed(1)}%;"></div>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      return `
+        <div class="exec-lb-panel ${panelCls}">
+          <div class="exec-lb-header">
+            <span class="exec-lb-title">${escapeHtml(title)}</span>
+            <span class="exec-lb-sub">${escapeHtml(subtitle)}</span>
+          </div>
+          ${rowsHtml}
+        </div>
+      `;
+    }
+
+    function renderAllLeaderboards(scopeRows) {
+      const minWorks = parseInt(document.getElementById("p2-min-works").value, 10) || 1;
+      const topN = parseInt(document.querySelector('input[name="p2-top-n"]:checked').value, 10) || 5;
+      document.getElementById("p2-min-works-val").textContent = minWorks;
+      document.getElementById("p2-lb-badge").textContent = `Min. ${minWorks} assigned works • Least Overdue excludes 0-OD`;
+
+      const cadreMap = {
+        "Assistant Engineer": ["so_name", "AEs"],
+        "Assistant Executive Engineer": ["aee_name", "AEEs"],
+        "Technical Assistant": ["ta_name", "TAs"],
+        "Account Superintendent": ["as_name", "Account Supts."]
+      };
+      const [colKey, shortPlural] = cadreMap[STATE.activeLbCadre];
+      const stats = buildOfficerAnalyticsList(scopeRows, colKey);
+
+      let qual = stats.filter((r) => r.total_works >= minWorks);
+      if (!qual.length) qual = [...stats];
+
+      const highCnt = [...stats].sort((a, b) => (b.overdue_works - a.overdue_works) || (b.overdue_pct - a.overdue_pct) || (b.total_works - a.total_works)).slice(0, topN);
+      const highPct = [...qual].sort((a, b) => (b.overdue_pct - a.overdue_pct) || (b.overdue_works - a.overdue_works) || (b.total_works - a.total_works)).slice(0, topN);
+
+      let leastPool = qual.filter((r) => r.overdue_works > 0);
+      if (!leastPool.length) leastPool = stats.filter((r) => r.overdue_works > 0);
+
+      const leastCnt = [...leastPool].sort((a, b) => (a.overdue_works - b.overdue_works) || (a.overdue_pct - b.overdue_pct) || (b.total_works - a.total_works)).slice(0, topN);
+      const leastPct = [...leastPool].sort((a, b) => (a.overdue_pct - b.overdue_pct) || (a.overdue_works - b.overdue_works) || (b.total_works - a.total_works)).slice(0, topN);
+
+      document.getElementById("p2-leaderboards-wrap").innerHTML = `
+        <div class="lb-grid-2">
+          ${buildLeaderboardPanelHtml(highCnt, `Top ${topN} ${shortPlural} — Highest Overdue (By Count)`, "Ranked by Overdue Works Count", true, "count")}
+          ${buildLeaderboardPanelHtml(highPct, `Top ${topN} ${shortPlural} — Highest Overdue (By Percentage %)`, `Min. ${minWorks} Works Assigned`, true, "pct")}
+        </div>
+        <div class="lb-grid-2">
+          ${buildLeaderboardPanelHtml(leastCnt, `Top ${topN} ${shortPlural} — Least Overdue (By Count)`, `Officers with Overdue > 0 • Min. ${minWorks} Works`, false, "count")}
+          ${buildLeaderboardPanelHtml(leastPct, `Top ${topN} ${shortPlural} — Least Overdue (By Percentage %)`, `Officers with Overdue > 0 • Min. ${minWorks} Works`, false, "pct")}
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 8. MASTER RENDER & EVENT LISTENERS
+    // =========================================================================
+    function renderActivePage() {
+      document.getElementById("status-source-pill").textContent = STATE.sourceLabel;
+      document.getElementById("status-time-label").textContent = STATE.lastSynced;
+
+      const dashSec = document.getElementById("page-dashboard");
+      const anSec = document.getElementById("page-analytics");
+      const titleEl = document.getElementById("page-main-title");
+      const switchBtn = document.getElementById("page-switch-btn");
+
+      if (STATE.activePage === "dashboard") {
+        dashSec.style.display = "block";
+        anSec.style.display = "none";
+        titleEl.textContent = "Minor Irrigation — Overdue Works Dashboard";
+        switchBtn.textContent = "Analytics View →";
+        renderDashboardPage();
+      } else {
+        dashSec.style.display = "none";
+        anSec.style.display = "block";
+        titleEl.textContent = "Minor Irrigation — CE Analytics & ETS and Dashboard";
+        switchBtn.textContent = "← Main Dashboard";
+        renderAnalyticsPage();
+      }
+    }
+
+    document.getElementById("sidebar-toggle-btn").addEventListener("click", () => {
+      document.getElementById("app-sidebar").classList.toggle("collapsed");
+      setTimeout(() => window.dispatchEvent(new Event("resize")), 260);
+    });
+
+    document.getElementById("page-switch-btn").addEventListener("click", () => {
+      STATE.activePage = STATE.activePage === "dashboard" ? "analytics" : "dashboard";
+      renderActivePage();
+    });
+
+    document.getElementById("sync-btn").addEventListener("click", () => syncFromGoogleSheets(false));
+    document.getElementById("xlsx-upload-input").addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const buf = await file.arrayBuffer();
+      const parsed = parseWorkbookArrayBuffer(buf);
+      STATE.masterRows = parsed.masterRows;
+      STATE.diagRows = parsed.diagRows;
+      STATE.todayStr = parsed.todayStr;
+      STATE.lastSynced = parsed.lastSynced;
+      STATE.sourceLabel = `Uploaded (${file.name})`;
+      await saveToFirebaseCache({
+        masterRows: STATE.masterRows,
+        diagRows: STATE.diagRows,
+        todayStr: STATE.todayStr,
+        lastSynced: STATE.lastSynced,
+        sourceLabel: STATE.sourceLabel
+      });
+      populateFilterDropdowns(true);
+      renderActivePage();
+    });
+
+    ["f-div", "f-subdiv", "f-ee", "f-ta", "f-as"].forEach((id) => {
+      document.getElementById(id).addEventListener("change", () => {
+        populateFilterDropdowns(false);
+        renderActivePage();
+      });
+    });
+
+    document.querySelectorAll('input[name="denom-mode"], input[name="bar-mode"], input[name="p1-view"], input[name="p1-sort"], #chk-shrink, #chk-hide-zero, #chk-unassigned').forEach((el) => {
+      el.addEventListener("change", renderActivePage);
+    });
+
+    document.getElementById("chk-scroll-hud").addEventListener("change", (e) => {
+      document.getElementById("scroll-hud-root").style.display = e.target.checked ? "block" : "none";
+    });
+
+    document.getElementById("p1-officer-select").addEventListener("change", () => {
+      const viewChoice = document.querySelector('input[name="p1-view"]:checked').value;
+      renderSelectedOfficerOverdueTable(getFilteredScopeRows(), viewChoice);
+    });
+
+    document.querySelectorAll('input[name="p2-audit-role"]').forEach((el) => {
+      el.addEventListener("change", renderAnalyticsPage);
+    });
+
+    document.getElementById("p2-audit-officer-select").addEventListener("change", () => {
+      const scopeRows = getFilteredScopeRows();
+      const auditRole = document.querySelector('input[name="p2-audit-role"]:checked').value;
+      const colKey = auditRole === "Assistant Engineer" ? "so_name" : "aee_name";
+      const auditList = buildOfficerAnalyticsList(scopeRows, colKey);
+      renderAuditOfficerDetails(scopeRows, auditRole, auditList);
+    });
+
+    document.getElementById("p2-min-works").addEventListener("input", () => renderAllLeaderboards(getFilteredScopeRows()));
+    document.querySelectorAll('input[name="p2-top-n"]').forEach((el) => {
+      el.addEventListener("change", () => renderAllLeaderboards(getFilteredScopeRows()));
+    });
+
+    document.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        STATE.activeLbCadre = btn.getAttribute("data-cadre");
+        renderAllLeaderboards(getFilteredScopeRows());
+      });
+    });
+
+    document.getElementById("dl-xlsx-btn").addEventListener("click", () => {
+      if (!STATE.currentOfficerOverdueRows.length) return;
+      const ws = XLSX.utils.json_to_sheet(STATE.currentOfficerOverdueRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Overdue_Works");
+      XLSX.writeFile(wb, `Overdue_Works_${STATE.todayStr}.xlsx`);
+    });
+
+    document.getElementById("dl-csv-btn").addEventListener("click", () => {
+      if (!STATE.currentOfficerOverdueRows.length) return;
+      const ws = XLSX.utils.json_to_sheet(STATE.currentOfficerOverdueRows);
+      const csv = "\uFEFF" + XLSX.utils.sheet_to_csv(ws);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `Overdue_Works_${STATE.todayStr}.csv`;
+      a.click();
+    });
+
+    window.addEventListener("scroll", () => {
+      const doc = document.documentElement;
+      const maxS = Math.max(1, doc.scrollHeight - doc.clientHeight);
+      const pct = Math.min(100, Math.max(0, (window.scrollY / maxS) * 100));
+      const ind = document.getElementById("scroll-hud-indicator");
+      const lbl = document.getElementById("scroll-hud-pct");
+      ind.style.top = (20 + 60 * (pct / 100)).toFixed(1) + "%";
+      lbl.textContent = Math.round(pct) + "%";
+    }, { passive: true });
+
+    initAppLoad();
+  </script>
+</body>
+</html>
