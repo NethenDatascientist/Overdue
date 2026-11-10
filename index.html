@@ -24,6 +24,7 @@
       padding: 0;
     }
 
+    /* Apply 90% Zoom ONLY to Dashboard (So Start Screen Stays 100% Fullscreen) */
     @media (min-width: 1024px) {
       .app-layout {
         zoom: 90%;
@@ -40,7 +41,7 @@
     }
 
     /* =========================================================================
-       1. 1.5-SECOND ANIMATED START SCREEN OVERLAY
+       1. 4-SECOND ANIMATED START SCREEN OVERLAY (CRISP VECTOR GRAPHICS)
        ========================================================================= */
     #intro-video-overlay {
       position: fixed;
@@ -55,7 +56,7 @@
       align-items: center;
       justify-content: center;
       overflow: hidden;
-      transition: opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.45s ease;
+      transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.55s ease;
     }
     #intro-video-overlay.hidden-overlay {
       opacity: 0;
@@ -70,13 +71,14 @@
       max-width: 920px;
       padding: 0 20px;
       z-index: 5;
-      animation: splashFadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      animation: splashFadeUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
     }
     .splash-emblem {
       width: 86px;
       height: auto;
       margin-bottom: 12px;
       filter: drop-shadow(0 6px 14px rgba(15, 23, 42, 0.16));
+      animation: emblemPop 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
     }
     .splash-kn-main {
       font-size: clamp(1.35rem, 3.2vw, 2.3rem);
@@ -135,11 +137,11 @@
       height: 100%;
       width: 0%;
       border-radius: 999px;
-      animation: fillBar 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.1s forwards;
+      animation: fillBar 2.4s cubic-bezier(0.22, 1, 0.36, 1) 0.3s forwards;
     }
     .splash-timer-track {
       width: min(360px, 75vw);
-      height: 6px;
+      height: 5px;
       background: #CBD5E1;
       border-radius: 999px;
       overflow: hidden;
@@ -147,18 +149,25 @@
     }
     .splash-timer-fill {
       height: 100%;
-      width: 15%;
+      width: 0%;
       background: linear-gradient(90deg, #1D4ED8, #059669);
-      border-radius: 999px;
-      transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+      animation: timerProgress 4s linear forwards;
     }
     @keyframes splashFadeUp {
-      from { opacity: 0; transform: translateY(14px); }
+      from { opacity: 0; transform: translateY(18px); }
       to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes emblemPop {
+      0% { opacity: 0; transform: scale(0.82); }
+      100% { opacity: 1; transform: scale(1); }
     }
     @keyframes fillBar {
       from { width: 0%; }
       to { width: var(--target-w, 78%); }
+    }
+    @keyframes timerProgress {
+      from { width: 0%; }
+      to { width: 100%; }
     }
     .intro-hud-bar {
       position: absolute;
@@ -230,6 +239,7 @@
       width: 100%;
     }
 
+    /* Tinted Slate-Blue Sidebar (220px) */
     .sidebar {
       width: 220px;
       min-width: 220px;
@@ -287,6 +297,7 @@
       line-height: 1.3;
     }
 
+    /* Sidebar Toggle Button */
     #sidebar-toggle-btn {
       position: fixed;
       top: 12px;
@@ -308,12 +319,14 @@
       color: #1E3A8A;
     }
 
+    /* Main Content Area */
     .main-container {
       flex: 1;
       min-width: 0;
       padding: 1.1rem 1.35rem 2.2rem 1.35rem;
     }
 
+    /* Top Header Row */
     .top-header-row {
       display: grid;
       grid-template-columns: 150px 1fr 170px;
@@ -339,6 +352,7 @@
       text-overflow: ellipsis;
     }
 
+    /* Buttons */
     .btn-primary {
       background: linear-gradient(180deg, #1E40AF 0%, #1E3A8A 100%);
       border: 1px solid #1E3A8A;
@@ -363,6 +377,7 @@
       cursor: not-allowed;
     }
 
+    /* Status Bar */
     .mi-status-bar {
       display: flex;
       flex-wrap: wrap;
@@ -387,6 +402,7 @@
       font-size: 0.74rem;
     }
 
+    /* 5-Column Cascading Filter Bar */
     .filter-grid-5 {
       display: grid;
       grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -424,6 +440,7 @@
       cursor: pointer;
     }
 
+    /* Secondary Controls Row (View & Sort) */
     .sub-controls-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -455,6 +472,7 @@
       cursor: pointer;
     }
 
+    /* 6-Column Pastel KPI Ribbon (Emojis Strictly Here) */
     .kpi-grid-6 {
       display: grid;
       grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -538,6 +556,7 @@
       background: linear-gradient(145deg, #FCE7F3 0%, #FBCFE8 100%);
     }
 
+    /* Connected 6-Bucket Overdue Ageing Tree */
     .p1-age-card {
       width: 100%;
       display: flex;
@@ -552,6 +571,7 @@
       box-shadow: 0 2px 8px rgba(15, 23, 42, 0.07);
     }
 
+    /* Section Header Banners */
     .exec-section-banner {
       display: flex;
       flex-wrap: wrap;
@@ -581,6 +601,7 @@
       color: #1E3A8A;
     }
 
+    /* Chart Box */
     .chart-box {
       border-radius: 12px;
       background: #E8EEF5;
@@ -590,6 +611,7 @@
       margin-bottom: 1rem;
     }
 
+    /* Tables */
     .ce-table-wrapper {
       max-height: 560px;
       overflow-y: auto;
@@ -655,6 +677,7 @@
       width: 44px;
     }
 
+    /* Truth Audit & Leaderboards */
     .truth-audit-box {
       background: linear-gradient(145deg, #E2E8F0 0%, #EDF2F7 100%);
       border: 1px solid #94A3B8;
@@ -815,6 +838,7 @@
       height: 100%;
     }
 
+    /* Cadre Tabs */
     .tab-bar {
       display: flex;
       flex-wrap: wrap;
@@ -837,6 +861,7 @@
       color: #FFFFFF;
     }
 
+    /* Expanders */
     details.exec-expander {
       background: #DCE6F2;
       border: 1px solid #94A3B8;
@@ -851,6 +876,7 @@
       cursor: pointer;
     }
 
+    /* Right-Edge Scroll HUD Ruler */
     #scroll-hud-root {
       position: fixed;
       top: 0;
@@ -884,7 +910,7 @@
 <body>
 
   <!-- =========================================================================
-       1.5-SECOND ANIMATED START SCREEN OVERLAY
+       4-SECOND ANIMATED START SCREEN OVERLAY (NO VIDEO FILE NEEDED)
        ========================================================================= -->
   <div id="intro-video-overlay">
     <div class="splash-content">
@@ -911,13 +937,13 @@
         </div>
         <div class="splash-mini-kpi" style="border-top-color:#059669;">
           <div style="font-size:0.72rem;font-weight:800;color:#065F46;">CE ANALYTICS SUITE</div>
-          <div style="font-size:1.15rem;font-weight:800;color:#0F172A;margin-top:2px;">ETS and Dashboard</div>
+          <div style="font-size:1.15rem;font-weight:800;color:#0F172A;margin-top:2px;">ETS Truth Audit</div>
           <div class="splash-bar-anim"><div class="splash-bar-fill" style="--target-w:84%;background:#059669;"></div></div>
         </div>
       </div>
 
       <div class="splash-timer-track">
-        <div class="splash-timer-fill" id="splash-timer-bar"></div>
+        <div class="splash-timer-fill"></div>
       </div>
     </div>
 
@@ -996,18 +1022,21 @@
          MAIN CONTENT AREA
          ======================================================================= -->
     <main class="main-container">
+      <!-- Top Header -->
       <div class="top-header-row">
         <div></div>
         <h1 class="main-title" id="page-main-title">Minor Irrigation — Overdue Works Dashboard</h1>
         <button type="button" id="page-switch-btn" class="btn-primary">Analytics View →</button>
       </div>
 
+      <!-- Status Bar -->
       <div class="mi-status-bar">
         <span class="mi-status-pill" id="status-source-pill">Loading...</span>
         <span><b>Last Synced:</b> <span id="status-time-label">-</span> IST</span>
         <span><b>Row Rule:</b> Valid text in <b>Division</b> column (empty <b>Sub-division</b> rows included)</span>
       </div>
 
+      <!-- 5 Cascading Dropdown Filters -->
       <div class="filter-grid-5">
         <div class="filter-card">
           <label for="f-div">Select Division:</label>
@@ -1048,9 +1077,13 @@
           </div>
         </div>
 
+        <!-- 6 KPI Cards -->
         <div class="kpi-grid-6" id="p1-kpi-grid"></div>
+
+        <!-- Connected 6-Bucket Overdue Ageing Tree -->
         <div id="p1-ageing-tree"></div>
 
+        <!-- Section 1: Horizontal Bar Chart -->
         <div class="exec-section-banner">
           <div class="exec-section-title" id="p1-chart-title">Overdue &amp; ETS Works</div>
           <div class="exec-scope-badge" id="p1-scope-badge-1"></div>
@@ -1059,6 +1092,7 @@
           <div id="p1-bar-chart" style="width:100%;min-height:480px;"></div>
         </div>
 
+        <!-- Section 2: Combined Overdue Works by Selected Officer -->
         <div class="exec-section-banner">
           <div class="exec-section-title" id="p1-dossier-title">Combined Overdue Works</div>
           <div class="exec-scope-badge" id="p1-scope-badge-2"></div>
@@ -1074,12 +1108,14 @@
         </div>
         <div id="p1-overdue-table-wrap"></div>
 
+        <!-- Section 3: Officer-Wise Summary Table -->
         <div class="exec-section-banner">
           <div class="exec-section-title">Officer-Wise Summary Table</div>
           <div class="exec-scope-badge" id="p1-scope-badge-3"></div>
         </div>
         <div id="p1-summary-table-wrap"></div>
 
+        <!-- Expanders for Diagnostics & Missing Data -->
         <details class="exec-expander">
           <summary>Inspect Worksheet Loading Status (23 Target Sheets)</summary>
           <div id="p1-diag-table-wrap" style="margin-top:8px;"></div>
@@ -1092,11 +1128,13 @@
       </section>
 
       <!-- =====================================================================
-           PAGE 2: CE ANALYTICS & ETS AND DASHBOARD
+           PAGE 2: CE ANALYTICS & ETS TRUTH AUDIT SUITE
            ===================================================================== -->
       <section id="page-analytics" style="display:none;">
+        <!-- 6 Executive KPI Cards -->
         <div class="kpi-grid-6" id="p2-kpi-grid"></div>
 
+        <!-- Analytics Section 1: Officer Truth Audit & Ageing Tree -->
         <div class="filter-card" style="padding:14px;margin-bottom:14px;">
           <div class="inline-radio-bar" style="margin-bottom:10px;">
             <span>Select Officer Cadre:</span>
@@ -1116,6 +1154,7 @@
           </div>
         </div>
 
+        <!-- Analytics Section 2: Executive Leaderboards (AE, AEE, TA, AS) -->
         <div class="sub-controls-row">
           <div class="inline-radio-bar">
             <label for="p2-min-works">Min. Works for Ranking: <span id="p2-min-works-val">1</span></label>
@@ -1184,16 +1223,11 @@
     };
 
     // =========================================================================
-    // 1. SMOOTH 1.5-SECOND START SCREEN CONTROLLER
+    // 4-SECOND ANIMATED INTRO & AUTO-CLOSE SIDEBAR CONTROLLER
     // =========================================================================
     const overlayEl = document.getElementById("intro-video-overlay");
     const statusTextEl = document.getElementById("intro-status-text");
     const spinnerEl = document.getElementById("intro-spinner-icon");
-    const timerFillEl = document.getElementById("splash-timer-bar");
-
-    setTimeout(() => {
-      if (timerFillEl) timerFillEl.style.width = "75%";
-    }, 60);
 
     function scheduleSidebarAutoClose() {
       if (STATE.sidebarAutoClosed) return;
@@ -1207,47 +1241,33 @@
       }, 3000);
     }
 
-    function dismissOverlayAndRender() {
-      if (timerFillEl) timerFillEl.style.width = "100%";
-      if (spinnerEl) {
-        spinnerEl.className = "intro-spinner done";
-        spinnerEl.textContent = "✓";
-      }
-      if (statusTextEl) statusTextEl.textContent = "Dashboard Ready!";
-
-      setTimeout(() => {
-        if (overlayEl) overlayEl.classList.add("hidden-overlay");
-        setTimeout(() => {
-          populateFilterDropdowns(true);
-          renderActivePage();
-          window.dispatchEvent(new Event("resize"));
-          scheduleSidebarAutoClose();
-        }, 120);
-      }, 350);
-    }
-
     function checkDismissOverlay() {
       if (STATE.dataReady && STATE.videoEnded) {
-        dismissOverlayAndRender();
+        overlayEl.classList.add("hidden-overlay");
+        setTimeout(() => {
+          window.dispatchEvent(new Event("resize"));
+        }, 550);
+        scheduleSidebarAutoClose();
       }
     }
 
+    // Automatically finish the intro animation after 4 seconds (4000ms)
     setTimeout(() => {
       STATE.videoEnded = true;
       checkDismissOverlay();
-    }, 1100);
+    }, 4000);
 
     document.getElementById("skip-intro-btn").addEventListener("click", () => {
       STATE.videoEnded = true;
       if (STATE.dataReady) {
-        dismissOverlayAndRender();
+        checkDismissOverlay();
       } else {
         statusTextEl.textContent = "Finishing data preparation, opening immediately...";
       }
     });
 
     // =========================================================================
-    // 2. DATE & STRING HELPER FUNCTIONS
+    // DATE & STRING HELPER FUNCTIONS
     // =========================================================================
     function getTodayIST() {
       const istDate = new Date(Date.now() + 19800000);
@@ -1466,7 +1486,7 @@
     }
 
     // =========================================================================
-    // 3. 23-WORKSHEET EXCEL PARSER
+    // 23-WORKSHEET EXCEL PARSER (UINT8ARRAY + KANNADA SUPPORT)
     // =========================================================================
     function parseWorkbookArrayBuffer(arrayBuffer) {
       const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: "array", cellDates: true });
@@ -1626,7 +1646,7 @@
     }
 
     // =========================================================================
-    // 4. SNAPSHOT ENGINE (NATIVE GZIP CLOUD CACHE + LOCAL INDEXEDDB BACKUP)
+    // SNAPSHOT ENGINE (NATIVE GZIP CLOUD CACHE + LOCAL INDEXEDDB BACKUP)
     // =========================================================================
     function getSafeTodayIST() {
       const istDate = new Date(Date.now() + 19800000);
@@ -1837,6 +1857,7 @@
         if (!wrapper) return null;
         const data = await unpackPayloadFromCloud(wrapper);
         if (data && Array.isArray(data.masterRows) && data.masterRows.length > 0) {
+          console.log("Loaded snapshot from Firebase Cloud!");
           return data;
         }
       } catch (e) {
@@ -1865,14 +1886,20 @@
           headers: { "Content-Type": "application/json" },
           body: bodyStr
         });
-        return resp.ok;
+        if (!resp.ok) {
+          const errText = await resp.text();
+          console.error("Firebase save HTTP " + resp.status + ":", errText);
+          return false;
+        }
+        console.log("Saved snapshot to Firebase Cloud (" + Math.round(bodyStr.length / 1024) + " KB)");
+        return true;
       } catch (e) {
         console.error("Firebase cache write error:", e);
         return false;
       }
     }
 
-    async function syncFromGoogleSheets(skipRender = false) {
+    async function syncFromGoogleSheets() {
       const btn = document.getElementById("sync-btn");
       btn.disabled = true;
       btn.textContent = "Syncing 23 Sheets...";
@@ -1902,10 +1929,8 @@
           ? "Google Sheets Live Snapshot (Saved to Cloud ✓)"
           : "Google Sheets Snapshot (Saved Locally)";
 
-        if (!skipRender) {
-          populateFilterDropdowns(true);
-          renderActivePage();
-        }
+        populateFilterDropdowns(true);
+        renderActivePage();
       } catch (err) {
         alert("Could not sync from Google Sheets: " + err.message);
       } finally {
@@ -1921,9 +1946,11 @@
       const currentTodayIST = getSafeTodayIST();
       statusTextEl.textContent = "Loading saved snapshot...";
 
+      // 1. Check Firebase Cloud Snapshot first (~0.2s across all devices)
       let cached = await loadFromFirebaseCache();
       let sourceText = "Firebase Cloud Snapshot";
 
+      // 2. Fallback to Local Browser Snapshot if offline
       if (!cached) {
         cached = await loadLocalSnapshot();
         sourceText = "Saved Browser Snapshot";
@@ -1935,16 +1962,21 @@
         STATE.todayStr = currentTodayIST;
         STATE.lastSynced = cached.lastSynced || "-";
         STATE.sourceLabel = `${sourceText} (Instant Load)`;
+        populateFilterDropdowns(true);
+        renderActivePage();
       } else {
-        await syncFromGoogleSheets(true);
+        await syncFromGoogleSheets();
       }
 
       STATE.dataReady = true;
+      spinnerEl.className = "intro-spinner done";
+      spinnerEl.textContent = "✓";
+      statusTextEl.textContent = "Dashboard Ready!";
       checkDismissOverlay();
     }
 
     // =========================================================================
-    // 5. CASCADING DROPDOWN FILTERS
+    // CASCADING DROPDOWN FILTERS
     // =========================================================================
     function buildOptionsList(rows, key) {
       const set = new Set();
@@ -2041,7 +2073,7 @@
     }
 
     // =========================================================================
-    // 6. RENDER PAGE 1: MAIN OVERDUE WORKS DASHBOARD
+    // RENDER PAGE 1: MAIN OVERDUE WORKS DASHBOARD
     // =========================================================================
     function renderDashboardPage() {
       const scopeRows = getFilteredScopeRows();
@@ -2096,6 +2128,7 @@
       const odRows = validRows.filter((r) => r.is_overdue);
       const chronicCount = odRows.filter((r) => r.age_bucket === "4. 2 – 5 Years" || r.age_bucket === "5. > 5 Years (Chronic)").length;
 
+      // Render 6 KPI Cards
       document.getElementById("p1-kpi-grid").innerHTML = `
         <div class="kpi-card kpi-sky">
           <div class="kpi-label">📅 Date (Today)</div>
@@ -2123,6 +2156,7 @@
         </div>
       `;
 
+      // Render Connected 6-Bucket Ageing Tree
       const treeCounts = {
         "Under 6 Months": 0, "6 Months to 1 Year": 0, "1 - 2 Years": 0,
         "2 - 3 Years": 0, "3 - 4 Years": 0, "4+ Years": 0
@@ -2316,6 +2350,7 @@
         margin: { l: 245, r: 20, t: 36, b: 40 }
       }, { responsive: true, displayModeBar: false });
 
+      // Populate Section 2 Officer Selectbox
       const offSelect = document.getElementById("p1-officer-select");
       const prevOff = offSelect.value;
       const offPool = chartSource.length ? chartSource : summaryList;
@@ -2326,6 +2361,7 @@
 
       renderSelectedOfficerOverdueTable(scopeRows, viewChoice);
 
+      // Section 3: Officer-Wise Summary Table
       const sumCols = ["Sl. No.", viewChoice, "Total Works Assigned", "Overdue Works ('P')", "ETS Works ('ETS')", "Rest of Works", "Ongoing Works ('P')", "Overdue %"];
       const sumRows = summaryList.map((r, i) => ({
         "Sl. No.": i + 1,
@@ -2339,10 +2375,12 @@
       }));
       document.getElementById("p1-summary-table-wrap").innerHTML = buildHtmlTable(sumCols, sumRows, 460);
 
+      // Diagnostics Table
       const diagCols = ["Sl. No.", "Sheet", "Status", "Sub-division Col", "EE / TA / AS Cols", "Rows Loaded", "Overdue ('P')", "ETS"];
       const diagNumbered = STATE.diagRows.map((d, i) => ({ "Sl. No.": i + 1, ...d }));
       document.getElementById("p1-diag-table-wrap").innerHTML = buildHtmlTable(diagCols, diagNumbered, 420);
 
+      // Missing Columns Debug Table
       const emptySet = new Set([UNASSIGNED_LABEL, UNSPECIFIED_LABEL, "", "-"]);
       const missingRows = scopeRows.filter((r) =>
         emptySet.has(r.subdivision_name) || emptySet.has(r.so_name) || emptySet.has(r.aee_name) ||
@@ -2436,7 +2474,7 @@
     }
 
     // =========================================================================
-    // 7. RENDER PAGE 2: CE ANALYTICS & ETS AND DASHBOARD
+    // RENDER PAGE 2: CE ANALYTICS & ETS TRUTH AUDIT SUITE
     // =========================================================================
     function buildOfficerAnalyticsList(scopeRows, colKey) {
       const map = new Map();
@@ -2720,7 +2758,7 @@
     }
 
     // =========================================================================
-    // 8. MASTER RENDER & EVENT LISTENERS
+    // MASTER RENDER & EVENT LISTENERS
     // =========================================================================
     function renderActivePage() {
       document.getElementById("status-source-pill").textContent = STATE.sourceLabel;
@@ -2740,7 +2778,7 @@
       } else {
         dashSec.style.display = "none";
         anSec.style.display = "block";
-        titleEl.textContent = "Minor Irrigation — CE Analytics & ETS and Dashboard";
+        titleEl.textContent = "Minor Irrigation — CE Analytics & ETS Truth Audit";
         switchBtn.textContent = "← Main Dashboard";
         renderAnalyticsPage();
       }
@@ -2756,7 +2794,7 @@
       renderActivePage();
     });
 
-    document.getElementById("sync-btn").addEventListener("click", () => syncFromGoogleSheets(false));
+    document.getElementById("sync-btn").addEventListener("click", syncFromGoogleSheets);
     document.getElementById("xlsx-upload-input").addEventListener("change", async (e) => {
       const file = e.target.files[0];
       if (!file) return;
