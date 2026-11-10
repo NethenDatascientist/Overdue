@@ -10,10 +10,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
 
-  <!-- Plotly.js, SheetJS (XLSX) & LZ-String Compression -->
+  <!-- Plotly.js & SheetJS (XLSX) -->
   <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 
   <style>
     :root {
@@ -25,7 +24,7 @@
       padding: 0;
     }
 
-    /* Apply 90% Zoom ONLY to Dashboard (So Video Stays 100% Fullscreen) */
+    /* Apply 90% Zoom ONLY to Dashboard (So Start Screen Stays 100% Fullscreen) */
     @media (min-width: 1024px) {
       .app-layout {
         zoom: 90%;
@@ -42,7 +41,7 @@
     }
 
     /* =========================================================================
-       1. TRUE EDGE-TO-EDGE FULLSCREEN INTRO VIDEO OVERLAY
+       1. 4-SECOND ANIMATED START SCREEN OVERLAY (CRISP VECTOR GRAPHICS)
        ========================================================================= */
     #intro-video-overlay {
       position: fixed;
@@ -51,7 +50,11 @@
       width: 100vw;
       height: 100vh;
       z-index: 999999;
-      background: #0F172A;
+      background: radial-gradient(circle at 50% 25%, #F8FAFC 0%, #E2E8F0 55%, #CBD5E1 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
       overflow: hidden;
       transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.55s ease;
     }
@@ -60,13 +63,111 @@
       visibility: hidden;
       pointer-events: none;
     }
-    #intro-video-player {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      object-fit: fill;
+    .splash-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      max-width: 920px;
+      padding: 0 20px;
+      z-index: 5;
+      animation: splashFadeUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    .splash-emblem {
+      width: 86px;
+      height: auto;
+      margin-bottom: 12px;
+      filter: drop-shadow(0 6px 14px rgba(15, 23, 42, 0.16));
+      animation: emblemPop 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    .splash-kn-main {
+      font-size: clamp(1.35rem, 3.2vw, 2.3rem);
+      font-weight: 800;
+      color: #0F172A;
+      letter-spacing: -0.3px;
+      margin-bottom: 6px;
+    }
+    .splash-kn-sub {
+      font-size: clamp(0.95rem, 1.8vw, 1.25rem);
+      font-weight: 700;
+      color: #1E3A8A;
+      margin-bottom: 4px;
+    }
+    .splash-en-sub {
+      font-size: clamp(0.80rem, 1.4vw, 0.98rem);
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 22px;
+    }
+    .splash-mockup-card {
+      width: min(760px, 90vw);
+      background: rgba(255, 255, 255, 0.88);
+      border: 1.5px solid #CBD5E1;
+      border-radius: 16px;
+      padding: 16px 20px;
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    @media (max-width: 640px) {
+      .splash-mockup-card {
+        grid-template-columns: 1fr;
+      }
+    }
+    .splash-mini-kpi {
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-top: 3.5px solid #1D4ED8;
+      border-radius: 10px;
+      padding: 10px 12px;
+      text-align: left;
+    }
+    .splash-bar-anim {
+      height: 8px;
+      border-radius: 999px;
+      background: #E2E8F0;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .splash-bar-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      animation: fillBar 2.4s cubic-bezier(0.22, 1, 0.36, 1) 0.3s forwards;
+    }
+    .splash-timer-track {
+      width: min(360px, 75vw);
+      height: 5px;
+      background: #CBD5E1;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .splash-timer-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #1D4ED8, #059669);
+      animation: timerProgress 4s linear forwards;
+    }
+    @keyframes splashFadeUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes emblemPop {
+      0% { opacity: 0; transform: scale(0.82); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    @keyframes fillBar {
+      from { width: 0%; }
+      to { width: var(--target-w, 78%); }
+    }
+    @keyframes timerProgress {
+      from { width: 0%; }
+      to { width: 100%; }
     }
     .intro-hud-bar {
       position: absolute;
@@ -78,12 +179,12 @@
       align-items: center;
       justify-content: center;
       gap: 12px;
-      background: rgba(15, 23, 42, 0.84);
+      background: rgba(15, 23, 42, 0.88);
       backdrop-filter: blur(12px);
       border: 1px solid rgba(148, 163, 184, 0.38);
       padding: 9px 18px;
       border-radius: 999px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
       z-index: 10;
     }
     .intro-load-status {
@@ -809,19 +910,48 @@
 <body>
 
   <!-- =========================================================================
-       INTRO VIDEO OVERLAY (DIRECT SOURCES + FULLSCREEN)
+       4-SECOND ANIMATED START SCREEN OVERLAY (NO VIDEO FILE NEEDED)
        ========================================================================= -->
   <div id="intro-video-overlay">
-    <video id="intro-video-player" autoplay muted playsinline preload="auto">
-      <source src="/Intro.mp4" type="video/mp4" />
-      <source src="https://raw.githubusercontent.com/NethenDatascientist/Overdue/main/Intro.mp4" type="video/mp4" />
-    </video>
+    <div class="splash-content">
+      <img
+        class="splash-emblem"
+        src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/aa/Seal_of_Karnataka.svg/240px-Seal_of_Karnataka.svg.png"
+        alt="Government of Karnataka"
+        onerror="this.style.display='none'"
+      />
+      <div class="splash-kn-main">ಸಣ್ಣ ನೀರಾವರಿ ಮತ್ತು ಅಂತರ್ಜಲ ಅಭಿವೃದ್ಧಿ ಇಲಾಖೆ</div>
+      <div class="splash-kn-sub">ಮುಖ್ಯ ಅಭಿಯಂತರರು, ಸಣ್ಣ ನೀರಾವರಿ ಮತ್ತು ಅಂತರ್ಜಲ ಅಭಿವೃದ್ಧಿ ದಕ್ಷಿಣ ವಲಯ</div>
+      <div class="splash-en-sub">Minor Irrigation &amp; Ground Water Development Department — South Zone, Bengaluru</div>
+
+      <div class="splash-mockup-card">
+        <div class="splash-mini-kpi" style="border-top-color:#1D4ED8;">
+          <div style="font-size:0.72rem;font-weight:800;color:#475569;">23 WORKSHEETS</div>
+          <div style="font-size:1.15rem;font-weight:800;color:#0F172A;margin-top:2px;">Division Abstract</div>
+          <div class="splash-bar-anim"><div class="splash-bar-fill" style="--target-w:92%;background:#2563EB;"></div></div>
+        </div>
+        <div class="splash-mini-kpi" style="border-top-color:#DC2626;">
+          <div style="font-size:0.72rem;font-weight:800;color:#991B1B;">OVERDUE WORKS ('P')</div>
+          <div style="font-size:1.15rem;font-weight:800;color:#0F172A;margin-top:2px;">AE &amp; AEE Tracking</div>
+          <div class="splash-bar-anim"><div class="splash-bar-fill" style="--target-w:68%;background:#DC2626;"></div></div>
+        </div>
+        <div class="splash-mini-kpi" style="border-top-color:#059669;">
+          <div style="font-size:0.72rem;font-weight:800;color:#065F46;">CE ANALYTICS SUITE</div>
+          <div style="font-size:1.15rem;font-weight:800;color:#0F172A;margin-top:2px;">ETS Truth Audit</div>
+          <div class="splash-bar-anim"><div class="splash-bar-fill" style="--target-w:84%;background:#059669;"></div></div>
+        </div>
+      </div>
+
+      <div class="splash-timer-track">
+        <div class="splash-timer-fill"></div>
+      </div>
+    </div>
+
     <div class="intro-hud-bar">
       <div class="intro-load-status">
         <div id="intro-spinner-icon" class="intro-spinner"></div>
         <span id="intro-status-text">Loading saved snapshot...</span>
       </div>
-      <button type="button" class="intro-btn" id="unmute-video-btn">Unmute Audio</button>
       <button type="button" class="intro-btn" id="skip-intro-btn">Enter Dashboard →</button>
     </div>
   </div>
@@ -1060,8 +1190,7 @@
   <script>
     const CONFIG = {
       DEFAULT_SHEET_URL: "https://docs.google.com/spreadsheets/d/13W04z-fdU3RhuVJ5vQFRpK4BBSQRJWfscPqpr7Oj2Y8/edit?usp=sharing",
-      FIREBASE_DB_URL: "https://ae-aee-overdue-default-rtdb.asia-southeast1.firebasedatabase.app",
-      INTRO_VIDEO_URL: "/Intro.mp4"
+      FIREBASE_DB_URL: "https://ae-aee-overdue-default-rtdb.asia-southeast1.firebasedatabase.app"
     };
 
     const TARGET_SHEETS = [
@@ -1094,21 +1223,11 @@
     };
 
     // =========================================================================
-    // INTRO VIDEO & AUTO-CLOSE SIDEBAR CONTROLLER
+    // 4-SECOND ANIMATED INTRO & AUTO-CLOSE SIDEBAR CONTROLLER
     // =========================================================================
-    const videoEl = document.getElementById("intro-video-player");
     const overlayEl = document.getElementById("intro-video-overlay");
     const statusTextEl = document.getElementById("intro-status-text");
     const spinnerEl = document.getElementById("intro-spinner-icon");
-
-    // Start video playback immediately
-    const playPromise = videoEl.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(() => {
-        videoEl.muted = true;
-        videoEl.play().catch(() => {});
-      });
-    }
 
     function scheduleSidebarAutoClose() {
       if (STATE.sidebarAutoClosed) return;
@@ -1126,27 +1245,17 @@
       if (STATE.dataReady && STATE.videoEnded) {
         overlayEl.classList.add("hidden-overlay");
         setTimeout(() => {
-          videoEl.pause();
           window.dispatchEvent(new Event("resize"));
         }, 550);
         scheduleSidebarAutoClose();
       }
     }
 
-    videoEl.addEventListener("ended", () => {
+    // Automatically finish the intro animation after 4 seconds (4000ms)
+    setTimeout(() => {
       STATE.videoEnded = true;
       checkDismissOverlay();
-    });
-
-    videoEl.addEventListener("error", () => {
-      STATE.videoEnded = true;
-      checkDismissOverlay();
-    });
-
-    document.getElementById("unmute-video-btn").addEventListener("click", (e) => {
-      videoEl.muted = !videoEl.muted;
-      e.target.textContent = videoEl.muted ? "Unmute Audio" : "Mute Audio";
-    });
+    }, 4000);
 
     document.getElementById("skip-intro-btn").addEventListener("click", () => {
       STATE.videoEnded = true;
@@ -1161,9 +1270,10 @@
     // DATE & STRING HELPER FUNCTIONS
     // =========================================================================
     function getTodayIST() {
-      const now = new Date();
-      const istStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-      const [y, m, d] = istStr.split("-").map(Number);
+      const istDate = new Date(Date.now() + 19800000);
+      const y = istDate.getUTCFullYear();
+      const m = istDate.getUTCMonth() + 1;
+      const d = istDate.getUTCDate();
       return {
         y, m, d,
         dateObj: new Date(Date.UTC(y, m - 1, d)),
@@ -1536,21 +1646,10 @@
     }
 
     // =========================================================================
-    // SNAPSHOT ENGINE (FIREBASE CLOUD COMPRESSED + LOCAL INDEXEDDB BACKUP)
-    // =========================================================================
-    // =========================================================================
     // SNAPSHOT ENGINE (NATIVE GZIP CLOUD CACHE + LOCAL INDEXEDDB BACKUP)
     // =========================================================================
-    const ROW_KEYS = [
-      "sheet_name", "work_name", "division_name", "subdivision_name",
-      "ee_name", "ta_name", "as_name", "so_name", "aee_name",
-      "status_raw", "start_date", "target_date", "overdue_by",
-      "hoa", "age_bucket", "tree_bucket",
-      "is_status_p", "is_status_ets", "is_overdue"
-    ];
-
     function getSafeTodayIST() {
-      const istDate = new Date(Date.now() + 19800000); // Exact UTC + 5:30 IST on all devices
+      const istDate = new Date(Date.now() + 19800000);
       const d = String(istDate.getUTCDate()).padStart(2, "0");
       const m = String(istDate.getUTCMonth() + 1).padStart(2, "0");
       const y = istDate.getUTCFullYear();
@@ -2125,7 +2224,6 @@
 
       const plotArr = [...chartSource].reverse();
       const yNames = plotArr.map((r) => r.name);
-      // Non-breaking spaces guarantee a clean gap between Kannada names and the chart axis
       const yShort = plotArr.map((r) => (r.name.length <= 28 ? r.name : r.name.slice(0, 27) + "…") + "\u00A0\u00A0\u00A0");
 
       const barLabels = plotArr.map((r) => {
