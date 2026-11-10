@@ -151,7 +151,7 @@
       height: 100%;
       width: 0%;
       background: linear-gradient(90deg, #1D4ED8, #059669);
-      animation: timerProgress 1.5s linear forwards;
+      transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
     }
     @keyframes splashFadeUp {
       from { opacity: 0; transform: translateY(18px); }
@@ -1225,9 +1225,18 @@
     // =========================================================================
     // 4-SECOND ANIMATED INTRO & AUTO-CLOSE SIDEBAR CONTROLLER
     // =========================================================================
+    // =========================================================================
+    // 1. SMOOTH PROGRESS BAR & AUTO-CLOSE SIDEBAR CONTROLLER (NO FPS DROP)
+    // =========================================================================
     const overlayEl = document.getElementById("intro-video-overlay");
     const statusTextEl = document.getElementById("intro-status-text");
     const spinnerEl = document.getElementById("intro-spinner-icon");
+    const timerFillEl = document.querySelector(".splash-timer-fill");
+
+    // Start smooth progress bar to 75% immediately while fetching cache
+    requestAnimationFrame(() => {
+      if (timerFillEl) timerFillEl.style.width = "75%";
+    });
 
     function scheduleSidebarAutoClose() {
       if (STATE.sidebarAutoClosed) return;
@@ -1249,6 +1258,23 @@
         }, 550);
         scheduleSidebarAutoClose();
       }
+    }
+
+    setTimeout(() => {
+      STATE.videoEnded = true;
+      checkDismissOverlay();
+    }, 1200);
+
+    const skipBtnEl = document.getElementById("skip-intro-btn");
+    if (skipBtnEl) {
+      skipBtnEl.addEventListener("click", () => {
+        STATE.videoEnded = true;
+        if (STATE.dataReady) {
+          checkDismissOverlay();
+        } else if (statusTextEl) {
+          statusTextEl.textContent = "Finishing data preparation, opening immediately...";
+        }
+      });
     }
 
     // Automatically finish the start screen animation at exactly 1.5 seconds
@@ -1949,11 +1975,9 @@
       const currentTodayIST = getSafeTodayIST();
       statusTextEl.textContent = "Loading saved snapshot...";
 
-      // 1. Check Firebase Cloud Snapshot first (~0.2s across all devices)
       let cached = await loadFromFirebaseCache();
       let sourceText = "Firebase Cloud Snapshot";
 
-      // 2. Fallback to Local Browser Snapshot if offline
       if (!cached) {
         cached = await loadLocalSnapshot();
         sourceText = "Saved Browser Snapshot";
@@ -1965,16 +1989,26 @@
         STATE.todayStr = currentTodayIST;
         STATE.lastSynced = cached.lastSynced || "-";
         STATE.sourceLabel = `${sourceText} (Instant Load)`;
+
+        // 1. Fill the progress bar to 100% BEFORE heavy DOM/Plotly rendering
+        if (timerFillEl) timerFillEl.style.width = "100%";
+        spinnerEl.className = "intro-spinner done";
+        spinnerEl.textContent = "✓";
+        statusTextEl.textContent = "Dashboard Ready!";
+
+        // 2. Let the browser paint the 100% bar smoothly, then render the dashboard
+        await new Promise((r) => setTimeout(r, 380));
         populateFilterDropdowns(true);
         renderActivePage();
       } else {
         await syncFromGoogleSheets();
+        if (timerFillEl) timerFillEl.style.width = "100%";
+        spinnerEl.className = "intro-spinner done";
+        spinnerEl.textContent = "✓";
+        statusTextEl.textContent = "Dashboard Ready!";
       }
 
       STATE.dataReady = true;
-      spinnerEl.className = "intro-spinner done";
-      spinnerEl.textContent = "✓";
-      statusTextEl.textContent = "Dashboard Ready!";
       checkDismissOverlay();
     }
 
