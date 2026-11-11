@@ -717,38 +717,87 @@
       color: #0F172A;
       margin-bottom: 4px;
     }
-    .filter-select {
+    /* Custom High-Performance Dropdown UI */
+    .custom-select-container {
+      position: relative;
       width: 100%;
-      padding: 8px 10px;
+    }
+    select.filter-select {
+      display: none !important; /* Hides unstyled Chrome native select */
+    }
+    .custom-select-trigger {
+      width: 100%;
+      padding: 7.5px 10px;
       border-radius: 8px;
       border: 1px solid #94A3B8;
       background-color: #F8FAFC;
       color: #0F172A;
       font-family: 'Inter', sans-serif;
       font-weight: 700;
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       cursor: pointer;
-      appearance: none;
-      -webkit-appearance: none;
-      -moz-appearance: none;
-      background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23475569%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
-      background-repeat: no-repeat;
-      background-position: right 10px center;
-      background-size: 10px auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
-    .filter-select:hover {
+    .custom-select-trigger:hover {
       border-color: #3B82F6;
     }
-    .filter-select:focus {
-      outline: none;
+    .custom-select-trigger.open {
       border-color: #2563EB;
       box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
     }
-    .filter-select option {
-      font-weight: 600;
-      color: #0F172A;
-      padding: 4px;
+    .custom-select-trigger::after {
+      content: "▼";
+      font-size: 0.55rem;
+      color: #475569;
+      transition: transform 0.2s ease;
+    }
+    .custom-select-trigger.open::after {
+      transform: rotate(180deg);
+    }
+    .custom-select-options {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: #FFFFFF;
+      border: 1px solid #93C5FD;
+      border-top: none;
+      border-bottom-left-radius: 8px;
+      border-bottom-right-radius: 8px;
+      max-height: 280px;
+      overflow-y: auto;
+      z-index: 9999;
+      box-shadow: 0 14px 28px rgba(15, 23, 42, 0.18);
+      display: none;
+      flex-direction: column;
+    }
+    .custom-select-options.open {
+      display: flex;
+    }
+    .custom-option {
+      padding: 8px 12px;
+      font-size: 0.80rem;
+      font-weight: 700;
+      color: #1E293B;
+      cursor: pointer;
+      border-bottom: 1px solid #F1F5F9;
+      transition: background 0.1s ease;
+    }
+    .custom-option:last-child {
+      border-bottom: none;
+    }
+    .custom-option:hover {
+      background: #DBEAFE;
+      color: #1E40AF;
+    }
+    .custom-option.selected {
+      background: #2563EB;
+      color: #FFFFFF;
     }
 
     .sub-controls-row {
@@ -2358,11 +2407,77 @@
       return opts;
     }
 
+    // Custom Dropdown JS Engine
+    function syncCustomSelect(nativeSelect) {
+      if (!nativeSelect) return;
+      let wrapper = nativeSelect.parentElement;
+      
+      if (!wrapper.classList.contains("custom-select-container")) {
+        wrapper = document.createElement("div");
+        wrapper.className = "custom-select-container";
+        nativeSelect.parentNode.insertBefore(wrapper, nativeSelect);
+        wrapper.appendChild(nativeSelect);
+        
+        const trigger = document.createElement("div");
+        trigger.className = "custom-select-trigger";
+        wrapper.appendChild(trigger);
+
+        const optionsContainer = document.createElement("div");
+        optionsContainer.className = "custom-select-options";
+        wrapper.appendChild(optionsContainer);
+
+        trigger.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const isOpen = optionsContainer.classList.contains("open");
+          document.querySelectorAll(".custom-select-options.open").forEach(el => {
+            el.classList.remove("open");
+            el.previousElementSibling.classList.remove("open");
+          });
+          if (!isOpen) {
+            optionsContainer.classList.add("open");
+            trigger.classList.add("open");
+            const selectedOpt = optionsContainer.querySelector(".selected");
+            if (selectedOpt) selectedOpt.scrollIntoView({ block: "nearest" });
+          }
+        });
+      }
+
+      const trigger = wrapper.querySelector(".custom-select-trigger");
+      const optionsContainer = wrapper.querySelector(".custom-select-options");
+
+      trigger.textContent = nativeSelect.options[nativeSelect.selectedIndex]?.text || "Select...";
+      optionsContainer.innerHTML = "";
+
+      Array.from(nativeSelect.options).forEach((opt, index) => {
+        const optDiv = document.createElement("div");
+        optDiv.className = "custom-option" + (nativeSelect.selectedIndex === index ? " selected" : "");
+        optDiv.textContent = opt.text;
+        optDiv.addEventListener("click", (e) => {
+          e.stopPropagation();
+          nativeSelect.selectedIndex = index;
+          trigger.textContent = opt.text;
+          optionsContainer.classList.remove("open");
+          trigger.classList.remove("open");
+          nativeSelect.dispatchEvent(new Event("change"));
+        });
+        optionsContainer.appendChild(optDiv);
+      });
+    }
+
+    document.addEventListener("click", () => {
+      document.querySelectorAll(".custom-select-options.open").forEach(el => {
+        el.classList.remove("open");
+        el.previousElementSibling.classList.remove("open");
+      });
+    });
+
     function setSelectOptions(selectEl, options, prevVal) {
       selectEl.innerHTML = options
         .map((o) => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`)
         .join("");
       selectEl.value = options.includes(prevVal) ? prevVal : ALL_OPTION;
+      
+      syncCustomSelect(selectEl); // Automatically style all 5 top filters
     }
 
     function populateFilterDropdowns(resetAll = false) {
@@ -2720,6 +2835,8 @@
         `<option value="${escapeHtml(r.name)}">${escapeHtml(r.name)} — (${r.overdue_works} Overdue | ${r.ets_works} ETS / ${r.total_works} Total | ${r.overdue_pct.toFixed(1)}%)</option>`
       ).join("");
       if (offPool.some((r) => r.name === prevOff)) offSelect.value = prevOff;
+      
+      syncCustomSelect(offSelect); // Sync custom styling for Officer dropdown
 
       renderSelectedOfficerOverdueTable(scopeRows, viewChoice);
 
@@ -2921,6 +3038,8 @@
       const prevPicked = auditSel.value;
       auditSel.innerHTML = auditList.map((r) => `<option value="${escapeHtml(r.name)}">${escapeHtml(r.name)} (${r.overdue_works} OD | ${r.ets_works} ETS)</option>`).join("");
       if (auditList.some((r) => r.name === prevPicked)) auditSel.value = prevPicked;
+
+      syncCustomSelect(auditSel); // Sync custom styling for Audit dropdown
 
       renderAuditOfficerDetails(scopeRows, auditRole, auditList);
       renderAllLeaderboards(scopeRows);
