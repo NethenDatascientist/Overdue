@@ -3556,7 +3556,7 @@
         "Technical Assistant": cleanCell(r.ta_name),
         "Account Superintendent": cleanCell(r.as_name),
         "Executive Engineer": cleanCell(r.ee_name),
-        "Overdue Period": r.od_period || "-",
+        "Overdue Period": r.overdue_by || "-",
         "Govt Order FY": r.go_fy || "-",
         "Work Order FY": r.wo_fy || "-",
         "Est. Cost (Lakhs)": r.est_cost ? parseFloat(r.est_cost).toLocaleString('en-IN') : "-",
