@@ -3567,10 +3567,9 @@
       const badgeEl = document.getElementById("p3-scope-badge");
       if (badgeEl) badgeEl.textContent = `${getFilterScopeLabel()} | Period: ${selPeriod} | H.O.A.: ${selHoa}`;
 
-      const hoas = Array.from(new Set(formattedRows.map((r) => r["H.O.A."]))).join(", ");
       const metaEl = document.getElementById("p3-meta-info");
       if (metaEl) {
-        metaEl.innerHTML = `<b>Total Matching Overdue Works:</b> ${formattedRows.length.toLocaleString()} &nbsp;|&nbsp; <b>Account Heads (H.O.A.):</b> ${escapeHtml(hoas || "-")}`;
+        metaEl.innerHTML = `<b>Total Matching Overdue Works:</b> ${formattedRows.length.toLocaleString()}`;
       }
 
       const wrapEl = document.getElementById("p3-abstract-table-wrap");
