@@ -999,7 +999,7 @@
       background: #CBD5E1;
       color: #0F172A;
       font-weight: 800;
-      text-align: left;
+      text-align: center; /* Centered headers */
       padding: 10px;
       border-bottom: 2.5px solid #1E3A8A;
       white-space: nowrap;
@@ -1021,6 +1021,7 @@
       color: #0F172A;
       font-weight: 600;
       white-space: nowrap;
+      text-align: center; /* Centered data */
     }
     .ce-work-name-cell {
       width: 28%;
@@ -1028,6 +1029,13 @@
       max-width: 380px;
       white-space: normal !important;
       font-weight: 700 !important;
+      text-align: left; /* Keep work name left-aligned */
+    }
+    .ce-wrap-cell {
+      white-space: normal !important; /* Wrap long text */
+      min-width: 140px;
+      max-width: 220px;
+      word-wrap: break-word;
     }
     .ce-date-overdue {
       color: #B91C1C !important;
@@ -3177,7 +3185,9 @@
           const val = escapeHtml(r[col] ?? "-");
           if (idx === 0) return `<td class="ce-sl-cell">${val}</td>`;
           if (col === "Work Name") return `<td class="ce-work-name-cell" title="${val}">${val}</td>`;
-          // Highlight target date, overdue counts, and the new Overdue Period column in red
+          if (["Sub-division", "H.O.A."].includes(col)) {
+            return `<td class="ce-wrap-cell">${val}</td>`;
+          }
           if (["Target Date", "Overdue By", "Overdue Period", "Overdue Works ('P')", "Overdue %"].includes(col)) {
             return `<td class="ce-date-overdue">${val}</td>`;
           }
@@ -3542,7 +3552,7 @@
         "Sl. No.", "Work Name", "Division", "Sub-division",
         "Assistant Executive Engineer", "Technical Assistant",
         "Account Superintendent", "Executive Engineer",
-        "Overdue Period", "Govt Order FY", "Work Order FY", "Est. Cost (Lakhs)", "H.O.A."
+        "Target Date", "Overdue Period", "Govt Order FY", "Work Order FY", "Est. Cost (Lakhs)", "H.O.A."
       ];
 
       const cleanCell = (v) => ([UNSPECIFIED_LABEL, UNASSIGNED_LABEL, ""].includes(v) ? "-" : v);
@@ -3556,6 +3566,7 @@
         "Technical Assistant": cleanCell(r.ta_name),
         "Account Superintendent": cleanCell(r.as_name),
         "Executive Engineer": cleanCell(r.ee_name),
+        "Target Date": r.target_date || "-",
         "Overdue Period": r.overdue_by || "-",
         "Govt Order FY": r.go_fy || "-",
         "Work Order FY": r.wo_fy || "-",
@@ -3608,7 +3619,7 @@
         if (dashSec) dashSec.style.display = "none";
         if (anSec) anSec.style.display = "none";
         if (absSec) absSec.style.display = "block";
-        if (titleEl) titleEl.textContent = "Minor Irrigation - Division Wise Abstract";
+        if (titleEl) titleEl.textContent = "Division Wise Overdue Abstract";
         if (switchBtn) switchBtn.textContent = "Analytics View →";
         if (absBtn) absBtn.textContent = "← Main Dashboard";
         renderAbstractPage();
