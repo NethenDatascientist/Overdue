@@ -1722,7 +1722,7 @@
     };
 
     // =========================================================================
-    // 1. ARGON INTRO CONTROLLER (PRE-RENDERS BEHIND CURTAIN — ZERO BLANK FLASH)
+    // 1. ARGON INTRO CONTROLLER (WITH FAIL-SAFE UNLOCK)
     // =========================================================================
     const overlayEl = document.getElementById("intro-video-overlay");
     const statusTextEl = document.getElementById("intro-status-text");
@@ -1744,9 +1744,12 @@
     function ensureDashboardRenderedBehindCurtain() {
       if (STATE.dashboardRendered || !STATE.dataReady) return;
       STATE.dashboardRendered = true;
-      populateFilterDropdowns(true);
-      initStaticAbstractSelects();
-      renderActivePage();
+      try {
+        populateFilterDropdowns(true);
+        renderActivePage();
+      } catch (err) {
+        console.error("Render error:", err);
+      }
       if (spinnerEl) {
         spinnerEl.className = "intro-spinner done";
         spinnerEl.textContent = "✓";
@@ -1754,11 +1757,18 @@
       if (statusTextEl) statusTextEl.textContent = "Dashboard Ready";
     }
 
-    function dismissOverlayAndRender() {
+    function dismissOverlayAndRender(forceNow = false) {
       if (STATE.overlayDismissed) return;
       STATE.overlayDismissed = true;
 
-      ensureDashboardRenderedBehindCurtain();
+      if (STATE.dataReady) {
+        ensureDashboardRenderedBehindCurtain();
+      } else if (forceNow) {
+        try {
+          populateFilterDropdowns(true);
+          renderActivePage();
+        } catch (e) {}
+      }
 
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -1775,7 +1785,7 @@
 
     function checkDismissOverlay() {
       if (STATE.dataReady && STATE.videoEnded) {
-        dismissOverlayAndRender();
+        dismissOverlayAndRender(false);
       }
     }
 
@@ -1784,17 +1794,16 @@
       checkDismissOverlay();
     }, 3150);
 
-    document.getElementById("skip-intro-btn").addEventListener("click", () => {
-      STATE.videoEnded = true;
-      if (STATE.dataReady) {
-        dismissOverlayAndRender();
-      } else {
-        statusTextEl.textContent = "Finishing data preparation, opening immediately...";
-      }
-    });
+    const skipBtn = document.getElementById("skip-intro-btn");
+    if (skipBtn) {
+      skipBtn.addEventListener("click", () => {
+        STATE.videoEnded = true;
+        dismissOverlayAndRender(true);
+      });
+    }
 
     // =========================================================================
-    // 2. DATE & STRING HELPER FUNCTIONS
+    // 2. DATE, COST & STRING HELPER FUNCTIONS
     // =========================================================================
     function getTodayIST() {
       const istDate = new Date(Date.now() + 19800000);
@@ -1922,15 +1931,6 @@
       return { age_bucket, tree_bucket };
     }
 
-    function getOverduePeriodCategory(targetDt, todayDt) {
-      if (!targetDt || targetDt >= todayDt) return "";
-      const days = Math.floor((todayDt - targetDt) / 86400000);
-      if (days <= 730) return "<2 Years";
-      if (days <= 1825) return "2-5 Years";
-      if (days <= 3650) return "5-10 Years";
-      return "More than 10 years";
-    }
-
     function extractFinancialYear(rawVal) {
       if (rawVal === null || rawVal === undefined || rawVal === "") return "";
       const dt = parseIndianDate(rawVal);
@@ -1944,18 +1944,8 @@
       if (fyMatch) {
         const y1 = parseInt(fyMatch[1], 10);
         const nextYr = y1 + 1;
-        if (fyMatch[2].length === 2 && parseInt(fyMatch[2], 10) === (nextYr % 100)) {
-          return `${y1}-${nextYr}`;
-        }
-        if (fyMatch[2].length === 4 && parseInt(fyMatch[2], 10) === nextYr) {
-          return `${y1}-${nextYr}`;
-        }
-      }
-      const dateMatch = s.replace(/[./]/g, "-").match(/(\d{1,2})-(\d{1,2})-(20\d{2})/);
-      if (dateMatch) {
-        const mo = parseInt(dateMatch[2], 10);
-        const yr = parseInt(dateMatch[3], 10);
-        if (mo >= 1 && mo <= 12) return mo >= 4 ? `${yr}-${yr + 1}` : `${yr - 1}-${yr}`;
+        if (fyMatch[2].length === 2 && parseInt(fyMatch[2], 10) === (nextYr % 100)) return `${y1}-${nextYr}`;
+        if (fyMatch[2].length === 4 && parseInt(fyMatch[2], 10) === nextYr) return `${y1}-${nextYr}`;
       }
       return "";
     }
@@ -1965,6 +1955,33 @@
       if (typeof rawVal === "number") return rawVal;
       const cleaned = String(rawVal).replace(/,/g, "").match(/-?\d+(\.\d+)?/);
       return cleaned ? parseFloat(cleaned[0]) : NaN;
+    }
+
+    function getOverduePeriodCategory(targetDt, todayDt) {
+      if (!targetDt || targetDt >= todayDt) return "";
+      const days = Math.floor((todayDt - targetDt) / 86400000);
+      if (days <= 730) return "<2 Years";
+      if (days <= 1825) return "2-5 Years";
+      if (days <= 3650) return "5-10 Years";
+      return "More than 10 years";
+    }
+
+    function deriveOverduePeriodFromRow(r, todayDt) {
+      if (r.od_period) return r.od_period;
+      if (!r.is_overdue) return "";
+      const dt = parseIndianDate(r.target_date);
+      if (dt) return getOverduePeriodCategory(dt, todayDt);
+      if (r.tree_bucket === "Under 6 Months" || r.tree_bucket === "6 Months to 1 Year" || r.tree_bucket === "1 - 2 Years") return "<2 Years";
+      if (r.tree_bucket === "2 - 3 Years" || r.tree_bucket === "3 - 4 Years") return "2-5 Years";
+      const yrMatch = String(r.overdue_by || "").match(/(\d+)\s*year/i);
+      if (yrMatch) {
+        const yrs = parseInt(yrMatch[1], 10);
+        if (yrs < 2) return "<2 Years";
+        if (yrs < 5) return "2-5 Years";
+        if (yrs <= 10) return "5-10 Years";
+        return "More than 10 years";
+      }
+      return "2-5 Years";
     }
 
     function isValidDivisionText(val) {
@@ -2231,7 +2248,7 @@
     }
 
     // =========================================================================
-    // 4. SNAPSHOT ENGINE (NATIVE GZIP CLOUD CACHE + LOCAL INDEXEDDB BACKUP)
+    // 4. SNAPSHOT ENGINE (READS v8 & v9 + 4s NETWORK TIMEOUT GUARD)
     // =========================================================================
     function getSafeTodayIST() {
       const istDate = new Date(Date.now() + 19800000);
@@ -2337,7 +2354,7 @@
 
       const compressed = await compressString(rawJson);
       return {
-        v: 10,
+        v: 8,
         fmt: compressed.fmt,
         todayStr: payload.todayStr || getSafeTodayIST(),
         lastSynced: payload.lastSynced || "-",
@@ -2351,32 +2368,42 @@
       const parsed = JSON.parse(rawJson);
       if (!parsed || !Array.isArray(parsed.r) || !Array.isArray(parsed.s)) return null;
 
+      const todayDt = getTodayIST().dateObj;
       const s = parsed.s;
-      const masterRows = parsed.r.map((arr) => ({
-        sheet_name: s[arr[0]] || "",
-        work_name: s[arr[1]] || "",
-        division_name: s[arr[2]] || "",
-        subdivision_name: s[arr[3]] || "",
-        ee_name: s[arr[4]] || "",
-        ta_name: s[arr[5]] || "",
-        as_name: s[arr[6]] || "",
-        so_name: s[arr[7]] || "",
-        aee_name: s[arr[8]] || "",
-        status_raw: s[arr[9]] || "",
-        start_date: s[arr[10]] || "",
-        target_date: s[arr[11]] || "",
-        overdue_by: s[arr[12]] || "-",
-        hoa: s[arr[13]] || "",
-        age_bucket: s[arr[14]] || "Unknown",
-        tree_bucket: s[arr[15]] || "Unknown",
-        is_status_p: arr[16] ? 1 : 0,
-        is_status_ets: arr[17] ? 1 : 0,
-        is_overdue: arr[18] ? 1 : 0,
-        od_period: arr[19] !== undefined ? (s[arr[19]] || "") : "",
-        go_fy: arr[20] !== undefined ? (s[arr[20]] || "") : "",
-        wo_fy: arr[21] !== undefined ? (s[arr[21]] || "") : "",
-        est_cost: arr[22] !== undefined ? (s[arr[22]] || "") : ""
-      }));
+      const masterRows = parsed.r.map((arr) => {
+        const rowObj = {
+          sheet_name: s[arr[0]] || "",
+          work_name: s[arr[1]] || "",
+          division_name: s[arr[2]] || "",
+          subdivision_name: s[arr[3]] || "",
+          ee_name: s[arr[4]] || "",
+          ta_name: s[arr[5]] || "",
+          as_name: s[arr[6]] || "",
+          so_name: s[arr[7]] || "",
+          aee_name: s[arr[8]] || "",
+          status_raw: s[arr[9]] || "",
+          start_date: s[arr[10]] || "",
+          target_date: s[arr[11]] || "",
+          overdue_by: s[arr[12]] || "-",
+          hoa: s[arr[13]] || "",
+          age_bucket: s[arr[14]] || "Unknown",
+          tree_bucket: s[arr[15]] || "Unknown",
+          is_status_p: arr[16] ? 1 : 0,
+          is_status_ets: arr[17] ? 1 : 0,
+          is_overdue: arr[18] ? 1 : 0,
+          od_period: arr[19] !== undefined ? (s[arr[19]] || "") : "",
+          go_fy: arr[20] !== undefined ? (s[arr[20]] || "") : "",
+          wo_fy: arr[21] !== undefined ? (s[arr[21]] || "") : "",
+          est_cost: arr[22] !== undefined ? (s[arr[22]] || "") : ""
+        };
+        if (!rowObj.od_period && rowObj.is_overdue) {
+          rowObj.od_period = deriveOverduePeriodFromRow(rowObj, todayDt);
+        }
+        if (!rowObj.wo_fy && rowObj.start_date) {
+          rowObj.wo_fy = extractFinancialYear(rowObj.start_date);
+        }
+        return rowObj;
+      });
 
       return {
         masterRows,
@@ -2394,17 +2421,20 @@
 
     function openLocalSnapshotDB() {
       return new Promise((resolve) => {
+        const timer = setTimeout(() => resolve(null), 1500);
         try {
-          const req = indexedDB.open("MI_Overdue_Snapshot_DB_v10", 1);
+          const req = indexedDB.open("MI_Overdue_Snapshot_DB_v8", 1);
           req.onupgradeneeded = (e) => {
             const db = e.target.result;
             if (!db.objectStoreNames.contains("snapshots")) {
               db.createObjectStore("snapshots");
             }
           };
-          req.onsuccess = (e) => resolve(e.target.result);
-          req.onerror = () => resolve(null);
+          req.onsuccess = (e) => { clearTimeout(timer); resolve(e.target.result); };
+          req.onerror = () => { clearTimeout(timer); resolve(null); };
+          req.onblocked = () => { clearTimeout(timer); resolve(null); };
         } catch (err) {
+          clearTimeout(timer);
           resolve(null);
         }
       });
@@ -2416,13 +2446,11 @@
         if (!db) return;
         await new Promise((resolve) => {
           const tx = db.transaction("snapshots", "readwrite");
-          tx.objectStore("snapshots").put(payload, "latest_v10");
+          tx.objectStore("snapshots").put(payload, "latest_v8");
           tx.oncomplete = () => resolve(true);
           tx.onerror = () => resolve(false);
         });
-      } catch (e) {
-        console.warn("IndexedDB save skipped:", e);
-      }
+      } catch (e) {}
     }
 
     async function loadLocalSnapshot() {
@@ -2430,13 +2458,27 @@
         const db = await openLocalSnapshotDB();
         if (!db) return null;
         return await new Promise((resolve) => {
+          const timer = setTimeout(() => resolve(null), 1500);
           const tx = db.transaction("snapshots", "readonly");
-          const req = tx.objectStore("snapshots").get("latest_v10");
-          req.onsuccess = () => resolve(req.result || null);
-          req.onerror = () => resolve(null);
+          const req = tx.objectStore("snapshots").get("latest_v8");
+          req.onsuccess = () => { clearTimeout(timer); resolve(req.result || null); };
+          req.onerror = () => { clearTimeout(timer); resolve(null); };
         });
       } catch (e) {
         return null;
+      }
+    }
+
+    async function fetchWithTimeout(url, options = {}, timeoutMs = 4500) {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const resp = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(id);
+        return resp;
+      } catch (err) {
+        clearTimeout(id);
+        throw err;
       }
     }
 
@@ -2444,7 +2486,7 @@
       const fbUrl = getFirebaseBaseUrl();
       if (!fbUrl) return null;
       try {
-        const resp = await fetch(`${fbUrl}/mi_cloud_cache_v10.json`, { cache: "no-store" });
+        const resp = await fetchWithTimeout(`${fbUrl}/mi_cloud_cache_v8.json`, { cache: "no-store" }, 4500);
         if (!resp.ok) return null;
         const wrapper = await resp.json();
         if (!wrapper) return null;
@@ -2453,7 +2495,7 @@
           return data;
         }
       } catch (e) {
-        console.warn("Firebase cache read error:", e);
+        console.warn("Firebase cache read skipped/timed out:", e);
       }
       return null;
     }
@@ -2473,11 +2515,11 @@
       try {
         const packedWrapper = await packPayloadForCloud(cleanPayload);
         const bodyStr = JSON.stringify(packedWrapper);
-        const resp = await fetch(`${fbUrl}/mi_cloud_cache_v10.json`, {
+        const resp = await fetchWithTimeout(`${fbUrl}/mi_cloud_cache_v8.json`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: bodyStr
-        });
+        }, 8000);
         return resp.ok;
       } catch (e) {
         console.error("Firebase cache write error:", e);
@@ -2487,9 +2529,11 @@
 
     async function syncFromGoogleSheets(skipRender = false) {
       const btn = document.getElementById("sync-btn");
-      btn.disabled = true;
-      btn.textContent = "Syncing 23 Sheets...";
-      statusTextEl.textContent = "Downloading & parsing 23 Google Worksheets...";
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Syncing 23 Sheets...";
+      }
+      if (statusTextEl) statusTextEl.textContent = "Downloading & parsing 23 Google Worksheets...";
 
       try {
         const sheetUrl = document.getElementById("sheet-url-input").value.trim() || CONFIG.DEFAULT_SHEET_URL;
@@ -2520,71 +2564,73 @@
           renderActivePage();
         }
       } catch (err) {
-        alert("Could not sync from Google Sheets: " + err.message);
+        console.error("Google Sheets sync error:", err);
+        if (!skipRender) alert("Could not sync from Google Sheets: " + err.message);
       } finally {
-        btn.disabled = false;
-        btn.textContent = "Sync Latest Data from Google Sheets";
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "Sync Latest Data from Google Sheets";
+        }
       }
     }
 
     async function initAppLoad() {
-      document.getElementById("sheet-url-input").value = CONFIG.DEFAULT_SHEET_URL;
-      document.getElementById("firebase-url-input").value = CONFIG.FIREBASE_DB_URL;
+      try {
+        document.getElementById("sheet-url-input").value = CONFIG.DEFAULT_SHEET_URL;
+        document.getElementById("firebase-url-input").value = CONFIG.FIREBASE_DB_URL;
 
-      const currentTodayIST = getSafeTodayIST();
-      statusTextEl.textContent = "Synchronising cloud snapshot...";
+        const currentTodayIST = getSafeTodayIST();
+        if (statusTextEl) statusTextEl.textContent = "Synchronising cloud snapshot...";
 
-      let cached = await loadFromFirebaseCache();
-      let sourceText = "Firebase Cloud Snapshot";
+        let cached = await loadFromFirebaseCache();
+        let sourceText = "Firebase Cloud Snapshot";
 
-      if (!cached) {
-        cached = await loadLocalSnapshot();
-        sourceText = "Saved Browser Snapshot";
+        if (!cached) {
+          cached = await loadLocalSnapshot();
+          sourceText = "Saved Browser Snapshot";
+        }
+
+        if (cached && Array.isArray(cached.masterRows) && cached.masterRows.length > 0 && cached.todayStr === currentTodayIST) {
+          const todayDt = getTodayIST().dateObj;
+          STATE.masterRows = cached.masterRows.map((r) => ({
+            ...r,
+            od_period: r.od_period || deriveOverduePeriodFromRow(r, todayDt),
+            wo_fy: r.wo_fy || extractFinancialYear(r.start_date)
+          }));
+          STATE.diagRows = cached.diagRows || [];
+          STATE.todayStr = currentTodayIST;
+          STATE.lastSynced = cached.lastSynced || "-";
+          STATE.sourceLabel = `${sourceText} (Instant Load)`;
+        } else {
+          await syncFromGoogleSheets(true);
+        }
+      } catch (err) {
+        console.error("Init load error:", err);
+      } finally {
+        STATE.dataReady = true;
+        const elapsed = performance.now() - introStartTime;
+        const waitBeforePreRender = Math.max(0, 1200 - elapsed);
+        setTimeout(() => {
+          ensureDashboardRenderedBehindCurtain();
+          checkDismissOverlay();
+        }, waitBeforePreRender);
       }
-
-      if (cached && Array.isArray(cached.masterRows) && cached.masterRows.length > 0 && cached.todayStr === currentTodayIST) {
-        STATE.masterRows = cached.masterRows;
-        STATE.diagRows = cached.diagRows || [];
-        STATE.todayStr = currentTodayIST;
-        STATE.lastSynced = cached.lastSynced || "-";
-        STATE.sourceLabel = `${sourceText} (Instant Load)`;
-      } else {
-        await syncFromGoogleSheets(true);
-      }
-
-      STATE.dataReady = true;
-
-      const elapsed = performance.now() - introStartTime;
-      const waitBeforePreRender = Math.max(0, 1350 - elapsed);
-      setTimeout(() => {
-        ensureDashboardRenderedBehindCurtain();
-        checkDismissOverlay();
-      }, waitBeforePreRender);
     }
 
     // =========================================================================
-    // 5. CUSTOM SELECT UI ENGINE & CASCADING DROPDOWN FILTERS
+    // 5. CUSTOM HIGH-PERFORMANCE DROPDOWNS & CASCADING FILTERS
     // =========================================================================
-    function closeAllCustomSelects() {
-      document.querySelectorAll(".custom-select-options.open").forEach((el) => {
-        el.classList.remove("open");
-        if (el.previousElementSibling) el.previousElementSibling.classList.remove("open");
-        const parentCard = el.closest(".filter-card");
-        if (parentCard) parentCard.classList.remove("dropdown-active");
-      });
-    }
-
-    document.addEventListener("click", closeAllCustomSelects);
-
     function syncCustomSelect(nativeSelect) {
       if (!nativeSelect) return;
       let wrapper = nativeSelect.parentElement;
+      if (!wrapper) return;
 
       if (!wrapper.classList.contains("custom-select-container")) {
-        wrapper = document.createElement("div");
-        wrapper.className = "custom-select-container";
-        nativeSelect.parentNode.insertBefore(wrapper, nativeSelect);
-        wrapper.appendChild(nativeSelect);
+        const newWrap = document.createElement("div");
+        newWrap.className = "custom-select-container";
+        wrapper.insertBefore(newWrap, nativeSelect);
+        newWrap.appendChild(nativeSelect);
+        wrapper = newWrap;
 
         const trigger = document.createElement("div");
         trigger.className = "custom-select-trigger";
@@ -2597,12 +2643,13 @@
         trigger.addEventListener("click", (e) => {
           e.stopPropagation();
           const isOpen = optionsContainer.classList.contains("open");
-          closeAllCustomSelects();
+          document.querySelectorAll(".custom-select-options.open").forEach((el) => {
+            el.classList.remove("open");
+            if (el.previousElementSibling) el.previousElementSibling.classList.remove("open");
+          });
           if (!isOpen) {
             optionsContainer.classList.add("open");
             trigger.classList.add("open");
-            const parentCard = wrapper.closest(".filter-card");
-            if (parentCard) parentCard.classList.add("dropdown-active");
             const selectedOpt = optionsContainer.querySelector(".selected");
             if (selectedOpt) selectedOpt.scrollIntoView({ block: "nearest" });
           }
@@ -2611,9 +2658,9 @@
 
       const trigger = wrapper.querySelector(".custom-select-trigger");
       const optionsContainer = wrapper.querySelector(".custom-select-options");
+      if (!trigger || !optionsContainer) return;
 
-      const selText = nativeSelect.options[nativeSelect.selectedIndex]?.text || "ALL";
-      trigger.innerHTML = `<span>${escapeHtml(selText)}</span>`;
+      trigger.textContent = nativeSelect.options[nativeSelect.selectedIndex]?.text || "ALL";
       optionsContainer.innerHTML = "";
 
       Array.from(nativeSelect.options).forEach((opt, index) => {
@@ -2623,19 +2670,21 @@
         optDiv.addEventListener("click", (e) => {
           e.stopPropagation();
           nativeSelect.selectedIndex = index;
-          trigger.innerHTML = `<span>${escapeHtml(opt.text)}</span>`;
-          closeAllCustomSelects();
+          trigger.textContent = opt.text;
+          optionsContainer.classList.remove("open");
+          trigger.classList.remove("open");
           nativeSelect.dispatchEvent(new Event("change"));
         });
         optionsContainer.appendChild(optDiv);
       });
     }
 
-    function initStaticAbstractSelects() {
-      ["f-abs-period", "f-abs-go", "f-abs-wo", "f-abs-cost"].forEach((id) => {
-        syncCustomSelect(document.getElementById(id));
+    document.addEventListener("click", () => {
+      document.querySelectorAll(".custom-select-options.open").forEach((el) => {
+        el.classList.remove("open");
+        if (el.previousElementSibling) el.previousElementSibling.classList.remove("open");
       });
-    }
+    });
 
     function buildOptionsList(rows, key) {
       const set = new Set();
@@ -2667,14 +2716,12 @@
       const selEe = document.getElementById("f-ee");
       const selTa = document.getElementById("f-ta");
       const selAs = document.getElementById("f-as");
-      const selHoa = document.getElementById("f-abs-hoa");
 
       const prevDiv = resetAll ? ALL_OPTION : selDiv.value;
       const prevSub = resetAll ? ALL_OPTION : selSub.value;
       const prevEe = resetAll ? ALL_OPTION : selEe.value;
       const prevTa = resetAll ? ALL_OPTION : selTa.value;
       const prevAs = resetAll ? ALL_OPTION : selAs.value;
-      const prevHoa = resetAll ? ALL_OPTION : (selHoa.value || ALL_OPTION);
 
       const divOpts = buildOptionsList(STATE.masterRows, "division_name");
       setSelectOptions(selDiv, divOpts, prevDiv);
@@ -2690,18 +2737,15 @@
 
       const s4 = selTa.value !== ALL_OPTION ? s3.filter((r) => r.ta_name === selTa.value) : s3;
       setSelectOptions(selAs, buildOptionsList(s4, "as_name"), prevAs);
-
-      const s5 = selAs.value !== ALL_OPTION ? s4.filter((r) => r.as_name === selAs.value) : s4;
-      setSelectOptions(selHoa, buildOptionsList(s5.filter((r) => r.is_overdue), "hoa"), prevHoa);
     }
 
     function getFilteredScopeRows() {
-      const d = document.getElementById("f-div").value;
-      const s = document.getElementById("f-subdiv").value;
-      const ee = document.getElementById("f-ee").value;
-      const ta = document.getElementById("f-ta").value;
-      const asOff = document.getElementById("f-as").value;
-      const denomMode = document.querySelector('input[name="denom-mode"]:checked').value;
+      const d = document.getElementById("f-div")?.value || ALL_OPTION;
+      const s = document.getElementById("f-subdiv")?.value || ALL_OPTION;
+      const ee = document.getElementById("f-ee")?.value || ALL_OPTION;
+      const ta = document.getElementById("f-ta")?.value || ALL_OPTION;
+      const asOff = document.getElementById("f-as")?.value || ALL_OPTION;
+      const denomMode = document.querySelector('input[name="denom-mode"]:checked')?.value || "all";
 
       return STATE.masterRows.filter((r) => {
         if (d !== ALL_OPTION && r.division_name !== d) return false;
@@ -2715,11 +2759,11 @@
     }
 
     function getFilterScopeLabel() {
-      const d = document.getElementById("f-div").value;
-      const s = document.getElementById("f-subdiv").value;
-      const ee = document.getElementById("f-ee").value;
-      const ta = document.getElementById("f-ta").value;
-      const asOff = document.getElementById("f-as").value;
+      const d = document.getElementById("f-div")?.value || ALL_OPTION;
+      const s = document.getElementById("f-subdiv")?.value || ALL_OPTION;
+      const ee = document.getElementById("f-ee")?.value || ALL_OPTION;
+      const ta = document.getElementById("f-ta")?.value || ALL_OPTION;
+      const asOff = document.getElementById("f-as")?.value || ALL_OPTION;
       return `Division: ${d} | Sub-division: ${s} | EE: ${ee} | TA: ${ta} | AS: ${asOff}`;
     }
 
@@ -3021,8 +3065,8 @@
         `<option value="${escapeHtml(r.name)}">${escapeHtml(r.name)} — (${r.overdue_works} Overdue | ${r.ets_works} ETS / ${r.total_works} Total | ${r.overdue_pct.toFixed(1)}%)</option>`
       ).join("");
       if (offPool.some((r) => r.name === prevOff)) offSelect.value = prevOff;
-
       syncCustomSelect(offSelect);
+
       renderSelectedOfficerOverdueTable(scopeRows, viewChoice);
 
       const sumCols = ["Sl. No.", viewChoice, "Total Works Assigned", "Overdue Works ('P')", "ETS Works ('ETS')", "Rest of Works", "Ongoing Works ('P')", "Overdue %"];
@@ -3033,4 +3077,773 @@
         "Overdue Works ('P')": r.overdue_works,
         "ETS Works ('ETS')": r.ets_works,
         "Rest of Works": r.rest_works,
-        "Ongoing Works ('P')
+        "Ongoing Works ('P')": r.ongoing_p_works,
+        "Overdue %": `${r.overdue_pct.toFixed(1)}%`
+      }));
+      document.getElementById("p1-summary-table-wrap").innerHTML = buildHtmlTable(sumCols, sumRows, 460);
+
+      const diagCols = ["Sl. No.", "Sheet", "Status", "Sub-division Col", "EE / TA / AS Cols", "Rows Loaded", "Overdue ('P')", "ETS"];
+      const diagNumbered = STATE.diagRows.map((d, i) => ({ "Sl. No.": i + 1, ...d }));
+      document.getElementById("p1-diag-table-wrap").innerHTML = buildHtmlTable(diagCols, diagNumbered, 420);
+
+      const emptySet = new Set([UNASSIGNED_LABEL, UNSPECIFIED_LABEL, "", "-"]);
+      const missingRows = scopeRows.filter((r) =>
+        emptySet.has(r.subdivision_name) || emptySet.has(r.so_name) || emptySet.has(r.aee_name) ||
+        emptySet.has(r.ee_name) || emptySet.has(r.ta_name) || emptySet.has(r.as_name)
+      );
+      const dbgCols = ["Sl. No.", "Sheet", "Missing Column(s)", "Work Name", "Division", "Sub-division", "AE", "AEE", "EE", "TA", "AS", "Status"];
+      const dbgData = missingRows.map((r, idx) => {
+        const m = [];
+        if (emptySet.has(r.subdivision_name)) m.push("Sub-division");
+        if (emptySet.has(r.so_name)) m.push("AE");
+        if (emptySet.has(r.aee_name)) m.push("AEE");
+        if (emptySet.has(r.ee_name)) m.push("EE");
+        if (emptySet.has(r.ta_name)) m.push("TA");
+        if (emptySet.has(r.as_name)) m.push("AS");
+        return {
+          "Sl. No.": idx + 1,
+          Sheet: r.sheet_name,
+          "Missing Column(s)": m.join(", "),
+          "Work Name": r.work_name || "-",
+          Division: r.division_name,
+          "Sub-division": r.subdivision_name,
+          AE: r.so_name,
+          AEE: r.aee_name,
+          EE: r.ee_name,
+          TA: r.ta_name,
+          AS: r.as_name,
+          Status: r.status_raw
+        };
+      });
+      document.getElementById("p1-debug-table-wrap").innerHTML = buildHtmlTable(dbgCols, dbgData, 420);
+    }
+
+    function renderSelectedOfficerOverdueTable(scopeRows, viewChoice) {
+      const selName = document.getElementById("p1-officer-select").value;
+      const groupKey = viewChoice === "Assistant Engineer" ? "so_name" : "aee_name";
+      const oppKey = viewChoice === "Assistant Engineer" ? "aee_name" : "so_name";
+      const oppLabel = viewChoice === "Assistant Engineer" ? "Assistant Executive Engineer" : "Assistant Engineer";
+
+      const odRows = scopeRows.filter((r) => r.is_overdue && r[groupKey] === selName);
+      const cols = ["Sl. No.", "Work Name", "Division", "Sub-division", oppLabel, "Technical Assistant", "Account Superintendent", "Executive Engineer", "Start Date", "Target Date", "Overdue By", "H.O.A."];
+
+      const formattedRows = odRows.map((r, i) => ({
+        "Sl. No.": i + 1,
+        "Work Name": r.work_name || "-",
+        "Division": r.division_name || "-",
+        "Sub-division": [UNSPECIFIED_LABEL, UNASSIGNED_LABEL].includes(r.subdivision_name) ? "-" : r.subdivision_name,
+        [oppLabel]: [UNSPECIFIED_LABEL, UNASSIGNED_LABEL].includes(r[oppKey]) ? "-" : r[oppKey],
+        "Technical Assistant": [UNSPECIFIED_LABEL, UNASSIGNED_LABEL].includes(r.ta_name) ? "-" : r.ta_name,
+        "Account Superintendent": [UNSPECIFIED_LABEL, UNASSIGNED_LABEL].includes(r.as_name) ? "-" : r.as_name,
+        "Executive Engineer": [UNSPECIFIED_LABEL, UNASSIGNED_LABEL].includes(r.ee_name) ? "-" : r.ee_name,
+        "Start Date": r.start_date || "-",
+        "Target Date": r.target_date || "-",
+        "Overdue By": r.overdue_by || "-",
+        "H.O.A.": r.hoa || "-"
+      }));
+
+      STATE.currentOfficerOverdueRows = formattedRows;
+      const hoas = Array.from(new Set(formattedRows.map((r) => r["H.O.A."]))).join(", ");
+      document.getElementById("p1-officer-meta").innerHTML =
+        `<b>Selected ${escapeHtml(viewChoice)}:</b> ${escapeHtml(selName)} &nbsp;|&nbsp; <b>Total Overdue Works:</b> ${formattedRows.length} &nbsp;|&nbsp; <b>Account Heads (H.O.A.):</b> ${escapeHtml(hoas || "-")}`;
+
+      document.getElementById("p1-overdue-table-wrap").innerHTML = buildHtmlTable(cols, formattedRows, 540);
+    }
+
+    function buildHtmlTable(columns, rows, maxHeight = 540) {
+      if (!rows.length) {
+        return `<div class="filter-card" style="padding:12px;font-weight:700;">No matching overdue works in the selected scope.</div>`;
+      }
+      const thead = columns.map((c) => `<th>${escapeHtml(c)}</th>`).join("");
+      const tbody = rows.map((r) => {
+        const tds = columns.map((col, idx) => {
+          const val = escapeHtml(r[col] ?? "-");
+          if (idx === 0) return `<td class="ce-sl-cell">${val}</td>`;
+          if (col === "Work Name") return `<td class="ce-work-name-cell" title="${val}">${val}</td>`;
+          if (["Target Date", "Overdue By", "Overdue Works ('P')", "Overdue %"].includes(col)) {
+            return `<td class="ce-date-overdue">${val}</td>`;
+          }
+          return `<td>${val}</td>`;
+        }).join("");
+        return `<tr>${tds}</tr>`;
+      }).join("");
+
+      return `
+        <div class="ce-table-wrapper" style="max-height:${maxHeight}px;">
+          <table class="ce-overdue-table">
+            <thead><tr>${thead}</tr></thead>
+            <tbody>${tbody}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 7. RENDER PAGE 2: CE ANALYTICS & OVERDUE AND ETS
+    // =========================================================================
+    function buildOfficerAnalyticsList(scopeRows, colKey) {
+      const map = new Map();
+      scopeRows.forEach((r) => {
+        const name = r[colKey];
+        if (!name || name === UNASSIGNED_LABEL || name === UNSPECIFIED_LABEL) return;
+        if (!map.has(name)) {
+          map.set(name, { name, total_works: 0, ongoing_p_works: 0, ets_works: 0, overdue_works: 0, divCounts: {} });
+        }
+        const g = map.get(name);
+        g.total_works += 1;
+        g.ongoing_p_works += r.is_status_p;
+        g.ets_works += r.is_status_ets;
+        g.overdue_works += r.is_overdue;
+        g.divCounts[r.division_name] = (g.divCounts[r.division_name] || 0) + 1;
+      });
+
+      return Array.from(map.values()).map((g) => {
+        let primary_div = "-";
+        let maxD = 0;
+        Object.entries(g.divCounts).forEach(([d, cnt]) => {
+          if (cnt > maxD) { maxD = cnt; primary_div = d; }
+        });
+        const on_track_p = Math.max(0, g.ongoing_p_works - g.overdue_works);
+        const rest_works = Math.max(0, g.total_works - g.overdue_works - g.ets_works);
+        const overdue_pct = g.total_works > 0 ? Number(((g.overdue_works / g.total_works) * 100).toFixed(1)) : 0.0;
+        const delayed_exposure = g.overdue_works + g.ets_works;
+        const unexcused_ratio_pct = delayed_exposure > 0 ? Number(((g.overdue_works / delayed_exposure) * 100).toFixed(1)) : 0.0;
+        return { ...g, primary_div, on_track_p, rest_works, overdue_pct, delayed_exposure, unexcused_ratio_pct };
+      });
+    }
+
+    function renderAnalyticsPage() {
+      const scopeRows = getFilteredScopeRows();
+      const aeStats = buildOfficerAnalyticsList(scopeRows, "so_name");
+      const aeeStats = buildOfficerAnalyticsList(scopeRows, "aee_name");
+
+      const totWorks = scopeRows.length;
+      const totOd = scopeRows.reduce((a, r) => a + r.is_overdue, 0);
+      const totEts = scopeRows.reduce((a, r) => a + r.is_status_ets, 0);
+      const odPct = totWorks > 0 ? ((totOd / totWorks) * 100).toFixed(1) : "0.0";
+      const etsPct = totWorks > 0 ? ((totEts / totWorks) * 100).toFixed(1) : "0.0";
+      const totDelayed = totOd + totEts;
+      const unexcusedShare = totDelayed > 0 ? ((totOd / totDelayed) * 100).toFixed(1) : "0.0";
+      const chronic2Yr = scopeRows.filter((r) => r.is_overdue && (r.age_bucket === "4. 2 – 5 Years" || r.age_bucket === "5. > 5 Years (Chronic)")).length;
+
+      document.getElementById("p2-kpi-grid").innerHTML = `
+        <div class="kpi-card kpi-teal">
+          <div class="kpi-label">📋 Total Works in Scope</div>
+          <div class="kpi-val">${totWorks.toLocaleString()}</div>
+          <div class="kpi-sub">${aeStats.length} AEs &bull; ${aeeStats.length} AEEs</div>
+        </div>
+        <div class="kpi-card kpi-rose">
+          <div class="kpi-label">🔴 True Overdue ('P')</div>
+          <div class="kpi-val" style="color:#991B1B;">${totOd.toLocaleString()} (${odPct}%)</div>
+          <div class="kpi-sub">Past Target Date &amp; Not in ETS</div>
+        </div>
+        <div class="kpi-card kpi-sage">
+          <div class="kpi-label">🟢 Claimed 'ETS' Works</div>
+          <div class="kpi-val" style="color:#065F46;">${totEts.toLocaleString()} (${etsPct}%)</div>
+          <div class="kpi-sub">Extension of Time Status</div>
+        </div>
+        <div class="kpi-card kpi-amber">
+          <div class="kpi-label">⚠️ Total Delayed Exposure</div>
+          <div class="kpi-val" style="color:#92400E;">${totDelayed.toLocaleString()}</div>
+          <div class="kpi-sub">Overdue ('P') + 'ETS' Combined</div>
+        </div>
+        <div class="kpi-card kpi-pink">
+          <div class="kpi-label">🕵️ Unexcused Overdue Ratio</div>
+          <div class="kpi-val" style="color:#9D174D;">${unexcusedShare}%</div>
+          <div class="kpi-sub">Of delayed works are NOT in ETS</div>
+        </div>
+        <div class="kpi-card kpi-lavender">
+          <div class="kpi-label">⏳ Chronic Overdue (&gt;2 Yrs)</div>
+          <div class="kpi-val" style="color:#5B21B6;">${chronic2Yr.toLocaleString()}</div>
+          <div class="kpi-sub">Target elapsed by 2+ years</div>
+        </div>
+      `;
+
+      const auditRole = document.querySelector('input[name="p2-audit-role"]:checked').value;
+      const auditList = [...(auditRole === "Assistant Engineer" ? aeStats : aeeStats)]
+        .sort((a, b) => (b.overdue_works - a.overdue_works) || (b.ets_works - a.ets_works));
+
+      const auditSel = document.getElementById("p2-audit-officer-select");
+      const prevPicked = auditSel.value;
+      auditSel.innerHTML = auditList.map((r) => `<option value="${escapeHtml(r.name)}">${escapeHtml(r.name)} (${r.overdue_works} OD | ${r.ets_works} ETS)</option>`).join("");
+      if (auditList.some((r) => r.name === prevPicked)) auditSel.value = prevPicked;
+      syncCustomSelect(auditSel);
+
+      renderAuditOfficerDetails(scopeRows, auditRole, auditList);
+      renderAllLeaderboards(scopeRows);
+    }
+
+    function renderAuditOfficerDetails(scopeRows, auditRole, auditList) {
+      const picked = document.getElementById("p2-audit-officer-select").value;
+      const offRow = auditList.find((r) => r.name === picked);
+      if (!offRow) return;
+
+      let vColor = "#B45309", vTitle = "", vMsg = "";
+      if (offRow.overdue_works === 0 && offRow.ets_works === 0) {
+        vColor = "#047857";
+        vTitle = "CLEAN RECORD (0 Overdue, 0 ETS)";
+        vMsg = `<b>${escapeHtml(picked)}</b> has zero overdue works and zero ETS works across <b>${offRow.total_works}</b> assigned works.`;
+      } else if (offRow.overdue_works > 0 && offRow.ets_works === 0) {
+        vColor = "#B91C1C";
+        vTitle = "100% UNEXCUSED OVERDUE (ZERO ETS)";
+        vMsg = `If <b>${escapeHtml(picked)}</b> claims their delayed works are in ETS, <b>that is inaccurate</b>: <b>${offRow.overdue_works} work(s)</b> are sitting in Overdue ('P') and <b>0 works</b> are in ETS.`;
+      } else if (offRow.overdue_works > offRow.ets_works) {
+        vColor = "#C2410C";
+        vTitle = `MORE OVERDUE THAN ETS (${offRow.unexcused_ratio_pct.toFixed(1)}% Unexcused)`;
+        vMsg = `Out of <b>${offRow.overdue_works + offRow.ets_works}</b> delayed works under <b>${escapeHtml(picked)}</b>, only <b>${offRow.ets_works}</b> are in ETS while <b>${offRow.overdue_works} works (${offRow.unexcused_ratio_pct.toFixed(1)}%)</b> are sitting in Overdue ('P').`;
+      } else {
+        vColor = "#B45309";
+        vTitle = `ETS HEAVY (${offRow.ets_works} in ETS vs. ${offRow.overdue_works} Overdue)`;
+        vMsg = `<b>${escapeHtml(picked)}</b> has placed <b>${offRow.ets_works}</b> works in ETS, and still has <b>${offRow.overdue_works}</b> active Overdue ('P') work(s) (${offRow.overdue_pct.toFixed(1)}% of total).`;
+      }
+
+      const colKey = auditRole === "Assistant Engineer" ? "so_name" : "aee_name";
+      const offOdRows = scopeRows.filter((r) => r.is_overdue && r[colKey] === picked);
+
+      const tc = { "Under 6 Months": 0, "6 Months to 1 Year": 0, "1 - 2 Years": 0, "2 - 3 Years": 0, "3 - 4 Years": 0, "4+ Years": 0 };
+      offOdRows.forEach((r) => { if (tc[r.tree_bucket] !== undefined) tc[r.tree_bucket]++; });
+
+      document.getElementById("p2-truth-verdict-box").innerHTML = `
+        <div class="truth-audit-box" style="border-left-color:${vColor};">
+          <div style="font-size:0.95rem;font-weight:800;color:${vColor};margin-bottom:6px;">${vTitle}</div>
+          <div style="font-size:0.86rem;color:#0F172A;line-height:1.45;margin-bottom:14px;">${vMsg}</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;text-align:center;">
+            <div style="background:#FEE2E2;border:1.5px solid #F87171;border-radius:8px;padding:10px;">
+              <div style="font-size:0.73rem;color:#991B1B;font-weight:800;">OVERDUE ('P')</div>
+              <div style="font-size:1.45rem;font-weight:800;color:#991B1B;">${offRow.overdue_works}</div>
+            </div>
+            <div style="background:#D1FAE5;border:1.5px solid #34D399;border-radius:8px;padding:10px;">
+              <div style="font-size:0.73rem;color:#065F46;font-weight:800;">IN 'ETS'</div>
+              <div style="font-size:1.45rem;font-weight:800;color:#065F46;">${offRow.ets_works}</div>
+            </div>
+            <div style="background:#DBEAFE;border:1.5px solid #60A5FA;border-radius:8px;padding:10px;">
+              <div style="font-size:0.73rem;color:#1E40AF;font-weight:800;">ON-TRACK ('P')</div>
+              <div style="font-size:1.45rem;font-weight:800;color:#1E3A8A;">${offRow.on_track_p}</div>
+            </div>
+            <div style="background:#CBD5E1;border:1.5px solid #94A3B8;border-radius:8px;padding:10px;">
+              <div style="font-size:0.73rem;color:#1E293B;font-weight:800;">TOTAL WORKS</div>
+              <div style="font-size:1.45rem;font-weight:800;color:#0F172A;">${offRow.total_works}</div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:12px;text-align:center;">
+            <div style="background:#FECDD3;border:1px solid #FB7185;border-radius:8px;padding:7px;"><div style="font-size:0.66rem;font-weight:800;color:#881337;">UNDER 6 MOS</div><div style="font-size:1.2rem;font-weight:800;">${tc["Under 6 Months"]}</div></div>
+            <div style="background:#FECDD3;border:1px solid #FB7185;border-radius:8px;padding:7px;"><div style="font-size:0.66rem;font-weight:800;color:#881337;">6–12 MOS</div><div style="font-size:1.2rem;font-weight:800;">${tc["6 Months to 1 Year"]}</div></div>
+            <div style="background:#FECDD3;border:1px solid #FB7185;border-radius:8px;padding:7px;"><div style="font-size:0.66rem;font-weight:800;color:#881337;">1–2 YRS</div><div style="font-size:1.2rem;font-weight:800;">${tc["1 - 2 Years"]}</div></div>
+            <div style="background:#FECDD3;border:1px solid #FB7185;border-radius:8px;padding:7px;"><div style="font-size:0.66rem;font-weight:800;color:#881337;">2–3 YRS</div><div style="font-size:1.2rem;font-weight:800;">${tc["2 - 3 Years"]}</div></div>
+            <div style="background:#FECDD3;border:1px solid #FB7185;border-radius:8px;padding:7px;"><div style="font-size:0.66rem;font-weight:800;color:#881337;">3–4 YRS</div><div style="font-size:1.2rem;font-weight:800;">${tc["3 - 4 Years"]}</div></div>
+            <div style="background:#FECDD3;border:1px solid #FB7185;border-radius:8px;padding:7px;"><div style="font-size:0.66rem;font-weight:800;color:#881337;">4+ YRS</div><div style="font-size:1.2rem;font-weight:800;">${tc["4+ Years"]}</div></div>
+          </div>
+        </div>
+      `;
+
+      Plotly.newPlot("p2-donut-chart", [{
+        type: "pie",
+        labels: ["Overdue ('P')", "Claimed 'ETS'", "On-Track ('P')", "Completed / Rest"],
+        values: [offRow.overdue_works, offRow.ets_works, offRow.on_track_p, offRow.rest_works],
+        hole: 0.56,
+        marker: { colors: ["#DC2626", "#059669", "#2563EB", "#64748B"], line: { color: "#E2E8F0", width: 3 } },
+        textinfo: "label+value",
+        textfont: { size: 12, color: "#0F172A" }
+      }], {
+        height: 290,
+        margin: { l: 10, r: 10, t: 10, b: 10 },
+        paper_bgcolor: "#E8EEF5",
+        showlegend: false,
+        annotations: [{ text: `<b>${offRow.total_works}</b><br>Works`, x: 0.5, y: 0.5, showarrow: false, font: { size: 15, color: "#0F172A" } }]
+      }, { responsive: true, displayModeBar: false });
+
+      const pCols = ["Sl. No.", "Work Name", "Target Date", "Overdue By", "H.O.A."];
+      const pRows = offOdRows.map((r, i) => ({
+        "Sl. No.": i + 1,
+        "Work Name": r.work_name || "-",
+        "Target Date": r.target_date || "-",
+        "Overdue By": r.overdue_by || "-",
+        "H.O.A.": r.hoa || "-"
+      }));
+      document.getElementById("p2-proof-table-wrap").innerHTML = buildHtmlTable(pCols, pRows, 275);
+    }
+
+    function buildLeaderboardPanelHtml(slice, title, subtitle, isDanger, metric) {
+      const panelCls = isDanger ? "exec-lb-panel-danger" : "exec-lb-panel-success";
+      const pillCls = isDanger ? "exec-pill-danger" : "exec-pill-success";
+
+      if (!slice.length) {
+        return `
+          <div class="exec-lb-panel ${panelCls}">
+            <div class="exec-lb-header">
+              <span class="exec-lb-title">${escapeHtml(title)}</span>
+              <span class="exec-lb-sub">${escapeHtml(subtitle)}</span>
+            </div>
+            <div style="padding:10px 0;font-size:0.82rem;font-weight:600;">No officers with overdue works match the current filter criteria.</div>
+          </div>
+        `;
+      }
+
+      const maxOd = Math.max(...slice.map((r) => r.overdue_works), 1);
+      const rowsHtml = slice.map((r, i) => {
+        const tot = Math.max(r.total_works, 1);
+        const mainBadge = metric === "pct"
+          ? `<span class="${pillCls}">${r.overdue_pct.toFixed(1)}% (${r.overdue_works} OD)</span>`
+          : `<span class="${pillCls}">${r.overdue_works} OD (${r.overdue_pct.toFixed(1)}%)</span>`;
+        const odW = metric === "pct"
+          ? Math.min(100, Math.max(r.overdue_works > 0 ? 2 : 0, r.overdue_pct))
+          : (isDanger && r.overdue_works > 0 ? Math.min(100, Math.max(4, (r.overdue_works / maxOd) * 100)) : Math.min(100, (r.overdue_works / tot) * 100));
+        const etsW = Math.min(100 - odW, (r.ets_works / tot) * 100);
+        const etsBadge = r.ets_works > 0 ? `<span class="exec-pill-ets">${r.ets_works} ETS</span>` : `<span style="font-size:0.72rem;font-weight:700;color:#475569;">0 ETS</span>`;
+
+        return `
+          <div class="exec-lb-row">
+            <div class="exec-lb-row-top">
+              <div class="exec-lb-officer-wrap">
+                <span class="exec-lb-rank">#${i + 1}</span>
+                <span class="exec-lb-name">${escapeHtml(r.name)}</span>
+                <span class="exec-lb-div-tag">${escapeHtml(r.primary_div)}</span>
+              </div>
+              <div class="exec-lb-badges">
+                ${mainBadge}
+                ${etsBadge}
+                <span class="exec-pill-total">${r.total_works} Total</span>
+              </div>
+            </div>
+            <div class="exec-lb-bar-bg">
+              <div class="exec-lb-bar-od" style="width:${odW.toFixed(1)}%;"></div>
+              <div class="exec-lb-bar-ets" style="width:${etsW.toFixed(1)}%;"></div>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      return `
+        <div class="exec-lb-panel ${panelCls}">
+          <div class="exec-lb-header">
+            <span class="exec-lb-title">${escapeHtml(title)}</span>
+            <span class="exec-lb-sub">${escapeHtml(subtitle)}</span>
+          </div>
+          ${rowsHtml}
+        </div>
+      `;
+    }
+
+    function renderAllLeaderboards(scopeRows) {
+      const minWorks = parseInt(document.getElementById("p2-min-works").value, 10) || 1;
+      const topN = parseInt(document.querySelector('input[name="p2-top-n"]:checked').value, 10) || 5;
+      document.getElementById("p2-min-works-val").textContent = minWorks;
+      document.getElementById("p2-lb-badge").textContent = `Min. ${minWorks} assigned works • Least Overdue excludes 0-OD`;
+
+      const cadreMap = {
+        "Assistant Engineer": ["so_name", "AEs"],
+        "Assistant Executive Engineer": ["aee_name", "AEEs"],
+        "Technical Assistant": ["ta_name", "TAs"],
+        "Account Superintendent": ["as_name", "Account Supts."]
+      };
+      const [colKey, shortPlural] = cadreMap[STATE.activeLbCadre];
+      const stats = buildOfficerAnalyticsList(scopeRows, colKey);
+
+      let qual = stats.filter((r) => r.total_works >= minWorks);
+      if (!qual.length) qual = [...stats];
+
+      const highCnt = [...stats].sort((a, b) => (b.overdue_works - a.overdue_works) || (b.overdue_pct - a.overdue_pct) || (b.total_works - a.total_works)).slice(0, topN);
+      const highPct = [...qual].sort((a, b) => (b.overdue_pct - a.overdue_pct) || (b.overdue_works - a.overdue_works) || (b.total_works - a.total_works)).slice(0, topN);
+
+      let leastPool = qual.filter((r) => r.overdue_works > 0);
+      if (!leastPool.length) leastPool = stats.filter((r) => r.overdue_works > 0);
+
+      const leastCnt = [...leastPool].sort((a, b) => (a.overdue_works - b.overdue_works) || (a.overdue_pct - b.overdue_pct) || (b.total_works - a.total_works)).slice(0, topN);
+      const leastPct = [...leastPool].sort((a, b) => (a.overdue_pct - b.overdue_pct) || (a.overdue_works - b.overdue_works) || (b.total_works - a.total_works)).slice(0, topN);
+
+      document.getElementById("p2-leaderboards-wrap").innerHTML = `
+        <div class="lb-grid-2">
+          ${buildLeaderboardPanelHtml(highCnt, `Top ${topN} ${shortPlural} — Highest Overdue (By Count)`, "Ranked by Overdue Works Count", true, "count")}
+          ${buildLeaderboardPanelHtml(highPct, `Top ${topN} ${shortPlural} — Highest Overdue (By Percentage %)`, `Min. ${minWorks} Works Assigned`, true, "pct")}
+        </div>
+        <div class="lb-grid-2">
+          ${buildLeaderboardPanelHtml(leastCnt, `Top ${topN} ${shortPlural} — Least Overdue (By Count)`, `Officers with Overdue > 0 • Min. ${minWorks} Works`, false, "count")}
+          ${buildLeaderboardPanelHtml(leastPct, `Top ${topN} ${shortPlural} — Least Overdue (By Percentage %)`, `Officers with Overdue > 0 • Min. ${minWorks} Works`, false, "pct")}
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 8. RENDER PAGE 3: DIVISION WISE ABSTRACT & MASTER NAVIGATION
+    // =========================================================================
+    function matchesCostBucket(costStr, bucket) {
+      if (!bucket || bucket === "ALL") return true;
+      const val = parseFloat(costStr);
+      if (isNaN(val)) return false;
+      if (bucket === "Less than 100") return val < 100;
+      if (bucket === "0-200") return val >= 0 && val <= 200;
+      if (bucket === "100-500") return val >= 100 && val <= 500;
+      if (bucket === "200-500") return val >= 200 && val <= 500;
+      if (bucket === "500-1000") return val >= 500 && val <= 1000;
+      if (bucket === "1000-2500") return val >= 1000 && val <= 2500;
+      if (bucket === "2500-5000") return val >= 2500 && val <= 5000;
+      if (bucket === "5000-10000") return val >= 5000 && val <= 10000;
+      if (bucket === "More than 10000") return val > 10000;
+      return true;
+    }
+
+    function renderAbstractPage() {
+      const absSec = document.getElementById("page-abstract");
+      if (!absSec) return;
+
+      const scopeRows = getFilteredScopeRows();
+      const odScopeRows = scopeRows.filter((r) => r.is_overdue);
+
+      const hoaSel = document.getElementById("f-abs-hoa");
+      if (hoaSel) {
+        const prevHoa = hoaSel.value || ALL_OPTION;
+        setSelectOptions(hoaSel, buildOptionsList(odScopeRows, "hoa"), prevHoa);
+      }
+
+      ["f-abs-period", "f-abs-go", "f-abs-wo", "f-abs-cost"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) syncCustomSelect(el);
+      });
+
+      const selPeriod = document.getElementById("f-abs-period")?.value || ALL_OPTION;
+      const selGo = document.getElementById("f-abs-go")?.value || ALL_OPTION;
+      const selWo = document.getElementById("f-abs-wo")?.value || ALL_OPTION;
+      const selCost = document.getElementById("f-abs-cost")?.value || ALL_OPTION;
+      const selHoa = document.getElementById("f-abs-hoa")?.value || ALL_OPTION;
+
+      const todayDt = getTodayIST().dateObj;
+
+      const filteredRows = odScopeRows.filter((r) => {
+        const rowPeriod = r.od_period || deriveOverduePeriodFromRow(r, todayDt);
+        const rowWoFy = r.wo_fy || extractFinancialYear(r.start_date);
+        if (selPeriod !== ALL_OPTION && rowPeriod !== selPeriod) return false;
+        if (selGo !== ALL_OPTION && r.go_fy !== selGo) return false;
+        if (selWo !== ALL_OPTION && rowWoFy !== selWo) return false;
+        if (!matchesCostBucket(r.est_cost, selCost)) return false;
+        if (selHoa !== ALL_OPTION && r.hoa !== selHoa) return false;
+        return true;
+      });
+
+      const cols = [
+        "Sl. No.", "Work Name", "Division", "Sub-division",
+        "Assistant Executive Engineer", "Technical Assistant",
+        "Account Superintendent", "Executive Engineer",
+        "Start Date", "Target Date", "Overdue By", "H.O.A."
+      ];
+
+      const cleanCell = (v) => ([UNSPECIFIED_LABEL, UNASSIGNED_LABEL, ""].includes(v) ? "-" : v);
+
+      const formattedRows = filteredRows.map((r, i) => ({
+        "Sl. No.": i + 1,
+        "Work Name": r.work_name || "-",
+        "Division": r.division_name || "-",
+        "Sub-division": cleanCell(r.subdivision_name),
+        "Assistant Executive Engineer": cleanCell(r.aee_name),
+        "Technical Assistant": cleanCell(r.ta_name),
+        "Account Superintendent": cleanCell(r.as_name),
+        "Executive Engineer": cleanCell(r.ee_name),
+        "Start Date": r.start_date || "-",
+        "Target Date": r.target_date || "-",
+        "Overdue By": r.overdue_by || "-",
+        "H.O.A.": r.hoa || "-"
+      }));
+
+      STATE.currentAbstractExportRows = formattedRows;
+      const badgeEl = document.getElementById("p3-scope-badge");
+      if (badgeEl) badgeEl.textContent = `${getFilterScopeLabel()} | Period: ${selPeriod} | H.O.A.: ${selHoa}`;
+
+      const hoas = Array.from(new Set(formattedRows.map((r) => r["H.O.A."]))).join(", ");
+      const metaEl = document.getElementById("p3-meta-info");
+      if (metaEl) {
+        metaEl.innerHTML = `<b>Total Matching Overdue Works:</b> ${formattedRows.length.toLocaleString()} &nbsp;|&nbsp; <b>Account Heads (H.O.A.):</b> ${escapeHtml(hoas || "-")}`;
+      }
+
+      const wrapEl = document.getElementById("p3-abstract-table-wrap");
+      if (wrapEl) wrapEl.innerHTML = buildHtmlTable(cols, formattedRows, 620);
+    }
+
+    function renderActivePage() {
+      document.getElementById("status-source-pill").textContent = STATE.sourceLabel;
+      document.getElementById("status-time-label").textContent = STATE.lastSynced;
+      updateChronicHeaderCount();
+
+      const dashSec = document.getElementById("page-dashboard");
+      const anSec = document.getElementById("page-analytics");
+      const absSec = document.getElementById("page-abstract");
+      const titleEl = document.getElementById("page-main-title");
+      const switchBtn = document.getElementById("page-switch-btn");
+      const absBtn = document.getElementById("abstract-switch-btn");
+
+      if (STATE.activePage === "dashboard") {
+        if (dashSec) dashSec.style.display = "block";
+        if (anSec) anSec.style.display = "none";
+        if (absSec) absSec.style.display = "none";
+        if (titleEl) titleEl.textContent = "Minor Irrigation — Overdue Works Dashboard";
+        if (switchBtn) switchBtn.textContent = "Analytics View →";
+        if (absBtn) absBtn.textContent = "Division Wise Abstract";
+        renderDashboardPage();
+      } else if (STATE.activePage === "analytics") {
+        if (dashSec) dashSec.style.display = "none";
+        if (anSec) anSec.style.display = "block";
+        if (absSec) absSec.style.display = "none";
+        if (titleEl) titleEl.textContent = "Minor Irrigation — CE Analytics & Overdue and ETS";
+        if (switchBtn) switchBtn.textContent = "← Main Dashboard";
+        if (absBtn) absBtn.textContent = "Division Wise Abstract";
+        renderAnalyticsPage();
+      } else if (STATE.activePage === "abstract") {
+        if (dashSec) dashSec.style.display = "none";
+        if (anSec) anSec.style.display = "none";
+        if (absSec) absSec.style.display = "block";
+        if (titleEl) titleEl.textContent = "Minor Irrigation — Division Wise Abstract";
+        if (switchBtn) switchBtn.textContent = "Analytics View →";
+        if (absBtn) absBtn.textContent = "← Main Dashboard";
+        renderAbstractPage();
+      }
+    }
+
+    // =========================================================================
+    // 9. CHRONIC OVERDUE MODAL & GLOBAL EVENT LISTENERS
+    // =========================================================================
+    function getChronicFilteredSets(scopeRows) {
+      const odRows = scopeRows.filter((r) => r.is_overdue);
+      const yr2 = odRows.filter((r) =>
+        r.tree_bucket === "2 - 3 Years" || r.tree_bucket === "3 - 4 Years" || r.tree_bucket === "4+ Years"
+      );
+      const yr3 = odRows.filter((r) =>
+        r.tree_bucket === "3 - 4 Years" || r.tree_bucket === "4+ Years"
+      );
+      const yr4 = odRows.filter((r) =>
+        r.tree_bucket === "4+ Years"
+      );
+      return { "2": yr2, "3": yr3, "4": yr4 };
+    }
+
+    function updateChronicHeaderCount() {
+      const badgeEl = document.getElementById("hdr-chronic-badge");
+      if (!badgeEl) return;
+      const sets = getChronicFilteredSets(getFilteredScopeRows());
+      badgeEl.textContent = sets["2"].length.toLocaleString();
+    }
+
+    function renderChronicModalContent() {
+      const scopeRows = getFilteredScopeRows();
+      const sets = getChronicFilteredSets(scopeRows);
+
+      const c2 = document.getElementById("cnt-yr-2");
+      const c3 = document.getElementById("cnt-yr-3");
+      const c4 = document.getElementById("cnt-yr-4");
+      const scopeBadge = document.getElementById("chronic-modal-scope-badge");
+
+      if (c2) c2.textContent = sets["2"].length.toLocaleString();
+      if (c3) c3.textContent = sets["3"].length.toLocaleString();
+      if (c4) c4.textContent = sets["4"].length.toLocaleString();
+      if (scopeBadge) scopeBadge.textContent = getFilterScopeLabel();
+
+      const activeRows = sets[STATE.activeChronicYr] || [];
+      const cols = [
+        "Sl. No.", "Work Name", "Division", "Sub-division",
+        "Assistant Engineer", "Assistant Executive Engineer",
+        "Technical Assistant", "Account Superintendent", "Executive Engineer",
+        "Start Date", "Target Date", "Overdue By", "H.O.A."
+      ];
+
+      const cleanCell = (v) => ([UNSPECIFIED_LABEL, UNASSIGNED_LABEL, ""].includes(v) ? "-" : v);
+
+      const formattedRows = activeRows.map((r, i) => ({
+        "Sl. No.": i + 1,
+        "Work Name": r.work_name || "-",
+        "Division": r.division_name || "-",
+        "Sub-division": cleanCell(r.subdivision_name),
+        "Assistant Engineer": cleanCell(r.so_name),
+        "Assistant Executive Engineer": cleanCell(r.aee_name),
+        "Technical Assistant": cleanCell(r.ta_name),
+        "Account Superintendent": cleanCell(r.as_name),
+        "Executive Engineer": cleanCell(r.ee_name),
+        "Start Date": r.start_date || "-",
+        "Target Date": r.target_date || "-",
+        "Overdue By": r.overdue_by || "-",
+        "H.O.A.": r.hoa || "-"
+      }));
+
+      STATE.currentChronicExportRows = formattedRows;
+      const hoas = Array.from(new Set(formattedRows.map((r) => r["H.O.A."]))).join(", ");
+      const metaEl = document.getElementById("chronic-modal-meta");
+      if (metaEl) {
+        metaEl.innerHTML = `<b>Selected Category:</b> ${STATE.activeChronicYr}+ Years Overdue &nbsp;|&nbsp; <b>Total Chronic Works:</b> ${formattedRows.length.toLocaleString()} &nbsp;|&nbsp; <b>Account Heads (H.O.A.):</b> ${escapeHtml(hoas || "-")}`;
+      }
+
+      const wrapEl = document.getElementById("chronic-modal-table-wrap");
+      if (wrapEl) {
+        const tableHtml = buildHtmlTable(cols, formattedRows, 9999);
+        wrapEl.innerHTML = tableHtml.replace('style="max-height:9999px;"', 'style="flex:1;max-height:100%;margin-bottom:0;"');
+      }
+    }
+
+    document.getElementById("sidebar-toggle-btn")?.addEventListener("click", () => {
+      document.getElementById("app-sidebar")?.classList.toggle("collapsed");
+      setTimeout(() => window.dispatchEvent(new Event("resize")), 260);
+    });
+
+    document.getElementById("page-switch-btn")?.addEventListener("click", () => {
+      STATE.activePage = STATE.activePage === "analytics" ? "dashboard" : "analytics";
+      renderActivePage();
+    });
+
+    document.getElementById("abstract-switch-btn")?.addEventListener("click", () => {
+      STATE.activePage = STATE.activePage === "abstract" ? "dashboard" : "abstract";
+      renderActivePage();
+    });
+
+    document.getElementById("sync-btn")?.addEventListener("click", () => syncFromGoogleSheets(false));
+
+    document.getElementById("xlsx-upload-input")?.addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const buf = await file.arrayBuffer();
+      const parsed = parseWorkbookArrayBuffer(buf);
+      STATE.masterRows = parsed.masterRows;
+      STATE.diagRows = parsed.diagRows;
+      STATE.todayStr = parsed.todayStr;
+      STATE.lastSynced = parsed.lastSynced;
+      STATE.sourceLabel = `Uploaded (${file.name})`;
+      await saveToFirebaseCache({
+        masterRows: STATE.masterRows,
+        diagRows: STATE.diagRows,
+        todayStr: STATE.todayStr,
+        lastSynced: STATE.lastSynced,
+        sourceLabel: STATE.sourceLabel
+      });
+      populateFilterDropdowns(true);
+      renderActivePage();
+    });
+
+    ["f-div", "f-subdiv", "f-ee", "f-ta", "f-as"].forEach((id) => {
+      document.getElementById(id)?.addEventListener("change", () => {
+        populateFilterDropdowns(false);
+        renderActivePage();
+      });
+    });
+
+    ["f-abs-period", "f-abs-go", "f-abs-wo", "f-abs-cost", "f-abs-hoa"].forEach((id) => {
+      document.getElementById(id)?.addEventListener("change", () => {
+        if (STATE.activePage === "abstract") renderAbstractPage();
+      });
+    });
+
+    document.querySelectorAll('input[name="denom-mode"], input[name="bar-mode"], input[name="p1-view"], input[name="p1-sort"], #chk-shrink, #chk-hide-zero, #chk-unassigned').forEach((el) => {
+      el.addEventListener("change", renderActivePage);
+    });
+
+    document.getElementById("chk-scroll-hud")?.addEventListener("change", (e) => {
+      const hud = document.getElementById("scroll-hud-root");
+      if (hud) hud.style.display = e.target.checked ? "block" : "none";
+    });
+
+    document.getElementById("p1-officer-select")?.addEventListener("change", () => {
+      const viewChoice = document.querySelector('input[name="p1-view"]:checked').value;
+      renderSelectedOfficerOverdueTable(getFilteredScopeRows(), viewChoice);
+    });
+
+    document.querySelectorAll('input[name="p2-audit-role"]').forEach((el) => {
+      el.addEventListener("change", renderAnalyticsPage);
+    });
+
+    document.getElementById("p2-audit-officer-select")?.addEventListener("change", () => {
+      const scopeRows = getFilteredScopeRows();
+      const auditRole = document.querySelector('input[name="p2-audit-role"]:checked').value;
+      const colKey = auditRole === "Assistant Engineer" ? "so_name" : "aee_name";
+      const auditList = buildOfficerAnalyticsList(scopeRows, colKey);
+      renderAuditOfficerDetails(scopeRows, auditRole, auditList);
+    });
+
+    document.getElementById("p2-min-works")?.addEventListener("input", () => renderAllLeaderboards(getFilteredScopeRows()));
+    document.querySelectorAll('input[name="p2-top-n"]').forEach((el) => {
+      el.addEventListener("change", () => renderAllLeaderboards(getFilteredScopeRows()));
+    });
+
+    document.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        STATE.activeLbCadre = btn.getAttribute("data-cadre");
+        renderAllLeaderboards(getFilteredScopeRows());
+      });
+    });
+
+    document.getElementById("chronic-open-btn")?.addEventListener("click", () => {
+      renderChronicModalContent();
+      document.getElementById("chronic-modal-backdrop")?.classList.add("open");
+    });
+
+    document.getElementById("chronic-close-btn")?.addEventListener("click", () => {
+      document.getElementById("chronic-modal-backdrop")?.classList.remove("open");
+    });
+
+    document.getElementById("chronic-modal-backdrop")?.addEventListener("click", (e) => {
+      if (e.target.id === "chronic-modal-backdrop") {
+        document.getElementById("chronic-modal-backdrop")?.classList.remove("open");
+      }
+    });
+
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        document.getElementById("chronic-modal-backdrop")?.classList.remove("open");
+      }
+    });
+
+    document.querySelectorAll(".chronic-yr-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".chronic-yr-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        STATE.activeChronicYr = btn.getAttribute("data-yr");
+        renderChronicModalContent();
+      });
+    });
+
+    function triggerDownloadXlsx(rows, sheetName, fileName) {
+      if (!rows || !rows.length) return;
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      XLSX.writeFile(wb, fileName);
+    }
+
+    function triggerDownloadCsv(rows, fileName) {
+      if (!rows || !rows.length) return;
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const csv = "\uFEFF" + XLSX.utils.sheet_to_csv(ws);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = fileName;
+      a.click();
+    }
+
+    document.getElementById("dl-xlsx-btn")?.addEventListener("click", () => {
+      triggerDownloadXlsx(STATE.currentOfficerOverdueRows, "Overdue_Works", `Overdue_Works_${STATE.todayStr}.xlsx`);
+    });
+    document.getElementById("dl-csv-btn")?.addEventListener("click", () => {
+      triggerDownloadCsv(STATE.currentOfficerOverdueRows, `Overdue_Works_${STATE.todayStr}.csv`);
+    });
+
+    document.getElementById("chronic-dl-xlsx-btn")?.addEventListener("click", () => {
+      triggerDownloadXlsx(STATE.currentChronicExportRows, `Chronic_${STATE.activeChronicYr}Yrs_Plus`, `Chronic_Overdue_${STATE.activeChronicYr}Yrs_Plus_${STATE.todayStr}.xlsx`);
+    });
+    document.getElementById("chronic-dl-csv-btn")?.addEventListener("click", () => {
+      triggerDownloadCsv(STATE.currentChronicExportRows, `Chronic_Overdue_${STATE.activeChronicYr}Yrs_Plus_${STATE.todayStr}.csv`);
+    });
+
+    document.getElementById("p3-dl-xlsx-btn")?.addEventListener("click", () => {
+      triggerDownloadXlsx(STATE.currentAbstractExportRows, "Division_Wise_Abstract", `Division_Wise_Abstract_${STATE.todayStr}.xlsx`);
+    });
+    document.getElementById("p3-dl-csv-btn")?.addEventListener("click", () => {
+      triggerDownloadCsv(STATE.currentAbstractExportRows, `Division_Wise_Abstract_${STATE.todayStr}.csv`);
+    });
+
+    window.addEventListener("scroll", () => {
+      const doc = document.documentElement;
+      const maxS = Math.max(1, doc.scrollHeight - doc.clientHeight);
+      const pct = Math.min(100, Math.max(0, (window.scrollY / maxS) * 100));
+      const ind = document.getElementById("scroll-hud-indicator");
+      const lbl = document.getElementById("scroll-hud-pct");
+      if (ind) ind.style.top = (20 + 60 * (pct / 100)).toFixed(1) + "%";
+      if (lbl) lbl.textContent = Math.round(pct) + "%";
+    }, { passive: true });
+
+    initAppLoad();
+  </script>
