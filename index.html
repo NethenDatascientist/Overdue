@@ -3548,10 +3548,10 @@
       });
 
       // Added the exact financial & date columns requested for this Abstract table
-      const cols = [
+     const cols = [
         "Sl. No.", "Work Name", "Division", "Sub-division",
-        "Assistant Executive Engineer", "Technical Assistant",
-        "Account Superintendent", "Executive Engineer",
+        "Assistant Engineer", "Assistant Executive Engineer", 
+        "Technical Assistant", "Account Superintendent", "Executive Engineer",
         "Target Date", "Overdue Period", "Govt Order FY", "Work Order FY", "Est. Cost (Lakhs)", "H.O.A."
       ];
 
@@ -3562,6 +3562,7 @@
         "Work Name": r.work_name || "-",
         "Division": r.division_name || "-",
         "Sub-division": cleanCell(r.subdivision_name),
+        "Assistant Engineer": cleanCell(r.so_name),
         "Assistant Executive Engineer": cleanCell(r.aee_name),
         "Technical Assistant": cleanCell(r.ta_name),
         "Account Superintendent": cleanCell(r.as_name),
