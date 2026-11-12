@@ -3179,18 +3179,29 @@
       if (!rows.length) {
         return `<div class="filter-card" style="padding:12px;font-weight:700;">No matching overdue works in the selected scope.</div>`;
       }
-      const thead = columns.map((c) => `<th>${escapeHtml(c)}</th>`).join("");
+      
+      // Define all columns that should wrap text to save space
+      const wrapCols = ["Sub-division", "H.O.A.", "Assistant Engineer", "Assistant Executive Engineer"];
+      
+      // Apply wrap class to headers as well so long titles don't stretch the column
+      const thead = columns.map((c) => {
+        if (wrapCols.includes(c)) return `<th class="ce-wrap-cell">${escapeHtml(c)}</th>`;
+        return `<th>${escapeHtml(c)}</th>`;
+      }).join("");
+      
       const tbody = rows.map((r) => {
         const tds = columns.map((col, idx) => {
           const val = escapeHtml(r[col] ?? "-");
+          
           if (idx === 0) return `<td class="ce-sl-cell">${val}</td>`;
           if (col === "Work Name") return `<td class="ce-work-name-cell" title="${val}">${val}</td>`;
-          if (["Sub-division", "H.O.A."].includes(col)) {
+          if (wrapCols.includes(col)) {
             return `<td class="ce-wrap-cell">${val}</td>`;
           }
           if (["Target Date", "Overdue By", "Overdue Period", "Overdue Works ('P')", "Overdue %"].includes(col)) {
             return `<td class="ce-date-overdue">${val}</td>`;
           }
+          
           return `<td>${val}</td>`;
         }).join("");
         return `<tr>${tds}</tr>`;
