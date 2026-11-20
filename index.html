@@ -1786,6 +1786,31 @@
            PAGE 4: ALL WORKS REPORT (ZONE & DIVISION WISE ABSTRACT)
            ===================================================================== -->
       <section id="page-allworks" style="display:none;">
+        <!-- Row 1 Filters (Multiselect Division, Sub-division, EE, TA, AS) -->
+        <div class="filter-grid-5">
+          <div class="filter-card">
+            <label for="f-aw-div">Select Division:</label>
+            <select id="f-aw-div" class="filter-select"></select>
+          </div>
+          <div class="filter-card">
+            <label for="f-aw-subdiv">Select Sub-division:</label>
+            <select id="f-aw-subdiv" class="filter-select"></select>
+          </div>
+          <div class="filter-card">
+            <label for="f-aw-ee">Select Executive Engineer:</label>
+            <select id="f-aw-ee" class="filter-select"></select>
+          </div>
+          <div class="filter-card">
+            <label for="f-aw-ta">Select Technical Assistant:</label>
+            <select id="f-aw-ta" class="filter-select"></select>
+          </div>
+          <div class="filter-card">
+            <label for="f-aw-as">Select Account Superintendent:</label>
+            <select id="f-aw-as" class="filter-select"></select>
+          </div>
+        </div>
+
+        <!-- Row 2 Filters (All Multiselect) -->
         <!-- Row 2 Filters (All Multiselect) -->
         <div class="filter-grid-5">
           <div class="filter-card">
@@ -1952,6 +1977,11 @@
       allWorksOverdueOnly: false,
       awHoaDefaultApplied: false,
       awFilters: {
+        div: [],
+        subdiv: [],
+        ee: [],
+        ta: [],
+        as: [],
         period: [],
         go: [],
         wo: [],
@@ -2299,6 +2329,28 @@
       }
       return name;
     }
+    function isConstituencyHeader(norm, upper) {
+      const kn = String(norm || "")
+        .normalize("NFC")
+        .replace(/[\u200B-\u200D\uFEFF]/g, "")
+        .replace(/\u0CC6\u0CD5/g, "\u0CC7") // Nudi split ೆ + ೕ -> ೇ
+        .replace(/\u0CBF\u0CD5/g, "\u0CC0") // ಿ + ೕ -> ೀ
+        .replace(/\u0CCA\u0CD5/g, "\u0CCB") // ೊ + ೕ -> ೋ
+        .replace(/[\s:.\-_()\/]+/g, "");
+      if (!kn && !upper) return false;
+      if (kn.includes("ಕಾಮಗಾರಿ") || kn.includes("ಲೆಕ್ಕ")) return false;
+      return (
+        kn.includes("ಮತಕ್ಷೇತ್ರ") ||
+        kn.includes("ಮತಕ್ಷೆತ್ರ") ||
+        kn.includes("ಮತಕ್ಶೇತ್ರ") ||
+        kn.includes("ವಿಧಾನಸಭಾ") ||
+        kn.includes("ವಿಧಾನಸಭೆ") ||
+        kn.includes("ಕ್ಷೇತ್ರ") ||
+        kn.includes("ಕ್ಷೆತ್ರ") ||
+        upper.includes("CONSTITUENCY") ||
+        upper.includes("ASSEMBLY")
+      );
+    }
 
     function findMatchingColumnIndices(headers) {
       const map = {};
@@ -2315,7 +2367,7 @@
         else if ((compact === "ಲೆಕ್ಕಶೀರ್ಷಿಕೆ" || compact === "ಲೆಕ್ಕಶೀರ್ಷಿಕೆಹೆಸರು") && map.hoa === undefined) map.hoa = idx;
         else if ((norm === "ಜಿಲ್ಲೆ" || norm === "ಜಿಲ್ಲೆಯ ಹೆಸರು" || upper === "DISTRICT") && map.district === undefined) map.district = idx;
         else if ((norm === "ತಾಲ್ಲೂಕು" || norm === "ತಾಲೂಕು" || norm === "ತಾಲ್ಲೂಕಿನ ಹೆಸರು" || upper === "TALUK" || upper === "TALUKA") && map.taluk === undefined) map.taluk = idx;
-        else if ((norm === "ಮತಕ್ಷೇತ್ರ" || norm === "ವಿಧಾನಸಭಾ ಕ್ಷೇತ್ರ" || norm === "ವಿಧಾನ ಸಭಾ ಕ್ಷೇತ್ರ" || upper === "CONSTITUENCY") && map.constituency === undefined) map.constituency = idx;
+        else if (isConstituencyHeader(norm, upper) && map.constituency === undefined) map.constituency = idx;
         else if ((/(^|[^A-Z])(S\s*\/\s*F|F\s*\/\s*S)([^A-Z]|$)/.test(upper) || upper === "S-F" || upper === "SF") && map.work_type === undefined) map.work_type = idx;
       });
 
@@ -2337,7 +2389,7 @@
         else if ((norm.includes("ಲೆಕ್ಕಶೀರ್ಷಿಕೆ") || norm.includes("ಲೆಕ್ಕ ಶೀರ್ಷಿಕೆ")) && map.hoa === undefined) map.hoa = idx;
         else if ((norm.includes("ಜಿಲ್ಲೆ") || upper.includes("DISTRICT")) && !norm.includes("ಕಾಮಗಾರಿ") && map.district === undefined) map.district = idx;
         else if ((norm.includes("ತಾಲ್ಲೂಕು") || norm.includes("ತಾಲೂಕು") || upper.includes("TALUK")) && !norm.includes("ಕಾಮಗಾರಿ") && map.taluk === undefined) map.taluk = idx;
-        else if ((norm.includes("ಮತಕ್ಷೇತ್ರ") || norm.includes("ವಿಧಾನಸಭಾ") || norm.includes("ವಿಧಾನ ಸಭಾ") || upper.includes("CONSTITUENCY") || upper.includes("ASSEMBLY")) && !norm.includes("ಕಾಮಗಾರಿ") && map.constituency === undefined) map.constituency = idx;
+        else if (isConstituencyHeader(norm, upper) && map.constituency === undefined) map.constituency = idx;
         else if (compactUpper.includes("CP/CF") && map.status === undefined) map.status = idx;
         else if ((norm.includes("ಸರ್ಕಾರದ ಆದೇಶ") || norm.includes("ಆದೇಶ ದಿನಾಂಕ") || norm.includes("ಮಂಜೂರಾತಿ")) && map.go_date === undefined) map.go_date = idx;
         else if ((norm.includes("ಕಾರ್ಯಾದೇಶ") || upper.includes("WORK ORDER")) && map.wo_date === undefined) map.wo_date = idx;
@@ -4195,33 +4247,53 @@
       "ಕಾಮಗಾರಿಯನ್ನು ಪೂರ್ಣಗೊಳಿಸಲು ಬೇಕಾಗುವ ಬಾಕಿ ಮೊತ್ತ",
       ...AW_STATUS_COLS
     ];
-
     function getGrantInfo(zoneOrDiv, hoaLabel, activeDivisions) {
       const gMap = STATE.grantMap || {};
       const key = mapHoaToGrantKey(hoaLabel);
       const isCombinedScp = key === "SCP";
       const isCombinedTsp = key === "TSP";
 
+      const normKey = (val) =>
+        cleanKnStr(val)
+          .replace(/ವಿಭಾಗ/g, "")
+          .replace(/ಜಿಲ್ಲೆ/g, "")
+          .replace(/\s+/g, " ")
+          .trim()
+          .toLowerCase();
+
+      function lookupDivGrant(divStr) {
+        const rawClean = cleanKnStr(divStr);
+        if (gMap[rawClean]?.[key] !== undefined) return gMap[rawClean][key];
+        const nk = normKey(divStr);
+        if (gMap[nk]?.[key] !== undefined) return gMap[nk][key];
+        const matchKey = Object.keys(gMap).find((k) => {
+          const kn = normKey(k);
+          return kn && nk && (kn === nk || kn.includes(nk) || nk.includes(kn));
+        });
+        if (matchKey && gMap[matchKey]?.[key] !== undefined) return gMap[matchKey][key];
+        return undefined;
+      }
+
       let val = null;
       if (zoneOrDiv === "ದಕ್ಷಿಣ ವಲಯ") {
-        // Check direct zone row first; else sum across active divisions
         const zoneKey = Object.keys(gMap).find((k) => k.includes("ದಕ್ಷಿಣ ವಲಯ") || k.includes("ವಲಯ"));
-        if (zoneKey && gMap[zoneKey]?.[key] !== undefined && activeDivisions.length > 1) {
+        const allDivSelected = (STATE.awFilters?.div || []).length === 0;
+        if (zoneKey && gMap[zoneKey]?.[key] !== undefined && allDivSelected) {
           val = gMap[zoneKey][key];
         } else {
           let sum = 0, found = false;
           activeDivisions.forEach((d) => {
-            const dClean = cleanKnStr(d);
-            if (gMap[dClean]?.[key] !== undefined) {
-              sum += gMap[dClean][key];
+            const v = lookupDivGrant(d);
+            if (v !== undefined) {
+              sum += v;
               found = true;
             }
           });
           if (found) val = sum;
         }
       } else {
-        const dClean = cleanKnStr(zoneOrDiv);
-        if (gMap[dClean]?.[key] !== undefined) val = gMap[dClean][key];
+        const v = lookupDivGrant(zoneOrDiv);
+        if (v !== undefined) val = v;
       }
 
       if (val === null || isNaN(val)) {
@@ -4303,36 +4375,51 @@
       const sec = document.getElementById("page-allworks");
       if (!sec) return;
 
-      const scopeRows = getFilteredScopeRows();
-      const baseRows = STATE.allWorksOverdueOnly ? scopeRows.filter((r) => r.is_overdue) : scopeRows;
+      const baseRows = STATE.allWorksOverdueOnly
+        ? STATE.masterRows.filter((r) => r.is_overdue)
+        : STATE.masterRows;
       const triggerRerender = () => {
         if (STATE.activePage === "allworks") renderAllWorksPage();
       };
+      const f = STATE.awFilters;
 
-      // Build dynamic option pools
+      // Cascading Row 1 options (Division -> Sub-division -> Officers)
+      const divOpts = buildOptionsList(baseRows, "division_name");
+      const rowsAfterDiv = f.div.length
+        ? baseRows.filter((r) => f.div.includes(r.division_name))
+        : baseRows;
+      const subdivOpts = buildOptionsList(rowsAfterDiv, "subdivision_name");
+      const rowsAfterSubdiv = f.subdiv.length
+        ? rowsAfterDiv.filter((r) => f.subdiv.includes(r.subdivision_name))
+        : rowsAfterDiv;
+
+      const eeOpts = buildOptionsList(rowsAfterSubdiv, "ee_name");
+      const taOpts = buildOptionsList(rowsAfterSubdiv, "ta_name");
+      const asOpts = buildOptionsList(rowsAfterSubdiv, "as_name");
+
+      // Keep HOA pool from baseRows so changing Division doesn't wipe out your 17 default HOAs
       const hoaOpts = buildOptionsList(baseRows, "hoa");
       const availableHoas = hoaOpts.filter((o) => o !== ALL_OPTION);
-
-      // Apply the 17 default HOAs once on initial load
       if (!STATE.awHoaDefaultApplied && availableHoas.length > 0) {
-        STATE.awFilters.hoa = availableHoas.filter((h) => isDefaultAwHoa(h));
+        f.hoa = availableHoas.filter((h) => isDefaultAwHoa(h));
         STATE.awHoaDefaultApplied = true;
       }
 
-      const distOpts = buildOptionsList(baseRows, "district_name");
-      const rowsForTaluk = STATE.awFilters.district.length
-        ? baseRows.filter((r) => STATE.awFilters.district.includes(r.district_name))
-        : baseRows;
+      // Cascading Location options (District -> Taluk -> Constituency)
+      const distOpts = buildOptionsList(rowsAfterSubdiv, "district_name");
+      const rowsForTaluk = f.district.length
+        ? rowsAfterSubdiv.filter((r) => f.district.includes(r.district_name))
+        : rowsAfterSubdiv;
       const talukOpts = buildOptionsList(rowsForTaluk, "taluk_name");
 
-      const rowsForConst = STATE.awFilters.taluk.length
-        ? rowsForTaluk.filter((r) => STATE.awFilters.taluk.includes(r.taluk_name))
+      const rowsForConst = f.taluk.length
+        ? rowsForTaluk.filter((r) => f.taluk.includes(r.taluk_name))
         : rowsForTaluk;
       const constOpts = buildOptionsList(rowsForConst, "constituency_name");
 
-      // Build Progress Status options (with primary statuses ordered first)
+      // Progress Status options
       const statusSet = new Set();
-      baseRows.forEach((r) => {
+      rowsAfterSubdiv.forEach((r) => {
         const st = String(r.status_raw || "").toUpperCase().trim();
         if (st && st !== "-") statusSet.add(st);
       });
@@ -4341,10 +4428,16 @@
         ...Array.from(statusSet).filter((s) => !AW_STATUS_COLS.includes(s)).sort()
       ];
 
-      const aeOpts = buildOptionsList(baseRows, "so_name");
-      const aeeOpts = buildOptionsList(baseRows, "aee_name");
+      const aeOpts = buildOptionsList(rowsAfterSubdiv, "so_name");
+      const aeeOpts = buildOptionsList(rowsAfterSubdiv, "aee_name");
 
-      // Sync all 12 Multiselect Dropdowns
+      // Sync all 17 Multiselect Dropdowns
+      syncMultiSelect(document.getElementById("f-aw-div"), divOpts, "div", triggerRerender, { pluralLabel: "Divisions" });
+      syncMultiSelect(document.getElementById("f-aw-subdiv"), subdivOpts, "subdiv", triggerRerender, { pluralLabel: "Sub-divisions" });
+      syncMultiSelect(document.getElementById("f-aw-ee"), eeOpts, "ee", triggerRerender, { pluralLabel: "EEs" });
+      syncMultiSelect(document.getElementById("f-aw-ta"), taOpts, "ta", triggerRerender, { pluralLabel: "TAs" });
+      syncMultiSelect(document.getElementById("f-aw-as"), asOpts, "as", triggerRerender, { pluralLabel: "ASs" });
+
       syncMultiSelect(document.getElementById("f-aw-period"), AW_STATIC_PERIODS, "period", triggerRerender, { pluralLabel: "Periods" });
       syncMultiSelect(document.getElementById("f-aw-go"), AW_STATIC_FYS, "go", triggerRerender, { pluralLabel: "FYs" });
       syncMultiSelect(document.getElementById("f-aw-wo"), AW_STATIC_FYS, "wo", triggerRerender, { pluralLabel: "FYs" });
@@ -4352,15 +4445,17 @@
       syncMultiSelect(document.getElementById("f-aw-hoa"), hoaOpts, "hoa", triggerRerender, {
         pluralLabel: "H.O.A. Selected",
         onResetDefaults: () => {
-          STATE.awFilters.hoa = availableHoas.filter((h) => isDefaultAwHoa(h));
+          f.hoa = availableHoas.filter((h) => isDefaultAwHoa(h));
           triggerRerender();
         }
       });
+
       syncMultiSelect(document.getElementById("f-aw-sf"), AW_STATIC_SF, "sf", triggerRerender, { pluralLabel: "Types" });
       syncMultiSelect(document.getElementById("f-aw-district"), distOpts, "district", triggerRerender, { pluralLabel: "Districts" });
       syncMultiSelect(document.getElementById("f-aw-taluk"), talukOpts, "taluk", triggerRerender, { pluralLabel: "Taluks" });
       syncMultiSelect(document.getElementById("f-aw-constituency"), constOpts, "constituency", triggerRerender, { pluralLabel: "Constituencies" });
       syncMultiSelect(document.getElementById("f-aw-status"), orderedStatuses, "status", triggerRerender, { pluralLabel: "Statuses" });
+
       syncMultiSelect(document.getElementById("f-aw-ae"), aeOpts, "ae", triggerRerender, { pluralLabel: "AEs" });
       syncMultiSelect(document.getElementById("f-aw-aee"), aeeOpts, "aee", triggerRerender, { pluralLabel: "AEEs" });
 
@@ -4372,15 +4467,18 @@
         btnOd.className = "aw-mode-btn" + (STATE.allWorksOverdueOnly ? " active-od" : "");
       }
 
-      const f = STATE.awFilters;
       const todayDt = getTodayIST().dateObj;
-
       const filteredRows = baseRows.filter((r) => {
         const rowPeriod = r.od_period || deriveOverduePeriodFromRow(r, todayDt);
         const rowWoFy = r.wo_fy || extractFinancialYear(r.start_date);
         const rowSf = r.is_new_work ? "F" : "S";
         const rowStatus = String(r.status_raw || "").toUpperCase().trim();
 
+        if (f.div.length > 0 && !f.div.includes(r.division_name)) return false;
+        if (f.subdiv.length > 0 && !f.subdiv.includes(r.subdivision_name)) return false;
+        if (f.ee.length > 0 && !f.ee.includes(r.ee_name)) return false;
+        if (f.ta.length > 0 && !f.ta.includes(r.ta_name)) return false;
+        if (f.as.length > 0 && !f.as.includes(r.as_name)) return false;
         if (f.period.length > 0 && !f.period.includes(rowPeriod)) return false;
         if (f.go.length > 0 && !f.go.includes(r.go_fy)) return false;
         if (f.wo.length > 0 && !f.wo.includes(rowWoFy)) return false;
@@ -4398,11 +4496,9 @@
 
       const tableRows = [];
       const activeDivs = Array.from(new Set(filteredRows.map((r) => r.division_name))).sort((a, b) => a.localeCompare(b));
-    
-      const selectedDiv = document.getElementById("f-div")?.value || ALL_OPTION;
 
-      // 1. ZONE-WISE SUMMARY SECTION (ದಕ್ಷಿಣ ವಲಯ)
-      if (selectedDiv === ALL_OPTION && filteredRows.length > 0) {
+      // 1. ZONE-WISE SUMMARY SECTION (shown when ALL or multiple divisions are selected)
+      if (f.div.length !== 1 && filteredRows.length > 0) {
         const zoneHoaMap = new Map();
         const zoneTotalAgg = createEmptyAgg();
 
@@ -4493,7 +4589,7 @@
       const fmtBadge = (arr) => (arr.length === 0 ? "ALL" : arr.length <= 2 ? arr.join(", ") : `${arr.length} Selected`);
       const badgeEl = document.getElementById("p4-scope-badge");
       if (badgeEl) {
-        badgeEl.textContent = `${modeTag} | ${getFilterScopeLabel()} | H.O.A.: ${fmtBadge(f.hoa)} | S/F: ${fmtBadge(f.sf)} | Status: ${fmtBadge(f.status)}`;
+        badgeEl.textContent = `${modeTag} | Division: ${fmtBadge(f.div)} | Sub-div: ${fmtBadge(f.subdiv)} | H.O.A.: ${fmtBadge(f.hoa)} | S/F: ${fmtBadge(f.sf)} | Status: ${fmtBadge(f.status)}`;
       }
 
       const metaEl = document.getElementById("p4-meta-info");
@@ -4692,6 +4788,10 @@
       if (anSec) anSec.style.display = "none";
       if (absSec) absSec.style.display = "none";
       if (awSec) awSec.style.display = "none";
+      const globalFilterBar = document.getElementById("f-div")?.closest(".filter-grid-5");
+      if (globalFilterBar) {
+        globalFilterBar.style.display = STATE.activePage === "allworks" ? "none" : "";
+      }
 
       if (STATE.activePage === "dashboard") {
         if (dashSec) dashSec.style.display = "block";
