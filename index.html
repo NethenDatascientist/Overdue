@@ -808,6 +808,24 @@
       background: #2563EB;
       color: #FFFFFF;
     }
+    .custom-option.multi-opt {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      user-select: none;
+    }
+    .custom-option.multi-opt input[type="checkbox"] {
+      accent-color: #2563EB;
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .custom-option.multi-opt.checked-row {
+      background: #EFF6FF;
+      color: #1E3A8A;
+      font-weight: 800;
+    }
 
     .sub-controls-row {
       display: grid;
@@ -1764,69 +1782,27 @@
       <!-- =====================================================================
            PAGE 4: ALL WORKS REPORT (ZONE & DIVISION WISE ABSTRACT)
            ===================================================================== -->
+      <!-- =====================================================================
+           PAGE 4: ALL WORKS REPORT (ZONE & DIVISION WISE ABSTRACT)
+           ===================================================================== -->
       <section id="page-allworks" style="display:none;">
-        <!-- Row 2 Filters (Same 5 as Division Wise Abstract) -->
+        <!-- Row 2 Filters (All Multiselect) -->
         <div class="filter-grid-5">
           <div class="filter-card">
             <label for="f-aw-period">Overdue Period:</label>
-            <select id="f-aw-period" class="filter-select">
-              <option value="ALL">ALL</option>
-              <option value="<2 Years">&lt;2 Years</option>
-              <option value="2-5 Years">2-5 Years</option>
-              <option value="5-10 Years">5-10 Years</option>
-              <option value="More than 10 years">More than 10 years</option>
-            </select>
+            <select id="f-aw-period" class="filter-select"></select>
           </div>
           <div class="filter-card">
             <label for="f-aw-go">ಸರ್ಕಾರದ ಆದೇಶ ದಿನಾಂಕ:</label>
-            <select id="f-aw-go" class="filter-select">
-              <option value="ALL">ALL</option>
-              <option value="2015-2016">2015- 2016</option>
-              <option value="2016-2017">2016-2017</option>
-              <option value="2017-2018">2017-2018</option>
-              <option value="2018-2019">2018-2019</option>
-              <option value="2019-2020">2019-2020</option>
-              <option value="2020-2021">2020-2021</option>
-              <option value="2021-2022">2021-2022</option>
-              <option value="2022-2023">2022-2023</option>
-              <option value="2023-2024">2023-2024</option>
-              <option value="2024-2025">2024-2025</option>
-              <option value="2025-2026">2025-2026</option>
-              <option value="2026-2027">2026-2027</option>
-            </select>
+            <select id="f-aw-go" class="filter-select"></select>
           </div>
           <div class="filter-card">
             <label for="f-aw-wo">ಕಾರ್ಯಾದೇಶ ನೀಡಿದ ದಿನಾಂಕ:</label>
-            <select id="f-aw-wo" class="filter-select">
-              <option value="ALL">ALL</option>
-              <option value="2015-2016">2015- 2016</option>
-              <option value="2016-2017">2016-2017</option>
-              <option value="2017-2018">2017-2018</option>
-              <option value="2018-2019">2018-2019</option>
-              <option value="2019-2020">2019-2020</option>
-              <option value="2020-2021">2020-2021</option>
-              <option value="2021-2022">2021-2022</option>
-              <option value="2022-2023">2022-2023</option>
-              <option value="2023-2024">2023-2024</option>
-              <option value="2024-2025">2024-2025</option>
-              <option value="2025-2026">2025-2026</option>
-              <option value="2026-2027">2026-2027</option>
-            </select>
+            <select id="f-aw-wo" class="filter-select"></select>
           </div>
           <div class="filter-card">
             <label for="f-aw-cost">ಮೂಲ ಅಂದಾಜು ಮೊತ್ತ (Lakhs):</label>
-            <select id="f-aw-cost" class="filter-select">
-              <option value="ALL">ALL</option>
-              <option value="Less than 100">Less than 100</option>
-              <option value="0-200">0-200</option>
-              <option value="100-500">100-500</option>
-              <option value="200-500">200-500</option>
-              <option value="500-1000">500-1000</option>
-              <option value="1000-2500">1000-2500</option>
-              <option value="2500-5000">2500-5000</option>
-              <option value="5000-10000">5000-10000</option>
-              <option value="More than 10000">More than 10000</option>
-            </select>
+            <select id="f-aw-cost" class="filter-select"></select>
           </div>
           <div class="filter-card">
             <label for="f-aw-hoa">Select H.O.A. (ಲೆಕ್ಕಶೀರ್ಷಿಕೆ):</label>
@@ -1834,7 +1810,31 @@
           </div>
         </div>
 
-        <!-- Row 3 Filters (2 Extras: A.E. & A.E.E. + Overdue Works Toggle) -->
+        <!-- Row 3 Filters: New S/F, District, Taluk, Constituency, Progress Status (All Multiselect) -->
+        <div class="filter-grid-5">
+          <div class="filter-card">
+            <label for="f-aw-sf">S/F (ಮುಂದುವರೆದ / ಹೊಸ):</label>
+            <select id="f-aw-sf" class="filter-select"></select>
+          </div>
+          <div class="filter-card">
+            <label for="f-aw-district">ಜಿಲ್ಲೆ (District):</label>
+            <select id="f-aw-district" class="filter-select"></select>
+          </div>
+          <div class="filter-card">
+            <label for="f-aw-taluk">ತಾಲ್ಲೂಕು (Taluk):</label>
+            <select id="f-aw-taluk" class="filter-select"></select>
+          </div>
+          <div class="filter-card">
+            <label for="f-aw-constituency">ಮತಕ್ಷೇತ್ರ (Constituency):</label>
+            <select id="f-aw-constituency" class="filter-select"></select>
+          </div>
+          <div class="filter-card">
+            <label for="f-aw-status">Progress Status (CP/CF/P/...):</label>
+            <select id="f-aw-status" class="filter-select"></select>
+          </div>
+        </div>
+
+        <!-- Row 4 Filters: A.E., A.E.E. (Multiselect) + All Works / Overdue Only Toggle -->
         <div class="filter-grid-aw-extra">
           <div class="filter-card">
             <label for="f-aw-ae">Select Assistant Engineer (A.E.):</label>
@@ -1950,11 +1950,53 @@
       sidebarAutoClosed: false,
       grantMap: {},
       allWorksOverdueOnly: false,
-      currentOfficerOverdueRows: [],
+      awHoaDefaultApplied: false,
+      awFilters: {
+        period: [],
+        go: [],
+        wo: [],
+        cost: [],
+        hoa: [],
+        sf: [],
+        district: [],
+        taluk: [],
+        constituency: [],
+        status: [],
+        ae: [],
+        aee: []
+      },
       currentChronicExportRows: [],
       currentAbstractExportRows: [],
       currentAllWorksTableData: []
     };
+    const DEFAULT_AW_HOAS_NORM = new Set([
+      "APB", "FMP", "KMERC", "K.M.E.R.C.", "K.M.E.R.C", "LIS", "MOT",
+      "N FMP", "NFMP", "N-FMP", "N LIS", "NLIS", "N-LIS",
+      "NMOT", "N MOT", "N-MOT", "NT",
+      "PMKSY-SMI", "PMKSY-SMI-RRR", "PMKSY SMI", "PV",
+      "SCP BOREWELL", "SCP CHECKDAM", "SCP LIS",
+      "TSP BOREWELL", "TSP CHECKDAM", "TSP LIS"
+    ]);
+
+    function isDefaultAwHoa(hoaVal) {
+      const norm = String(hoaVal || "").toUpperCase().replace(/\s+/g, " ").trim();
+      return DEFAULT_AW_HOAS_NORM.has(norm);
+    }
+
+    const AW_STATIC_PERIODS = ["<2 Years", "2-5 Years", "5-10 Years", "More than 10 years"];
+    const AW_STATIC_FYS = [
+      "2015-2016", "2016-2017", "2017-2018", "2018-2019", "2019-2020",
+      "2020-2021", "2021-2022", "2022-2023", "2023-2024", "2024-2025",
+      "2025-2026", "2026-2027"
+    ];
+    const AW_STATIC_COSTS = [
+      "Less than 100", "0-200", "100-500", "200-500", "500-1000",
+      "1000-2500", "2500-5000", "5000-10000", "More than 10000"
+    ];
+    const AW_STATIC_SF = [
+      { value: "S", label: "S (ಮುಂದುವರೆದ)" },
+      { value: "F", label: "F (ಹೊಸ)" }
+    ];
 
     // =========================================================================
     // 1. ARGON INTRO CONTROLLER (WITH FAIL-SAFE UNLOCK)
@@ -2271,6 +2313,9 @@
         else if ((upper === "ACCOUNT SUPERINTENDENT" || upper === "ACCOUNTS SUPERINTENDENT") && map.as_off === undefined) map.as_off = idx;
         else if (["ಕಾಮಗಾರಿ ಹೆಸರು", "ಕಾಮಗಾರಿಯ ಹೆಸರು", "ಕಾಮಗಾರಿಗಳ ಹೆಸರು", "WORK NAME", "NAME OF WORK"].includes(norm) && map.work_name === undefined) map.work_name = idx;
         else if ((compact === "ಲೆಕ್ಕಶೀರ್ಷಿಕೆ" || compact === "ಲೆಕ್ಕಶೀರ್ಷಿಕೆಹೆಸರು") && map.hoa === undefined) map.hoa = idx;
+        else if ((norm === "ಜಿಲ್ಲೆ" || norm === "ಜಿಲ್ಲೆಯ ಹೆಸರು" || upper === "DISTRICT") && map.district === undefined) map.district = idx;
+        else if ((norm === "ತಾಲ್ಲೂಕು" || norm === "ತಾಲೂಕು" || norm === "ತಾಲ್ಲೂಕಿನ ಹೆಸರು" || upper === "TALUK" || upper === "TALUKA") && map.taluk === undefined) map.taluk = idx;
+        else if ((norm === "ಮತಕ್ಷೇತ್ರ" || norm === "ವಿಧಾನಸಭಾ ಕ್ಷೇತ್ರ" || norm === "ವಿಧಾನ ಸಭಾ ಕ್ಷೇತ್ರ" || upper === "CONSTITUENCY") && map.constituency === undefined) map.constituency = idx;
         else if ((/(^|[^A-Z])(S\s*\/\s*F|F\s*\/\s*S)([^A-Z]|$)/.test(upper) || upper === "S-F" || upper === "SF") && map.work_type === undefined) map.work_type = idx;
       });
 
@@ -2290,6 +2335,9 @@
         else if ((norm.includes("ಪ್ರಾರಂಭಿಸಿದ ದಿನಾಂಕ") || norm.includes("ಪ್ರಾರಂಭವಾದ ದಿನಾಂಕ") || norm.includes("ಪ್ರಾರಂಭ ದಿನಾಂಕ")) && map.start_date === undefined) map.start_date = idx;
         else if ((norm.includes("ಕಾಮಗಾರಿ ಹೆಸರು") || norm.includes("ಕಾಮಗಾರಿಯ ಹೆಸರು") || norm.includes("ಕಾಮಗಾರಿಗಳ ಹೆಸರು")) && !norm.includes("ದಿನಾಂಕ") && map.work_name === undefined) map.work_name = idx;
         else if ((norm.includes("ಲೆಕ್ಕಶೀರ್ಷಿಕೆ") || norm.includes("ಲೆಕ್ಕ ಶೀರ್ಷಿಕೆ")) && map.hoa === undefined) map.hoa = idx;
+        else if ((norm.includes("ಜಿಲ್ಲೆ") || upper.includes("DISTRICT")) && !norm.includes("ಕಾಮಗಾರಿ") && map.district === undefined) map.district = idx;
+        else if ((norm.includes("ತಾಲ್ಲೂಕು") || norm.includes("ತಾಲೂಕು") || upper.includes("TALUK")) && !norm.includes("ಕಾಮಗಾರಿ") && map.taluk === undefined) map.taluk = idx;
+        else if ((norm.includes("ಮತಕ್ಷೇತ್ರ") || norm.includes("ವಿಧಾನಸಭಾ") || norm.includes("ವಿಧಾನ ಸಭಾ") || upper.includes("CONSTITUENCY") || upper.includes("ASSEMBLY")) && !norm.includes("ಕಾಮಗಾರಿ") && map.constituency === undefined) map.constituency = idx;
         else if (compactUpper.includes("CP/CF") && map.status === undefined) map.status = idx;
         else if ((norm.includes("ಸರ್ಕಾರದ ಆದೇಶ") || norm.includes("ಆದೇಶ ದಿನಾಂಕ") || norm.includes("ಮಂಜೂರಾತಿ")) && map.go_date === undefined) map.go_date = idx;
         else if ((norm.includes("ಕಾರ್ಯಾದೇಶ") || upper.includes("WORK ORDER")) && map.wo_date === undefined) map.wo_date = idx;
@@ -2412,6 +2460,9 @@
           if (!isValidDivisionText(divRaw)) continue;
 
           const subdivMapped = mapOptionalField(colMap.subdivision !== undefined ? normalizeText(r[colMap.subdivision]) : "");
+          const districtMapped = mapOptionalField(colMap.district !== undefined ? normalizeText(r[colMap.district]) : "");
+          const talukMapped = mapOptionalField(colMap.taluk !== undefined ? normalizeText(r[colMap.taluk]) : "");
+          const constituencyMapped = mapOptionalField(colMap.constituency !== undefined ? normalizeText(r[colMap.constituency]) : "");
           const soMapped = mapOfficerOrUnassigned(normalizeText(r[colMap.so]));
           const aeeMapped = mapOfficerOrUnassigned(normalizeText(r[colMap.aee]));
           const eeMapped = mapOptionalField(colMap.ee !== undefined ? normalizeText(r[colMap.ee]) : "");
@@ -2487,6 +2538,9 @@
             work_name: workName,
             division_name: divRaw,
             subdivision_name: subdivMapped,
+            district_name: districtMapped,
+            taluk_name: talukMapped,
+            constituency_name: constituencyMapped,
             ee_name: eeMapped,
             ta_name: taMapped,
             as_name: asMapped,
@@ -2618,7 +2672,7 @@
     }
 
     // =========================================================================
-    // 4. SNAPSHOT ENGINE (READS v8 & v10 + 4s NETWORK TIMEOUT GUARD)
+    // 4. SNAPSHOT ENGINE (READS v8 & v11 + 4s NETWORK TIMEOUT GUARD)
     // =========================================================================
     function getSafeTodayIST() {
       const istDate = new Date(Date.now() + 19800000);
@@ -2721,7 +2775,10 @@
         Number(row.total_exp) || 0,
         Number(row.pending_bill) || 0,
         Number(row.bal_to_complete) || 0,
-        row.is_new_work ? 1 : 0
+        row.is_new_work ? 1 : 0,
+        getStrId(row.district_name),
+        getStrId(row.taluk_name),
+        getStrId(row.constituency_name)
       ]);
 
       const rawJson = JSON.stringify({
@@ -2783,7 +2840,10 @@
           total_exp: Number(arr[27]) || 0,
           pending_bill: Number(arr[28]) || 0,
           bal_to_complete: Number(arr[29]) || 0,
-          is_new_work: arr[30] ? 1 : 0
+          is_new_work: arr[30] ? 1 : 0,
+          district_name: arr[31] !== undefined ? (s[arr[31]] || UNSPECIFIED_LABEL) : UNSPECIFIED_LABEL,
+          taluk_name: arr[32] !== undefined ? (s[arr[32]] || UNSPECIFIED_LABEL) : UNSPECIFIED_LABEL,
+          constituency_name: arr[33] !== undefined ? (s[arr[33]] || UNSPECIFIED_LABEL) : UNSPECIFIED_LABEL
         };
         if (!rowObj.od_period && rowObj.is_overdue) {
           rowObj.od_period = deriveOverduePeriodFromRow(rowObj, todayDt);
@@ -2813,7 +2873,7 @@
       return new Promise((resolve) => {
         const timer = setTimeout(() => resolve(null), 1500);
         try {
-          const req = indexedDB.open("MI_Overdue_Snapshot_DB_v10", 1);
+          const req = indexedDB.open("MI_Overdue_Snapshot_DB_v11", 1);
           req.onupgradeneeded = (e) => {
             const db = e.target.result;
             if (!db.objectStoreNames.contains("snapshots")) {
@@ -2836,7 +2896,7 @@
         if (!db) return;
         await new Promise((resolve) => {
           const tx = db.transaction("snapshots", "readwrite");
-          tx.objectStore("snapshots").put(payload, "latest_v10");
+          tx.objectStore("snapshots").put(payload, "latest_v11");
           tx.oncomplete = () => resolve(true);
           tx.onerror = () => resolve(false);
         });
@@ -2850,7 +2910,7 @@
         return await new Promise((resolve) => {
           const timer = setTimeout(() => resolve(null), 1500);
           const tx = db.transaction("snapshots", "readonly");
-          const req = tx.objectStore("snapshots").get("latest_v10");
+          const req = tx.objectStore("snapshots").get("latest_v11");
           req.onsuccess = () => { clearTimeout(timer); resolve(req.result || null); };
           req.onerror = () => { clearTimeout(timer); resolve(null); };
         });
@@ -2876,8 +2936,8 @@
       const fbUrl = getFirebaseBaseUrl();
       if (!fbUrl) return null;
       try {
-        // Automatically reads the new v10 snapshot cache containing the new table columns
-        const resp = await fetchWithTimeout(`${fbUrl}/mi_cloud_cache_v10.json`, { cache: "no-store" }, 4500);
+        // Automatically reads the new v11 snapshot cache containing the new table columns
+        const resp = await fetchWithTimeout(`${fbUrl}/mi_cloud_cache_v11.json`, { cache: "no-store" }, 4500);
         if (!resp.ok) return null;
         const wrapper = await resp.json();
         if (!wrapper) return null;
@@ -2907,7 +2967,7 @@
       try {
         const packedWrapper = await packPayloadForCloud(cleanPayload);
         const bodyStr = JSON.stringify(packedWrapper);
-        const resp = await fetchWithTimeout(`${fbUrl}/mi_cloud_cache_v10.json`, {
+        const resp = await fetchWithTimeout(`${fbUrl}/mi_cloud_cache_v11.json`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: bodyStr
@@ -3118,6 +3178,132 @@
         .join("");
       selectEl.value = options.includes(prevVal) ? prevVal : ALL_OPTION;
       syncCustomSelect(selectEl);
+    }
+    function syncMultiSelect(nativeSelect, rawOptions, stateKey, onSelectionChange, extraConfig = {}) {
+      if (!nativeSelect) return;
+      let wrapper = nativeSelect.parentElement;
+      if (!wrapper) return;
+
+      const normalizedOpts = rawOptions
+        .filter((o) => (typeof o === "string" ? o !== ALL_OPTION : o && o.value !== ALL_OPTION))
+        .map((o) => (typeof o === "string" ? { value: o, label: o } : o));
+
+      const validValueSet = new Set(normalizedOpts.map((o) => o.value));
+      if (!Array.isArray(STATE.awFilters[stateKey])) STATE.awFilters[stateKey] = [];
+      STATE.awFilters[stateKey] = STATE.awFilters[stateKey].filter((v) => validValueSet.has(v));
+
+      if (!wrapper.classList.contains("custom-select-container")) {
+        const newWrap = document.createElement("div");
+        newWrap.className = "custom-select-container";
+        wrapper.insertBefore(newWrap, nativeSelect);
+        newWrap.appendChild(nativeSelect);
+        wrapper = newWrap;
+
+        const trigger = document.createElement("div");
+        trigger.className = "custom-select-trigger";
+        wrapper.appendChild(trigger);
+
+        const optionsContainer = document.createElement("div");
+        optionsContainer.className = "custom-select-options";
+        wrapper.appendChild(optionsContainer);
+
+        trigger.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const isOpen = optionsContainer.classList.contains("open");
+          document.querySelectorAll(".custom-select-options.open").forEach((el) => {
+            el.classList.remove("open");
+            if (el.previousElementSibling) el.previousElementSibling.classList.remove("open");
+            const card = el.closest(".filter-card");
+            if (card) card.classList.remove("dropdown-active");
+          });
+          if (!isOpen) {
+            optionsContainer.classList.add("open");
+            trigger.classList.add("open");
+            const card = wrapper.closest(".filter-card");
+            if (card) card.classList.add("dropdown-active");
+          }
+        });
+      }
+
+      const trigger = wrapper.querySelector(".custom-select-trigger");
+      const optionsContainer = wrapper.querySelector(".custom-select-options");
+      if (!trigger || !optionsContainer) return;
+
+      const prevScrollTop = optionsContainer.scrollTop;
+      const selectedSet = new Set(STATE.awFilters[stateKey]);
+      const valToLabel = new Map(normalizedOpts.map((o) => [o.value, o.label]));
+
+      function refreshTriggerLabel() {
+        if (!selectedSet.size) {
+          trigger.textContent = "ALL";
+        } else if (selectedSet.size === 1) {
+          const onlyVal = Array.from(selectedSet)[0];
+          trigger.textContent = valToLabel.get(onlyVal) || onlyVal;
+        } else {
+          const pluralTag = extraConfig.pluralLabel || "Selected";
+          trigger.textContent = `${selectedSet.size} ${pluralTag}`;
+        }
+      }
+
+      refreshTriggerLabel();
+      optionsContainer.innerHTML = "";
+
+      const allDiv = document.createElement("div");
+      const isAllActive = selectedSet.size === 0;
+      allDiv.className = "custom-option multi-opt" + (isAllActive ? " checked-row" : "");
+      allDiv.innerHTML = `<input type="checkbox" ${isAllActive ? "checked" : ""} /><span>ALL</span>`;
+      allDiv.addEventListener("click", (e) => {
+        e.stopPropagation();
+        STATE.awFilters[stateKey] = [];
+        refreshTriggerLabel();
+        optionsContainer.classList.remove("open");
+        trigger.classList.remove("open");
+        wrapper.closest(".filter-card")?.classList.remove("dropdown-active");
+        if (typeof onSelectionChange === "function") onSelectionChange();
+      });
+      optionsContainer.appendChild(allDiv);
+
+      if (typeof extraConfig.onResetDefaults === "function") {
+        const defDiv = document.createElement("div");
+        defDiv.className = "custom-option";
+        defDiv.style.cssText = "background:#DBEAFE;color:#1E40AF;font-size:0.74rem;text-align:center;";
+        defDiv.textContent = "↺ Reset to Default 17 H.O.A.";
+        defDiv.addEventListener("click", (e) => {
+          e.stopPropagation();
+          extraConfig.onResetDefaults();
+        });
+        optionsContainer.appendChild(defDiv);
+      }
+
+      normalizedOpts.forEach(({ value, label }) => {
+        const checked = selectedSet.has(value);
+        const optDiv = document.createElement("div");
+        optDiv.className = "custom-option multi-opt" + (checked ? " checked-row" : "");
+        optDiv.innerHTML = `<input type="checkbox" ${checked ? "checked" : ""} /><span>${escapeHtml(label)}</span>`;
+
+        optDiv.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (selectedSet.has(value)) selectedSet.delete(value);
+          else selectedSet.add(value);
+
+          STATE.awFilters[stateKey] = Array.from(selectedSet);
+          refreshTriggerLabel();
+
+          const cb = optDiv.querySelector('input[type="checkbox"]');
+          if (cb) cb.checked = selectedSet.has(value);
+          optDiv.classList.toggle("checked-row", selectedSet.has(value));
+
+          const allCb = allDiv.querySelector('input[type="checkbox"]');
+          const nowAll = selectedSet.size === 0;
+          if (allCb) allCb.checked = nowAll;
+          allDiv.classList.toggle("checked-row", nowAll);
+
+          if (typeof onSelectionChange === "function") onSelectionChange();
+        });
+        optionsContainer.appendChild(optDiv);
+      });
+
+      optionsContainer.scrollTop = prevScrollTop;
     }
 
     function populateFilterDropdowns(resetAll = false) {
@@ -4113,28 +4299,70 @@
         status: { ...agg.status }
       };
     }
-
-    function renderAllWorksPage() {
+      function renderAllWorksPage() {
       const sec = document.getElementById("page-allworks");
       if (!sec) return;
 
       const scopeRows = getFilteredScopeRows();
       const baseRows = STATE.allWorksOverdueOnly ? scopeRows.filter((r) => r.is_overdue) : scopeRows;
+      const triggerRerender = () => {
+        if (STATE.activePage === "allworks") renderAllWorksPage();
+      };
 
-      // Dynamically populate HOA, AE, and AEE dropdowns
-      const hoaSel = document.getElementById("f-aw-hoa");
-      if (hoaSel) setSelectOptions(hoaSel, buildOptionsList(baseRows, "hoa"), hoaSel.value || ALL_OPTION);
+      // Build dynamic option pools
+      const hoaOpts = buildOptionsList(baseRows, "hoa");
+      const availableHoas = hoaOpts.filter((o) => o !== ALL_OPTION);
 
-      const aeSel = document.getElementById("f-aw-ae");
-      if (aeSel) setSelectOptions(aeSel, buildOptionsList(baseRows, "so_name"), aeSel.value || ALL_OPTION);
+      // Apply the 17 default HOAs once on initial load
+      if (!STATE.awHoaDefaultApplied && availableHoas.length > 0) {
+        STATE.awFilters.hoa = availableHoas.filter((h) => isDefaultAwHoa(h));
+        STATE.awHoaDefaultApplied = true;
+      }
 
-      const aeeSel = document.getElementById("f-aw-aee");
-      if (aeeSel) setSelectOptions(aeeSel, buildOptionsList(baseRows, "aee_name"), aeeSel.value || ALL_OPTION);
+      const distOpts = buildOptionsList(baseRows, "district_name");
+      const rowsForTaluk = STATE.awFilters.district.length
+        ? baseRows.filter((r) => STATE.awFilters.district.includes(r.district_name))
+        : baseRows;
+      const talukOpts = buildOptionsList(rowsForTaluk, "taluk_name");
 
-      ["f-aw-period", "f-aw-go", "f-aw-wo", "f-aw-cost"].forEach((id) => {
-        const el = document.getElementById(id);
-        if (el) syncCustomSelect(el);
+      const rowsForConst = STATE.awFilters.taluk.length
+        ? rowsForTaluk.filter((r) => STATE.awFilters.taluk.includes(r.taluk_name))
+        : rowsForTaluk;
+      const constOpts = buildOptionsList(rowsForConst, "constituency_name");
+
+      // Build Progress Status options (with primary statuses ordered first)
+      const statusSet = new Set();
+      baseRows.forEach((r) => {
+        const st = String(r.status_raw || "").toUpperCase().trim();
+        if (st && st !== "-") statusSet.add(st);
       });
+      const orderedStatuses = [
+        ...AW_STATUS_COLS.filter((s) => statusSet.has(s)),
+        ...Array.from(statusSet).filter((s) => !AW_STATUS_COLS.includes(s)).sort()
+      ];
+
+      const aeOpts = buildOptionsList(baseRows, "so_name");
+      const aeeOpts = buildOptionsList(baseRows, "aee_name");
+
+      // Sync all 12 Multiselect Dropdowns
+      syncMultiSelect(document.getElementById("f-aw-period"), AW_STATIC_PERIODS, "period", triggerRerender, { pluralLabel: "Periods" });
+      syncMultiSelect(document.getElementById("f-aw-go"), AW_STATIC_FYS, "go", triggerRerender, { pluralLabel: "FYs" });
+      syncMultiSelect(document.getElementById("f-aw-wo"), AW_STATIC_FYS, "wo", triggerRerender, { pluralLabel: "FYs" });
+      syncMultiSelect(document.getElementById("f-aw-cost"), AW_STATIC_COSTS, "cost", triggerRerender, { pluralLabel: "Ranges" });
+      syncMultiSelect(document.getElementById("f-aw-hoa"), hoaOpts, "hoa", triggerRerender, {
+        pluralLabel: "H.O.A. Selected",
+        onResetDefaults: () => {
+          STATE.awFilters.hoa = availableHoas.filter((h) => isDefaultAwHoa(h));
+          triggerRerender();
+        }
+      });
+      syncMultiSelect(document.getElementById("f-aw-sf"), AW_STATIC_SF, "sf", triggerRerender, { pluralLabel: "Types" });
+      syncMultiSelect(document.getElementById("f-aw-district"), distOpts, "district", triggerRerender, { pluralLabel: "Districts" });
+      syncMultiSelect(document.getElementById("f-aw-taluk"), talukOpts, "taluk", triggerRerender, { pluralLabel: "Taluks" });
+      syncMultiSelect(document.getElementById("f-aw-constituency"), constOpts, "constituency", triggerRerender, { pluralLabel: "Constituencies" });
+      syncMultiSelect(document.getElementById("f-aw-status"), orderedStatuses, "status", triggerRerender, { pluralLabel: "Statuses" });
+      syncMultiSelect(document.getElementById("f-aw-ae"), aeOpts, "ae", triggerRerender, { pluralLabel: "AEs" });
+      syncMultiSelect(document.getElementById("f-aw-aee"), aeeOpts, "aee", triggerRerender, { pluralLabel: "AEEs" });
 
       // Update Overdue toggle button styling
       const btnAll = document.getElementById("aw-mode-all-btn");
@@ -4144,30 +4372,33 @@
         btnOd.className = "aw-mode-btn" + (STATE.allWorksOverdueOnly ? " active-od" : "");
       }
 
-      const selPeriod = document.getElementById("f-aw-period")?.value || ALL_OPTION;
-      const selGo = document.getElementById("f-aw-go")?.value || ALL_OPTION;
-      const selWo = document.getElementById("f-aw-wo")?.value || ALL_OPTION;
-      const selCost = document.getElementById("f-aw-cost")?.value || ALL_OPTION;
-      const selHoa = document.getElementById("f-aw-hoa")?.value || ALL_OPTION;
-      const selAe = document.getElementById("f-aw-ae")?.value || ALL_OPTION;
-      const selAee = document.getElementById("f-aw-aee")?.value || ALL_OPTION;
-
+      const f = STATE.awFilters;
       const todayDt = getTodayIST().dateObj;
+
       const filteredRows = baseRows.filter((r) => {
         const rowPeriod = r.od_period || deriveOverduePeriodFromRow(r, todayDt);
         const rowWoFy = r.wo_fy || extractFinancialYear(r.start_date);
-        if (selPeriod !== ALL_OPTION && rowPeriod !== selPeriod) return false;
-        if (selGo !== ALL_OPTION && r.go_fy !== selGo) return false;
-        if (selWo !== ALL_OPTION && rowWoFy !== selWo) return false;
-        if (!matchesCostBucket(r.est_cost, selCost)) return false;
-        if (selHoa !== ALL_OPTION && r.hoa !== selHoa) return false;
-        if (selAe !== ALL_OPTION && r.so_name !== selAe) return false;
-        if (selAee !== ALL_OPTION && r.aee_name !== selAee) return false;
+        const rowSf = r.is_new_work ? "F" : "S";
+        const rowStatus = String(r.status_raw || "").toUpperCase().trim();
+
+        if (f.period.length > 0 && !f.period.includes(rowPeriod)) return false;
+        if (f.go.length > 0 && !f.go.includes(r.go_fy)) return false;
+        if (f.wo.length > 0 && !f.wo.includes(rowWoFy)) return false;
+        if (f.cost.length > 0 && !f.cost.some((b) => matchesCostBucket(r.est_cost, b))) return false;
+        if (f.hoa.length > 0 && !f.hoa.includes(r.hoa)) return false;
+        if (f.sf.length > 0 && !f.sf.includes(rowSf)) return false;
+        if (f.district.length > 0 && !f.district.includes(r.district_name)) return false;
+        if (f.taluk.length > 0 && !f.taluk.includes(r.taluk_name)) return false;
+        if (f.constituency.length > 0 && !f.constituency.includes(r.constituency_name)) return false;
+        if (f.status.length > 0 && !f.status.includes(rowStatus)) return false;
+        if (f.ae.length > 0 && !f.ae.includes(r.so_name)) return false;
+        if (f.aee.length > 0 && !f.aee.includes(r.aee_name)) return false;
         return true;
       });
 
       const tableRows = [];
       const activeDivs = Array.from(new Set(filteredRows.map((r) => r.division_name))).sort((a, b) => a.localeCompare(b));
+    
       const selectedDiv = document.getElementById("f-div")?.value || ALL_OPTION;
 
       // 1. ZONE-WISE SUMMARY SECTION (ದಕ್ಷಿಣ ವಲಯ)
@@ -4259,8 +4490,11 @@
           : "All Works Report — Zone & Division Wise Abstract";
       }
 
+      const fmtBadge = (arr) => (arr.length === 0 ? "ALL" : arr.length <= 2 ? arr.join(", ") : `${arr.length} Selected`);
       const badgeEl = document.getElementById("p4-scope-badge");
-      if (badgeEl) badgeEl.textContent = `${modeTag} | ${getFilterScopeLabel()} | AE: ${selAe} | AEE: ${selAee}`;
+      if (badgeEl) {
+        badgeEl.textContent = `${modeTag} | ${getFilterScopeLabel()} | H.O.A.: ${fmtBadge(f.hoa)} | S/F: ${fmtBadge(f.sf)} | Status: ${fmtBadge(f.status)}`;
+      }
 
       const metaEl = document.getElementById("p4-meta-info");
       if (metaEl) {
@@ -4587,11 +4821,6 @@
       renderActivePage();
     });
 
-    ["f-aw-period", "f-aw-go", "f-aw-wo", "f-aw-cost", "f-aw-hoa", "f-aw-ae", "f-aw-aee"].forEach((id) => {
-      document.getElementById(id)?.addEventListener("change", () => {
-        if (STATE.activePage === "allworks") renderAllWorksPage();
-      });
-    });
 
     document.getElementById("aw-mode-all-btn")?.addEventListener("click", () => {
       STATE.allWorksOverdueOnly = false;
