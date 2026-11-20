@@ -12,7 +12,7 @@
 
   <!-- Plotly.js & SheetJS (XLSX) -->
   <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 
   <style>
     :root {
@@ -1273,6 +1273,121 @@
       text-align: right;
       padding-right: 1px;
     }
+
+    /* =========================================================================
+       PAGE 4: ALL WORKS REPORT (ABSTRACT TABLE & OVERDUE TOGGLE)
+       ========================================================================= */
+    .filter-grid-aw-extra {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1.2fr;
+      gap: 10px;
+      margin-bottom: 0.65rem;
+    }
+    @media (max-width: 900px) {
+      .filter-grid-aw-extra {
+        grid-template-columns: 1fr;
+      }
+    }
+    .aw-mode-toggle {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      height: 36px;
+    }
+    .aw-mode-btn {
+      flex: 1;
+      height: 100%;
+      border-radius: 8px;
+      border: 1.5px solid #94A3B8;
+      background: #F8FAFC;
+      color: #0F172A;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.80rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .aw-mode-btn.active-all {
+      background: linear-gradient(135deg, #1E40AF 0%, #1D4ED8 100%);
+      border-color: #1E3A8A;
+      color: #FFFFFF;
+    }
+    .aw-mode-btn.active-od {
+      background: linear-gradient(135deg, #DC2626 0%, #991B1B 100%);
+      border-color: #991B1B;
+      color: #FFFFFF;
+      box-shadow: 0 3px 10px rgba(185, 28, 28, 0.3);
+    }
+
+    table.aw-abstract-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+      color: #000000;
+      background: #FFFFFF;
+    }
+    table.aw-abstract-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 12;
+      background: #CFE2F3;
+      color: #000000;
+      font-weight: 800;
+      text-align: center;
+      vertical-align: middle;
+      padding: 8px 6px;
+      border: 1px solid #475569;
+      white-space: normal;
+      min-width: 72px;
+      line-height: 1.3;
+    }
+    table.aw-abstract-table thead th.aw-col-hoa {
+      min-width: 145px;
+    }
+    table.aw-abstract-table thead th.aw-col-div {
+      min-width: 105px;
+    }
+    table.aw-abstract-table thead th.aw-col-grant {
+      min-width: 125px;
+    }
+    table.aw-abstract-table thead th.aw-col-stat {
+      min-width: 52px;
+    }
+    table.aw-abstract-table td {
+      padding: 6px 7px;
+      border: 1px solid #94A3B8;
+      text-align: center;
+      vertical-align: middle;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    table.aw-abstract-table td.aw-wrap-td {
+      white-space: normal;
+      line-height: 1.28;
+    }
+    table.aw-abstract-table tbody tr:hover td {
+      background: #EFF6FF;
+    }
+    table.aw-abstract-table tr.aw-zone-total-row td {
+      background: #FCE4D6 !important;
+      font-weight: 800;
+      border-top: 2px solid #0F172A;
+      border-bottom: 2px solid #0F172A;
+    }
+    table.aw-abstract-table tr.aw-div-total-row td {
+      background: #FFF2CC !important;
+      font-weight: 800;
+      border-top: 1.5px solid #475569;
+      border-bottom: 2px solid #475569;
+    }
+    table.aw-abstract-table tr.aw-section-divider td {
+      background: #E2E8F0 !important;
+      font-weight: 800;
+      text-align: left;
+      padding-left: 14px;
+      color: #0F172A;
+      letter-spacing: 0.3px;
+    }
   </style>
 </head>
 <body>
@@ -1402,9 +1517,10 @@
       <!-- Top Header with Left Abstract Button, Centered Title, and Right Actions -->
       <div class="top-header-row">
         <div class="header-left-actions">
-          <button type="button" id="abstract-switch-btn" class="btn-primary" style="width:auto;min-width:190px;">Division Wise Abstract</button>
+          <button type="button" id="abstract-switch-btn" class="btn-primary" style="width:auto;white-space:nowrap;padding:0.48rem 0.85rem;">Division Wise Abstract</button>
+          <button type="button" id="allworks-switch-btn" class="btn-primary" style="width:auto;white-space:nowrap;padding:0.48rem 0.85rem;">All Works Report</button>
         </div>
-        <h1 class="main-title" id="page-main-title">Minor Irrigation - Overdue Works Dashboard</h1>
+        <h1 class="main-title" id="page-main-title">Minor Irrigation — Overdue Works Dashboard</h1>
         <div class="header-right-actions">
           <button type="button" id="chronic-open-btn" class="btn-chronic-urgent">
             <span class="urgent-beacon-dot"></span>
@@ -1644,6 +1760,113 @@
 
         <div id="p3-abstract-table-wrap"></div>
       </section>
+
+      <!-- =====================================================================
+           PAGE 4: ALL WORKS REPORT (ZONE & DIVISION WISE ABSTRACT)
+           ===================================================================== -->
+      <section id="page-allworks" style="display:none;">
+        <!-- Row 2 Filters (Same 5 as Division Wise Abstract) -->
+        <div class="filter-grid-5">
+          <div class="filter-card">
+            <label for="f-aw-period">Overdue Period:</label>
+            <select id="f-aw-period" class="filter-select">
+              <option value="ALL">ALL</option>
+              <option value="<2 Years">&lt;2 Years</option>
+              <option value="2-5 Years">2-5 Years</option>
+              <option value="5-10 Years">5-10 Years</option>
+              <option value="More than 10 years">More than 10 years</option>
+            </select>
+          </div>
+          <div class="filter-card">
+            <label for="f-aw-go">ಸರ್ಕಾರದ ಆದೇಶ ದಿನಾಂಕ:</label>
+            <select id="f-aw-go" class="filter-select">
+              <option value="ALL">ALL</option>
+              <option value="2015-2016">2015- 2016</option>
+              <option value="2016-2017">2016-2017</option>
+              <option value="2017-2018">2017-2018</option>
+              <option value="2018-2019">2018-2019</option>
+              <option value="2019-2020">2019-2020</option>
+              <option value="2020-2021">2020-2021</option>
+              <option value="2021-2022">2021-2022</option>
+              <option value="2022-2023">2022-2023</option>
+              <option value="2023-2024">2023-2024</option>
+              <option value="2024-2025">2024-2025</option>
+              <option value="2025-2026">2025-2026</option>
+              <option value="2026-2027">2026-2027</option>
+            </select>
+          </div>
+          <div class="filter-card">
+            <label for="f-aw-wo">ಕಾರ್ಯಾದೇಶ ನೀಡಿದ ದಿನಾಂಕ:</label>
+            <select id="f-aw-wo" class="filter-select">
+              <option value="ALL">ALL</option>
+              <option value="2015-2016">2015- 2016</option>
+              <option value="2016-2017">2016-2017</option>
+              <option value="2017-2018">2017-2018</option>
+              <option value="2018-2019">2018-2019</option>
+              <option value="2019-2020">2019-2020</option>
+              <option value="2020-2021">2020-2021</option>
+              <option value="2021-2022">2021-2022</option>
+              <option value="2022-2023">2022-2023</option>
+              <option value="2023-2024">2023-2024</option>
+              <option value="2024-2025">2024-2025</option>
+              <option value="2025-2026">2025-2026</option>
+              <option value="2026-2027">2026-2027</option>
+            </select>
+          </div>
+          <div class="filter-card">
+            <label for="f-aw-cost">ಮೂಲ ಅಂದಾಜು ಮೊತ್ತ (Lakhs):</label>
+            <select id="f-aw-cost" class="filter-select">
+              <option value="ALL">ALL</option>
+              <option value="Less than 100">Less than 100</option>
+              <option value="0-200">0-200</option>
+              <option value="100-500">100-500</option>
+              <option value="200-500">200-500</option>
+              <option value="500-1000">500-1000</option>
+              <option value="1000-2500">1000-2500</option>
+              <option value="2500-5000">2500-5000</option>
+              <option value="5000-10000">5000-10000</option>
+              <option value="More than 10000">More than 10000</option>
+            </select>
+          </div>
+          <div class="filter-card">
+            <label for="f-aw-hoa">Select H.O.A. (ಲೆಕ್ಕಶೀರ್ಷಿಕೆ):</label>
+            <select id="f-aw-hoa" class="filter-select"></select>
+          </div>
+        </div>
+
+        <!-- Row 3 Filters (2 Extras: A.E. & A.E.E. + Overdue Works Toggle) -->
+        <div class="filter-grid-aw-extra">
+          <div class="filter-card">
+            <label for="f-aw-ae">Select Assistant Engineer (A.E.):</label>
+            <select id="f-aw-ae" class="filter-select"></select>
+          </div>
+          <div class="filter-card">
+            <label for="f-aw-aee">Select Assistant Executive Engineer (A.E.E.):</label>
+            <select id="f-aw-aee" class="filter-select"></select>
+          </div>
+          <div class="filter-card">
+            <label>Report Work Filter Mode:</label>
+            <div class="aw-mode-toggle">
+              <button type="button" id="aw-mode-all-btn" class="aw-mode-btn active-all">All Works</button>
+              <button type="button" id="aw-mode-od-btn" class="aw-mode-btn">🔴 Overdue Only</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="exec-section-banner">
+          <div class="exec-section-title" id="p4-section-title">All Works Report — Zone &amp; Division Wise Abstract</div>
+          <div class="exec-scope-badge" id="p4-scope-badge"></div>
+        </div>
+
+        <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;">
+          <div id="p4-meta-info" style="font-size:0.84rem;font-weight:700;color:#0F172A;"></div>
+          <div style="display:flex;gap:10px;width:260px;max-width:100%;">
+            <button type="button" id="p4-dl-xlsx-btn" class="btn-primary">Download Formatted Excel (.xlsx)</button>
+          </div>
+        </div>
+
+        <div id="p4-allworks-table-wrap"></div>
+      </section>
     </main>
   </div>
 
@@ -1725,9 +1948,12 @@
       dashboardRendered: false,
       overlayDismissed: false,
       sidebarAutoClosed: false,
+      grantMap: {},
+      allWorksOverdueOnly: false,
       currentOfficerOverdueRows: [],
       currentChronicExportRows: [],
-      currentAbstractExportRows: []
+      currentAbstractExportRows: [],
+      currentAllWorksTableData: []
     };
 
     // =========================================================================
@@ -2066,7 +2292,15 @@
         else if (compactUpper.includes("CP/CF") && map.status === undefined) map.status = idx;
         else if ((norm.includes("ಸರ್ಕಾರದ ಆದೇಶ") || norm.includes("ಆದೇಶ ದಿನಾಂಕ") || norm.includes("ಮಂಜೂರಾತಿ")) && map.go_date === undefined) map.go_date = idx;
         else if ((norm.includes("ಕಾರ್ಯಾದೇಶ") || upper.includes("WORK ORDER")) && map.wo_date === undefined) map.wo_date = idx;
-        else if ((norm.includes("ಮೂಲ ಅಂದಾಜು ಮೊತ್ತ") || norm.includes("ಅಂದಾಜು ಮೊತ್ತ") || upper.includes("ESTIMATED COST")) && map.est_cost === undefined) map.est_cost = idx;
+        else if (((norm.includes("ಪರಿಷ್ಕೃತ") && (norm.includes("ಮೊತ್ತ") || norm.includes("ಅಂದಾಜು"))) || upper.includes("REVISED")) && map.revised_est === undefined) map.revised_est = idx;
+        else if (((norm.includes("ಗುತ್ತಿಗೆ") && norm.includes("ಮೊತ್ತ")) || upper.includes("CONTRACT") || upper.includes("TENDER AMOUNT")) && map.contract_amt === undefined) map.contract_amt = idx;
+        else if ((norm.includes("ಮೂಲ ಅಂದಾಜು") || (norm.includes("ಅಂದಾಜು ಮೊತ್ತ") && !norm.includes("ಪರಿಷ್ಕೃತ")) || upper.includes("ESTIMATED COST")) && map.est_cost === undefined) map.est_cost = idx;
+        else if (((norm.includes("ಮಾರ್ಚ್") && (norm.includes("2026") || norm.includes("ವೆಚ್ಚ"))) || (upper.includes("MARCH") && upper.includes("2026"))) && map.exp_mar26 === undefined) map.exp_mar26 = idx;
+        else if ((norm.includes("2026-27") && norm.includes("ವೆಚ್ಚ") && !norm.includes("ಮಾರ್ಚ್") && !norm.includes("ಒಟ್ಟಾರೆ")) && map.exp_2627 === undefined) map.exp_2627 = idx;
+        else if ((norm.includes("ಒಟ್ಟಾರೆ ವೆಚ್ಚ") || norm.includes("ಒಟ್ಟು ವೆಚ್ಚ") || upper.includes("TOTAL EXP")) && map.total_exp === undefined) map.total_exp = idx;
+        else if ((norm.includes("ಬಾಕಿ ಬಿಲ್") || upper.includes("PENDING BILL")) && map.pending_bill === undefined) map.pending_bill = idx;
+        else if ((norm.includes("ಪೂರ್ಣಗೊಳಿಸಲು") || norm.includes("ಬೇಕಾಗುವ ಬಾಕಿ") || upper.includes("BALANCE TO COMPLETE")) && map.bal_to_complete === undefined) map.bal_to_complete = idx;
+        else if (((norm.includes("ಮುಂದುವರೆದ") && norm.includes("ಹೊಸ")) || norm.includes("ಕಾಮಗಾರಿಯ ವಿಧ") || upper.includes("WORK TYPE") || upper.includes("SPILLOVER")) && map.work_type === undefined) map.work_type = idx;
       });
 
       if (map.work_name === undefined) {
@@ -2191,6 +2425,22 @@
           const woSourceCell = colMap.wo_date !== undefined ? r[colMap.wo_date] : (colMap.start_date !== undefined ? r[colMap.start_date] : "");
           const woFy = extractFinancialYear(woSourceCell);
           const estCostVal = colMap.est_cost !== undefined ? parseCostNumber(r[colMap.est_cost]) : NaN;
+          const contractAmtVal = colMap.contract_amt !== undefined ? parseCostNumber(r[colMap.contract_amt]) : NaN;
+          const revisedEstVal = colMap.revised_est !== undefined ? parseCostNumber(r[colMap.revised_est]) : NaN;
+          const expMar26Val = colMap.exp_mar26 !== undefined ? parseCostNumber(r[colMap.exp_mar26]) : NaN;
+          const exp2627Val = colMap.exp_2627 !== undefined ? parseCostNumber(r[colMap.exp_2627]) : NaN;
+          const rawTotExp = colMap.total_exp !== undefined ? parseCostNumber(r[colMap.total_exp]) : NaN;
+          const totalExpVal = !isNaN(rawTotExp) ? rawTotExp : ((isNaN(expMar26Val) ? 0 : expMar26Val) + (isNaN(exp2627Val) ? 0 : exp2627Val));
+          const pendingBillVal = colMap.pending_bill !== undefined ? parseCostNumber(r[colMap.pending_bill]) : NaN;
+          const rawBalVal = colMap.bal_to_complete !== undefined ? parseCostNumber(r[colMap.bal_to_complete]) : NaN;
+          const baseEstForBal = !isNaN(revisedEstVal) && revisedEstVal > 0 ? revisedEstVal : (isNaN(estCostVal) ? 0 : estCostVal);
+          const balCompleteVal = !isNaN(rawBalVal) ? rawBalVal : Math.max(0, baseEstForBal - totalExpVal);
+
+          const wtText = colMap.work_type !== undefined ? normalizeText(r[colMap.work_type]).toUpperCase() : "";
+          let isNewWork = 0;
+          if (wtText.includes("ಹೊಸ") || wtText.includes("NEW")) isNewWork = 1;
+          else if (wtText.includes("ಮುಂದುವರೆದ") || wtText.includes("SPILL") || wtText.includes("CONT")) isNewWork = 0;
+          else isNewWork = goFy === "2026-2027" ? 1 : 0;
 
           const statusRaw = normalizeText(r[colMap.status]);
           const statusUpper = statusRaw.toUpperCase().trim();
@@ -2234,6 +2484,14 @@
             go_fy: goFy,
             wo_fy: woFy,
             est_cost: isNaN(estCostVal) ? "" : String(estCostVal),
+            contract_amt: isNaN(contractAmtVal) ? 0 : contractAmtVal,
+            revised_est: isNaN(revisedEstVal) ? 0 : revisedEstVal,
+            exp_mar26: isNaN(expMar26Val) ? 0 : expMar26Val,
+            exp_2627: isNaN(exp2627Val) ? 0 : exp2627Val,
+            total_exp: isNaN(totalExpVal) ? 0 : totalExpVal,
+            pending_bill: isNaN(pendingBillVal) ? 0 : pendingBillVal,
+            bal_to_complete: isNaN(balCompleteVal) ? 0 : balCompleteVal,
+            is_new_work: isNewWork,
             is_status_p: isStatusP ? 1 : 0,
             is_status_ets: isStatusEts ? 1 : 0,
             is_overdue: isOverdue ? 1 : 0
@@ -2248,12 +2506,96 @@
         });
       });
 
+      const grantMap = parseDivisionWiseAbstractGrants(wb);
+
       return {
         masterRows,
         diagRows,
+        grantMap,
         todayStr: todayInfo.formatted,
         lastSynced: getISTTimestamp()
       };
+    }
+
+    function cleanKnStr(val) {
+      return normalizeText(val).replace(/[\u200B-\u200D\uFEFF]/g, "");
+    }
+
+    function mapHoaToGrantKey(rawHoa) {
+      const s = cleanKnStr(rawHoa);
+      const u = s.toUpperCase();
+      if (!s) return "";
+      if (s.includes("ವಿಶೇಷ ಘಟಕ") || u.startsWith("SCP")) return "SCP";
+      if (s.includes("ಗಿರಿಜನ ಉಪಯೋಜನೆ") || u.startsWith("TSP")) return "TSP";
+      if (u.includes("PMKSY")) return "PMKSY";
+      if (s.includes("ಕೆ.ಎಂ.ಇ.ಆರ್") || u.includes("KMERC") || u.includes("K.M.E.R.C")) return "KMERC";
+      if (u.includes("SDMF") || s.includes("ವಿಪತ್ತು ನಿರ್ವಹಣಾ")) return "SDMF";
+      if (u.includes("ABHY") || s.includes("ಅಟಲ್ ಭೂಜಲ") || u.includes("ATAL BHUJAL")) return "ABHY";
+      if (u.includes("436-P") || s.includes("ನಬಾರ್ಡ") || u.includes("NABARD")) {
+        if (u.includes("NMOT") || s.includes("ಆಧುನೀಕರಣ") || u.includes("MOT")) return "NMOT";
+        if (u.includes("NAPB") || s.includes("ಅಣೆಕಟ್ಟು") || s.includes("ಬಂದಾರು") || u.includes("A&P")) return "NAPB";
+        if (u.includes("NLIS") || s.includes("ಏತ") || u.includes("LIS")) return "NLIS";
+        if (u.includes("NNT") || s.includes("ಹೊಸಕೆರೆ") || u.includes("NEW TANK")) return "NNT";
+        if (s.includes("ಪ್ರವಾಹ") || u.includes("FLOOD")) return "NOFC";
+      }
+      if (u === "NMOT" || u.endsWith("-NMOT")) return "NMOT";
+      if (u === "NAPB" || u.endsWith("-NAPB")) return "NAPB";
+      if (u.includes("FPW") || u === "FMP" || s.includes("ಪ್ರವಾಹ ನಿಯಂತ್ರಣ") || u.includes("4711")) return "FMP";
+      if (s.includes("ಹೊಸಕೆರೆ") || u.endsWith("-NT") || u === "NT" || u.includes("NEW TANK")) return "NT";
+      if (s.includes("ಕೆರೆಗಳ ಆಧುನೀಕರಣ") || u.endsWith("-MOT") || u.endsWith(" MOT") || u === "MOT" || u === "4702_MOT") return "MOT";
+      if (s.includes("ಅಣೆಕಟ್ಟು") || s.includes("ಬಂದಾರು") || u.endsWith("-APB") || u === "APB" || u.includes("A&P")) return "APB";
+      if (s.includes("ಏತ") || u.endsWith("-LIS") || u === "LIS" || u.includes("-LIS")) return "LIS";
+      if (s.includes("ಪಶ್ಚಿಮ") || u === "PV") return "PV";
+      if (s.includes("ಖಾರ್") || u.includes("KHARLAND")) return "KHARLAND";
+      return u;
+    }
+
+    function parseDivisionWiseAbstractGrants(wb) {
+      const grantMap = {};
+      const sheetName = wb.SheetNames.find((n) => {
+        const low = normalizeText(n).toLowerCase();
+        return low === "division_wise abstract" || (low.includes("division") && low.includes("abstract"));
+      });
+      if (!sheetName) return grantMap;
+
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: "" });
+      if (!rows || !rows.length) return grantMap;
+
+      let headerIdx = -1;
+      let divCol = 1, hoaCol = 2, grantCol = -1;
+
+      for (let i = 0; i < Math.min(12, rows.length); i++) {
+        const normRow = rows[i].map(cleanKnStr);
+        const gIdx = normRow.findIndex((c) => c.includes("ಹಂಚಿಕೆಯಾದ ಅನುದಾನ") || (c.includes("2026-27") && c.includes("ಅನುದಾನ")));
+        if (gIdx !== -1) {
+          headerIdx = i;
+          grantCol = gIdx;
+          const dIdx = normRow.findIndex((c) => c.includes("ವಲಯ") || c.includes("ವಿಭಾಗ"));
+          const hIdx = normRow.findIndex((c) => c.includes("ಲೆಕ್ಕಶೀರ್ಷಿಕೆ"));
+          if (dIdx !== -1) divCol = dIdx;
+          if (hIdx !== -1) hoaCol = hIdx;
+          break;
+        }
+      }
+      if (headerIdx === -1 || grantCol === -1) return grantMap;
+
+      for (let rIdx = headerIdx + 1; rIdx < rows.length; rIdx++) {
+        const r = rows[rIdx];
+        const divName = cleanKnStr(r[divCol]);
+        const hoaRaw = cleanKnStr(r[hoaCol]);
+        if (!divName || !hoaRaw) continue;
+        if (divName.includes("ಒಟ್ಟು") || hoaRaw.includes("ಒಟ್ಟು") || /^\d+$/.test(divName)) continue;
+
+        const grantVal = parseCostNumber(r[grantCol]);
+        if (isNaN(grantVal)) continue;
+
+        const hoaKey = mapHoaToGrantKey(hoaRaw);
+        if (!hoaKey) continue;
+
+        if (!grantMap[divName]) grantMap[divName] = {};
+        grantMap[divName][hoaKey] = grantVal;
+      }
+      return grantMap;
     }
 
     // =========================================================================
@@ -2315,7 +2657,9 @@
       return new TextDecoder().decode(bytes);
     }
 
-    async function packPayloadForCloud(payload) {
+    
+
+  async function packPayloadForCloud(payload) {
       const strMap = new Map();
       const strList = [];
       function getStrId(val) {
@@ -2350,20 +2694,29 @@
         getStrId(row.od_period),
         getStrId(row.go_fy),
         getStrId(row.wo_fy),
-        getStrId(row.est_cost)
+        getStrId(row.est_cost),
+        Number(row.contract_amt) || 0,
+        Number(row.revised_est) || 0,
+        Number(row.exp_mar26) || 0,
+        Number(row.exp_2627) || 0,
+        Number(row.total_exp) || 0,
+        Number(row.pending_bill) || 0,
+        Number(row.bal_to_complete) || 0,
+        row.is_new_work ? 1 : 0
       ]);
 
       const rawJson = JSON.stringify({
         s: strList,
         r: packedRows,
         d: payload.diagRows || [],
+        g: payload.grantMap || {},
         t: payload.todayStr || getSafeTodayIST(),
         l: payload.lastSynced || "-"
       });
 
       const compressed = await compressString(rawJson);
       return {
-        v: 9,
+        v: 10,
         fmt: compressed.fmt,
         todayStr: payload.todayStr || getSafeTodayIST(),
         lastSynced: payload.lastSynced || "-",
@@ -2403,7 +2756,15 @@
           od_period: arr[19] !== undefined ? (s[arr[19]] || "") : "",
           go_fy: arr[20] !== undefined ? (s[arr[20]] || "") : "",
           wo_fy: arr[21] !== undefined ? (s[arr[21]] || "") : "",
-          est_cost: arr[22] !== undefined ? (s[arr[22]] || "") : ""
+          est_cost: arr[22] !== undefined ? (s[arr[22]] || "") : "",
+          contract_amt: Number(arr[23]) || 0,
+          revised_est: Number(arr[24]) || 0,
+          exp_mar26: Number(arr[25]) || 0,
+          exp_2627: Number(arr[26]) || 0,
+          total_exp: Number(arr[27]) || 0,
+          pending_bill: Number(arr[28]) || 0,
+          bal_to_complete: Number(arr[29]) || 0,
+          is_new_work: arr[30] ? 1 : 0
         };
         if (!rowObj.od_period && rowObj.is_overdue) {
           rowObj.od_period = deriveOverduePeriodFromRow(rowObj, todayDt);
@@ -2417,6 +2778,7 @@
       return {
         masterRows,
         diagRows: parsed.d || [],
+        grantMap: parsed.g || {},
         todayStr: parsed.t || wrapper.todayStr || "",
         lastSynced: parsed.l || wrapper.lastSynced || "-"
       };
@@ -2514,6 +2876,7 @@
       const cleanPayload = {
         masterRows: payload.masterRows,
         diagRows: payload.diagRows || [],
+        grantMap: payload.grantMap || {},
         todayStr: getSafeTodayIST(),
         lastSynced: payload.lastSynced || getISTTimestamp()
       };
@@ -2555,12 +2918,14 @@
         const currentTodayIST = getSafeTodayIST();
         STATE.masterRows = parsed.masterRows;
         STATE.diagRows = parsed.diagRows;
+        STATE.grantMap = parsed.grantMap || {};
         STATE.todayStr = currentTodayIST;
         STATE.lastSynced = parsed.lastSynced;
 
         const cloudSaved = await saveToFirebaseCache({
           masterRows: STATE.masterRows,
           diagRows: STATE.diagRows,
+          grantMap: STATE.grantMap,
           todayStr: currentTodayIST,
           lastSynced: STATE.lastSynced
         });
@@ -2608,6 +2973,7 @@
             wo_fy: r.wo_fy || extractFinancialYear(r.start_date)
           }));
           STATE.diagRows = cached.diagRows || [];
+          STATE.grantMap = cached.grantMap || {};
           STATE.todayStr = currentTodayIST;
           STATE.lastSynced = cached.lastSynced || "-";
           STATE.sourceLabel = `${sourceText} (Instant Load)`;
@@ -3599,6 +3965,462 @@
       if (wrapEl) wrapEl.innerHTML = buildHtmlTable(cols, formattedRows, 620);
     }
 
+    // =========================================================================
+    // 8B. RENDER PAGE 4: ALL WORKS REPORT & FORMATTED EXCEL EXPORTER
+    // =========================================================================
+    const AW_STATUS_COLS = ["CP", "CF", "P", "TBS", "TP", "ETS", "OTH", "CBW", "CEF", "PBW", "CBWPM", "RRR", "BWF"];
+
+    const AW_HEADERS = [
+      "ಕ್ರ.ಸಂ",
+      "ವಲಯ / ವಿಭಾಗ",
+      "ಲೆಕ್ಕಶೀರ್ಷಿಕೆ",
+      "ಮುಂದುವರೆದ ಕಾಮಗಾರಿಗಳ ಸಂಖ್ಯೆ",
+      "ಮುಂದುವರೆದ ಕಾಮಗಾರಿಗಳ ಅಂದಾಜು ಮೊತ್ತ",
+      "ಹೊಸ ಕಾಮಗಾರಿಗಳ ಸಂಖ್ಯೆ",
+      "ಹೊಸ ಕಾಮಗಾರಿಗಳ ಅಂದಾಜು ಮೊತ್ತ",
+      "ಒಟ್ಟು ಕಾಮಗಾರಿಗಳ ಸಂಖ್ಯೆ",
+      "ಒಟ್ಟು ಅಂದಾಜು ಮೊತ್ತ",
+      "ಗುತ್ತಿಗೆ ಮೊತ್ತ (ಜಿ.ಎಸ್.ಟಿ ಸೇರಿದಂತೆ)",
+      "ಪರಿಷ್ಕೃತ ಅಂದಾಜು ಮೊತ್ತ (ಜಿ.ಎಸ್.ಟಿ ಸೇರಿದಂತೆ)",
+      "2026-27ನೇ ಸಾಲಿಗೆ ಹಂಚಿಕೆಯಾದ ಅನುದಾನ",
+      "ಮಾರ್ಚ್ 2026 ವರೆಗಿನ ವೆಚ್ಚ",
+      "2026-27ನೇ ಸಾಲಿನ ವೆಚ್ಚ",
+      "ಒಟ್ಟಾರೆ ವೆಚ್ಚ",
+      "ಬಾಕಿ ಬಿಲ್ಲಿನ ಮೊತ್ತ",
+      "ಕಾಮಗಾರಿಯನ್ನು ಪೂರ್ಣಗೊಳಿಸಲು ಬೇಕಾಗುವ ಬಾಕಿ ಮೊತ್ತ",
+      ...AW_STATUS_COLS
+    ];
+
+    function getGrantInfo(zoneOrDiv, hoaLabel, activeDivisions) {
+      const gMap = STATE.grantMap || {};
+      const key = mapHoaToGrantKey(hoaLabel);
+      const isCombinedScp = key === "SCP";
+      const isCombinedTsp = key === "TSP";
+
+      let val = null;
+      if (zoneOrDiv === "ದಕ್ಷಿಣ ವಲಯ") {
+        // Check direct zone row first; else sum across active divisions
+        const zoneKey = Object.keys(gMap).find((k) => k.includes("ದಕ್ಷಿಣ ವಲಯ") || k.includes("ವಲಯ"));
+        if (zoneKey && gMap[zoneKey]?.[key] !== undefined && activeDivisions.length > 1) {
+          val = gMap[zoneKey][key];
+        } else {
+          let sum = 0, found = false;
+          activeDivisions.forEach((d) => {
+            const dClean = cleanKnStr(d);
+            if (gMap[dClean]?.[key] !== undefined) {
+              sum += gMap[dClean][key];
+              found = true;
+            }
+          });
+          if (found) val = sum;
+        }
+      } else {
+        const dClean = cleanKnStr(zoneOrDiv);
+        if (gMap[dClean]?.[key] !== undefined) val = gMap[dClean][key];
+      }
+
+      if (val === null || isNaN(val)) {
+        return { num: 0, html: "-", excel: "-", combinedKey: null };
+      }
+      const fmtNum = val.toFixed(2);
+      if (isCombinedScp) {
+        return { num: val, html: `${fmtNum}<br><span style="font-size:0.70rem;color:#334155;">(Combined SCP)</span>`, excel: `${fmtNum}\n(Combined SCP)`, combinedKey: "SCP" };
+      }
+      if (isCombinedTsp) {
+        return { num: val, html: `${fmtNum}<br><span style="font-size:0.70rem;color:#334155;">(Combined TSP)</span>`, excel: `${fmtNum}\n(Combined TSP)`, combinedKey: "TSP" };
+      }
+      return { num: val, html: fmtNum, excel: Number(fmtNum), combinedKey: null };
+    }
+
+    function createEmptyAgg() {
+      const status = {};
+      AW_STATUS_COLS.forEach((c) => { status[c] = 0; });
+      return {
+        cont_cnt: 0, cont_est: 0,
+        new_cnt: 0, new_est: 0,
+        tot_cnt: 0, tot_est: 0,
+        contract_amt: 0, revised_est: 0,
+        exp_mar26: 0, exp_2627: 0, total_exp: 0,
+        pending_bill: 0, bal_to_complete: 0,
+        status
+      };
+    }
+
+    function addRowToAgg(agg, r) {
+      const est = parseFloat(r.est_cost) || 0;
+      if (r.is_new_work) {
+        agg.new_cnt += 1;
+        agg.new_est += est;
+      } else {
+        agg.cont_cnt += 1;
+        agg.cont_est += est;
+      }
+      agg.tot_cnt += 1;
+      agg.tot_est += est;
+      agg.contract_amt += Number(r.contract_amt) || 0;
+      agg.revised_est += Number(r.revised_est) || 0;
+      agg.exp_mar26 += Number(r.exp_mar26) || 0;
+      agg.exp_2627 += Number(r.exp_2627) || 0;
+      agg.total_exp += Number(r.total_exp) || 0;
+      agg.pending_bill += Number(r.pending_bill) || 0;
+      agg.bal_to_complete += Number(r.bal_to_complete) || 0;
+
+      const st = String(r.status_raw || "").toUpperCase().trim();
+      if (agg.status[st] !== undefined) agg.status[st] += 1;
+    }
+
+    function buildAggRowObject(slNo, divLabel, hoaLabel, agg, grantInfo, rowType) {
+      const r2 = (n) => Number((Number(n) || 0).toFixed(2));
+      return {
+        rowType,
+        slNo,
+        divLabel,
+        hoaLabel,
+        cont_cnt: agg.cont_cnt,
+        cont_est: r2(agg.cont_est),
+        new_cnt: agg.new_cnt,
+        new_est: r2(agg.new_est),
+        tot_cnt: agg.tot_cnt,
+        tot_est: r2(agg.tot_est),
+        contract_amt: r2(agg.contract_amt),
+        revised_est: r2(agg.revised_est),
+        grantHtml: grantInfo.html,
+        grantExcel: grantInfo.excel,
+        exp_mar26: r2(agg.exp_mar26),
+        exp_2627: r2(agg.exp_2627),
+        total_exp: r2(agg.total_exp),
+        pending_bill: r2(agg.pending_bill),
+        bal_to_complete: r2(agg.bal_to_complete),
+        status: { ...agg.status }
+      };
+    }
+
+    function renderAllWorksPage() {
+      const sec = document.getElementById("page-allworks");
+      if (!sec) return;
+
+      const scopeRows = getFilteredScopeRows();
+      const baseRows = STATE.allWorksOverdueOnly ? scopeRows.filter((r) => r.is_overdue) : scopeRows;
+
+      // Dynamically populate HOA, AE, and AEE dropdowns
+      const hoaSel = document.getElementById("f-aw-hoa");
+      if (hoaSel) setSelectOptions(hoaSel, buildOptionsList(baseRows, "hoa"), hoaSel.value || ALL_OPTION);
+
+      const aeSel = document.getElementById("f-aw-ae");
+      if (aeSel) setSelectOptions(aeSel, buildOptionsList(baseRows, "so_name"), aeSel.value || ALL_OPTION);
+
+      const aeeSel = document.getElementById("f-aw-aee");
+      if (aeeSel) setSelectOptions(aeeSel, buildOptionsList(baseRows, "aee_name"), aeeSel.value || ALL_OPTION);
+
+      ["f-aw-period", "f-aw-go", "f-aw-wo", "f-aw-cost"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) syncCustomSelect(el);
+      });
+
+      // Update Overdue toggle button styling
+      const btnAll = document.getElementById("aw-mode-all-btn");
+      const btnOd = document.getElementById("aw-mode-od-btn");
+      if (btnAll && btnOd) {
+        btnAll.className = "aw-mode-btn" + (!STATE.allWorksOverdueOnly ? " active-all" : "");
+        btnOd.className = "aw-mode-btn" + (STATE.allWorksOverdueOnly ? " active-od" : "");
+      }
+
+      const selPeriod = document.getElementById("f-aw-period")?.value || ALL_OPTION;
+      const selGo = document.getElementById("f-aw-go")?.value || ALL_OPTION;
+      const selWo = document.getElementById("f-aw-wo")?.value || ALL_OPTION;
+      const selCost = document.getElementById("f-aw-cost")?.value || ALL_OPTION;
+      const selHoa = document.getElementById("f-aw-hoa")?.value || ALL_OPTION;
+      const selAe = document.getElementById("f-aw-ae")?.value || ALL_OPTION;
+      const selAee = document.getElementById("f-aw-aee")?.value || ALL_OPTION;
+
+      const todayDt = getTodayIST().dateObj;
+      const filteredRows = baseRows.filter((r) => {
+        const rowPeriod = r.od_period || deriveOverduePeriodFromRow(r, todayDt);
+        const rowWoFy = r.wo_fy || extractFinancialYear(r.start_date);
+        if (selPeriod !== ALL_OPTION && rowPeriod !== selPeriod) return false;
+        if (selGo !== ALL_OPTION && r.go_fy !== selGo) return false;
+        if (selWo !== ALL_OPTION && rowWoFy !== selWo) return false;
+        if (!matchesCostBucket(r.est_cost, selCost)) return false;
+        if (selHoa !== ALL_OPTION && r.hoa !== selHoa) return false;
+        if (selAe !== ALL_OPTION && r.so_name !== selAe) return false;
+        if (selAee !== ALL_OPTION && r.aee_name !== selAee) return false;
+        return true;
+      });
+
+      const tableRows = [];
+      const activeDivs = Array.from(new Set(filteredRows.map((r) => r.division_name))).sort((a, b) => a.localeCompare(b));
+      const selectedDiv = document.getElementById("f-div")?.value || ALL_OPTION;
+
+      // 1. ZONE-WISE SUMMARY SECTION (ದಕ್ಷಿಣ ವಲಯ)
+      if (selectedDiv === ALL_OPTION && filteredRows.length > 0) {
+        const zoneHoaMap = new Map();
+        const zoneTotalAgg = createEmptyAgg();
+
+        filteredRows.forEach((r) => {
+          const h = r.hoa || "-";
+          if (!zoneHoaMap.has(h)) zoneHoaMap.set(h, createEmptyAgg());
+          addRowToAgg(zoneHoaMap.get(h), r);
+          addRowToAgg(zoneTotalAgg, r);
+        });
+
+        const sortedHoas = Array.from(zoneHoaMap.keys()).sort((a, b) => a.localeCompare(b));
+        let zoneGrantSum = 0;
+        const seenCombined = new Set();
+
+        sortedHoas.forEach((h, idx) => {
+          const gInfo = getGrantInfo("ದಕ್ಷಿಣ ವಲಯ", h, activeDivs);
+          if (gInfo.combinedKey) {
+            if (!seenCombined.has(gInfo.combinedKey)) {
+              seenCombined.add(gInfo.combinedKey);
+              zoneGrantSum += gInfo.num;
+            }
+          } else {
+            zoneGrantSum += gInfo.num;
+          }
+          tableRows.push(buildAggRowObject(idx + 1, "ದಕ್ಷಿಣ ವಲಯ", h, zoneHoaMap.get(h), gInfo, "data"));
+        });
+
+        const zGrantFmt = zoneGrantSum.toFixed(2);
+        tableRows.push(buildAggRowObject(
+          "", "ದಕ್ಷಿಣ ವಲಯ", "👉 ಸಣ್ಣ ನೀರಾವರಿ (ದ) ಒಟ್ಟು",
+          zoneTotalAgg,
+          { num: zoneGrantSum, html: zGrantFmt, excel: Number(zGrantFmt) },
+          "zone-total"
+        ));
+
+        tableRows.push({ rowType: "divider", label: "ವಿಭಾಗವಾರು" });
+      }
+
+      // 2. DIVISION-WISE SECTIONS (ವಿಭಾಗವಾರು)
+      activeDivs.forEach((divName) => {
+        const divRows = filteredRows.filter((r) => r.division_name === divName);
+        const divHoaMap = new Map();
+        const divTotalAgg = createEmptyAgg();
+
+        divRows.forEach((r) => {
+          const h = r.hoa || "-";
+          if (!divHoaMap.has(h)) divHoaMap.set(h, createEmptyAgg());
+          addRowToAgg(divHoaMap.get(h), r);
+          addRowToAgg(divTotalAgg, r);
+        });
+
+        const sortedDivHoas = Array.from(divHoaMap.keys()).sort((a, b) => a.localeCompare(b));
+        let divGrantSum = 0;
+        const seenCombinedDiv = new Set();
+
+        sortedDivHoas.forEach((h, idx) => {
+          const gInfo = getGrantInfo(divName, h, [divName]);
+          if (gInfo.combinedKey) {
+            if (!seenCombinedDiv.has(gInfo.combinedKey)) {
+              seenCombinedDiv.add(gInfo.combinedKey);
+              divGrantSum += gInfo.num;
+            }
+          } else {
+            divGrantSum += gInfo.num;
+          }
+          tableRows.push(buildAggRowObject(idx + 1, divName, h, divHoaMap.get(h), gInfo, "data"));
+        });
+
+        const dGrantFmt = divGrantSum.toFixed(2);
+        tableRows.push(buildAggRowObject(
+          "", divName, `${divName} ಒಟ್ಟು`,
+          divTotalAgg,
+          { num: divGrantSum, html: dGrantFmt, excel: Number(dGrantFmt) },
+          "div-total"
+        ));
+      });
+
+      STATE.currentAllWorksTableData = tableRows;
+
+      const modeTag = STATE.allWorksOverdueOnly ? "OVERDUE WORKS ONLY" : "ALL WORKS";
+      const titleEl = document.getElementById("p4-section-title");
+      if (titleEl) {
+        titleEl.textContent = STATE.allWorksOverdueOnly
+          ? "All Works Report — Overdue Works Abstract (Zone & Division Wise)"
+          : "All Works Report — Zone & Division Wise Abstract";
+      }
+
+      const badgeEl = document.getElementById("p4-scope-badge");
+      if (badgeEl) badgeEl.textContent = `${modeTag} | ${getFilterScopeLabel()} | AE: ${selAe} | AEE: ${selAee}`;
+
+      const metaEl = document.getElementById("p4-meta-info");
+      if (metaEl) {
+        metaEl.innerHTML = `<b>Mode:</b> ${modeTag} &nbsp;|&nbsp; <b>Total Matching Works:</b> ${filteredRows.length.toLocaleString()} &nbsp;|&nbsp; <b>Divisions Shown:</b> ${activeDivs.length}`;
+      }
+
+      const wrapEl = document.getElementById("p4-allworks-table-wrap");
+      if (!wrapEl) return;
+
+      if (!tableRows.length) {
+        wrapEl.innerHTML = `<div class="filter-card" style="padding:12px;font-weight:700;">No matching works in the selected scope.</div>`;
+        return;
+      }
+
+      const theadHtml = AW_HEADERS.map((h, i) => {
+        let cls = "";
+        if (i === 1) cls = "aw-col-div";
+        else if (i === 2) cls = "aw-col-hoa";
+        else if (i === 11) cls = "aw-col-grant";
+        else if (i >= 17) cls = "aw-col-stat";
+        return `<th class="${cls}">${escapeHtml(h)}</th>`;
+      }).join("");
+
+      const fmt2 = (v) => Number(v || 0).toFixed(2);
+
+      const tbodyHtml = tableRows.map((row) => {
+        if (row.rowType === "divider") {
+          return `<tr class="aw-section-divider"><td colspan="${AW_HEADERS.length}">${escapeHtml(row.label)}</td></tr>`;
+        }
+        const trCls = row.rowType === "zone-total" ? "aw-zone-total-row" : (row.rowType === "div-total" ? "aw-div-total-row" : "");
+        const statTds = AW_STATUS_COLS.map((c) => `<td>${row.status[c] || 0}</td>`).join("");
+        return `
+          <tr class="${trCls}">
+            <td>${escapeHtml(row.slNo)}</td>
+            <td class="aw-wrap-td">${escapeHtml(row.divLabel)}</td>
+            <td class="aw-wrap-td">${escapeHtml(row.hoaLabel)}</td>
+            <td>${row.cont_cnt}</td>
+            <td>${fmt2(row.cont_est)}</td>
+            <td>${row.new_cnt}</td>
+            <td>${fmt2(row.new_est)}</td>
+            <td>${row.tot_cnt}</td>
+            <td>${fmt2(row.tot_est)}</td>
+            <td>${fmt2(row.contract_amt)}</td>
+            <td>${fmt2(row.revised_est)}</td>
+            <td class="aw-wrap-td">${row.grantHtml}</td>
+            <td>${fmt2(row.exp_mar26)}</td>
+            <td>${fmt2(row.exp_2627)}</td>
+            <td>${fmt2(row.total_exp)}</td>
+            <td>${fmt2(row.pending_bill)}</td>
+            <td>${fmt2(row.bal_to_complete)}</td>
+            ${statTds}
+          </tr>
+        `;
+      }).join("");
+
+      wrapEl.innerHTML = `
+        <div class="ce-table-wrapper" style="max-height:660px;">
+          <table class="aw-abstract-table">
+            <thead><tr>${theadHtml}</tr></thead>
+            <tbody>${tbodyHtml}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function exportAllWorksFormattedExcel() {
+      const rows = STATE.currentAllWorksTableData;
+      if (!rows || !rows.length) return;
+
+      const aoa = [AW_HEADERS];
+      const rowMeta = ["header"];
+
+      rows.forEach((row) => {
+        if (row.rowType === "divider") {
+          const divArr = new Array(AW_HEADERS.length).fill("");
+          divArr[1] = row.label;
+          aoa.push(divArr);
+          rowMeta.push("divider");
+          return;
+        }
+        aoa.push([
+          row.slNo,
+          row.divLabel,
+          row.hoaLabel,
+          row.cont_cnt,
+          row.cont_est,
+          row.new_cnt,
+          row.new_est,
+          row.tot_cnt,
+          row.tot_est,
+          row.contract_amt,
+          row.revised_est,
+          row.grantExcel,
+          row.exp_mar26,
+          row.exp_2627,
+          row.total_exp,
+          row.pending_bill,
+          row.bal_to_complete,
+          ...AW_STATUS_COLS.map((c) => row.status[c] || 0)
+        ]);
+        rowMeta.push(row.rowType);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+      // Clean, readable column widths so nothing is squished or cut off
+      ws["!cols"] = [
+        { wch: 7 },   // ಕ್ರ.ಸಂ
+        { wch: 16 },  // ವಲಯ / ವಿಭಾಗ
+        { wch: 24 },  // ಲೆಕ್ಕಶೀರ್ಷಿಕೆ
+        { wch: 14 },  // ಮುಂದುವರೆದ ಸಂಖ್ಯೆ
+        { wch: 16 },  // ಮುಂದುವರೆದ ಅಂದಾಜು
+        { wch: 13 },  // ಹೊಸ ಸಂಖ್ಯೆ
+        { wch: 15 },  // ಹೊಸ ಅಂದಾಜು
+        { wch: 14 },  // ಒಟ್ಟು ಸಂಖ್ಯೆ
+        { wch: 16 },  // ಒಟ್ಟು ಅಂದಾಜು
+        { wch: 16 },  // ಗುತ್ತಿಗೆ ಮೊತ್ತ
+        { wch: 17 },  // ಪರಿಷ್ಕೃತ ಅಂದಾಜು
+        { wch: 20 },  // 2026-27 ಅನುದಾನ
+        { wch: 16 },  // ಮಾರ್ಚ್ 2026 ವೆಚ್ಚ
+        { wch: 15 },  // 2026-27 ವೆಚ್ಚ
+        { wch: 16 },  // ಒಟ್ಟಾರೆ ವೆಚ್ಚ
+        { wch: 15 },  // ಬಾಕಿ ಬಿಲ್
+        { wch: 18 },  // ಪೂರ್ಣಗೊಳಿಸಲು ಬಾಕಿ
+        ...AW_STATUS_COLS.map(() => ({ wch: 8 }))
+      ];
+
+      // Proper row heights (header taller for wrapped Kannada text, combined grant rows taller)
+      ws["!rows"] = rowMeta.map((type, idx) => {
+        if (type === "header") return { hpt: 46 };
+        if (type === "zone-total" || type === "div-total") return { hpt: 26 };
+        if (type === "divider") return { hpt: 24 };
+        const grantVal = String(aoa[idx][11] || "");
+        return { hpt: grantVal.includes("\n") ? 32 : 22 };
+      });
+
+      const thinBorder = {
+        top: { style: "thin", color: { rgb: "475569" } },
+        bottom: { style: "thin", color: { rgb: "475569" } },
+        left: { style: "thin", color: { rgb: "475569" } },
+        right: { style: "thin", color: { rgb: "475569" } }
+      };
+
+      const num2Cols = new Set([4, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
+      const range = XLSX.utils.decode_range(ws["!ref"]);
+
+      for (let R = range.s.r; R <= range.e.r; R++) {
+        const mType = rowMeta[R];
+        for (let C = range.s.c; C <= range.e.c; C++) {
+          const addr = XLSX.utils.encode_cell({ r: R, c: C });
+          if (!ws[addr]) ws[addr] = { t: "s", v: "" };
+
+          let fillRgb = "FFFFFF";
+          let isBold = false;
+          if (mType === "header") { fillRgb = "CFE2F3"; isBold = true; }
+          else if (mType === "zone-total") { fillRgb = "FCE4D6"; isBold = true; }
+          else if (mType === "div-total") { fillRgb = "FFF2CC"; isBold = true; }
+          else if (mType === "divider") { fillRgb = "E2E8F0"; isBold = true; }
+
+          ws[addr].s = {
+            font: { name: "Calibri", sz: mType === "header" ? 10 : 10, bold: isBold, color: { rgb: "000000" } },
+            fill: { fgColor: { rgb: fillRgb } },
+            border: thinBorder,
+            alignment: { horizontal: "center", vertical: "center", wrapText: true }
+          };
+
+          if (mType !== "header" && mType !== "divider" && num2Cols.has(C) && typeof ws[addr].v === "number") {
+            ws[addr].z = "0.00";
+          }
+        }
+      }
+
+      const wb = XLSX.utils.book_new();
+      const sheetTabName = STATE.allWorksOverdueOnly ? "Overdue_Works_Report" : "All_Works_Report";
+      XLSX.utils.book_append_sheet(wb, ws, sheetTabName);
+      const filePrefix = STATE.allWorksOverdueOnly ? "All_Works_Report_Overdue_Only" : "All_Works_Report";
+      XLSX.writeFile(wb, `${filePrefix}_${STATE.todayStr}.xlsx`);
+    }
+
     function renderActivePage() {
       document.getElementById("status-source-pill").textContent = STATE.sourceLabel;
       document.getElementById("status-time-label").textContent = STATE.lastSynced;
@@ -3607,34 +4429,45 @@
       const dashSec = document.getElementById("page-dashboard");
       const anSec = document.getElementById("page-analytics");
       const absSec = document.getElementById("page-abstract");
+      const awSec = document.getElementById("page-allworks");
       const titleEl = document.getElementById("page-main-title");
       const switchBtn = document.getElementById("page-switch-btn");
       const absBtn = document.getElementById("abstract-switch-btn");
+      const awBtn = document.getElementById("allworks-switch-btn");
+
+      if (dashSec) dashSec.style.display = "none";
+      if (anSec) anSec.style.display = "none";
+      if (absSec) absSec.style.display = "none";
+      if (awSec) awSec.style.display = "none";
 
       if (STATE.activePage === "dashboard") {
         if (dashSec) dashSec.style.display = "block";
-        if (anSec) anSec.style.display = "none";
-        if (absSec) absSec.style.display = "none";
-        if (titleEl) titleEl.textContent = "Minor Irrigation - Overdue Works Dashboard";
+        if (titleEl) titleEl.textContent = "Minor Irrigation — Overdue Works Dashboard";
         if (switchBtn) switchBtn.textContent = "Analytics View →";
         if (absBtn) absBtn.textContent = "Division Wise Abstract";
+        if (awBtn) awBtn.textContent = "All Works Report";
         renderDashboardPage();
       } else if (STATE.activePage === "analytics") {
-        if (dashSec) dashSec.style.display = "none";
         if (anSec) anSec.style.display = "block";
-        if (absSec) absSec.style.display = "none";
-        if (titleEl) titleEl.textContent = "Minor Irrigation - AE/AEE Overdue Rankings";
+        if (titleEl) titleEl.textContent = "Minor Irrigation — CE Analytics & Overdue and ETS";
         if (switchBtn) switchBtn.textContent = "← Main Dashboard";
         if (absBtn) absBtn.textContent = "Division Wise Abstract";
+        if (awBtn) awBtn.textContent = "All Works Report";
         renderAnalyticsPage();
       } else if (STATE.activePage === "abstract") {
-        if (dashSec) dashSec.style.display = "none";
-        if (anSec) anSec.style.display = "none";
         if (absSec) absSec.style.display = "block";
-        if (titleEl) titleEl.textContent = "Division Wise Overdue Abstract";
+        if (titleEl) titleEl.textContent = "Minor Irrigation — Division Wise Abstract";
         if (switchBtn) switchBtn.textContent = "Analytics View →";
         if (absBtn) absBtn.textContent = "← Main Dashboard";
+        if (awBtn) awBtn.textContent = "All Works Report";
         renderAbstractPage();
+      } else if (STATE.activePage === "allworks") {
+        if (awSec) awSec.style.display = "block";
+        if (titleEl) titleEl.textContent = "Minor Irrigation — All Works Report";
+        if (switchBtn) switchBtn.textContent = "Analytics View →";
+        if (absBtn) absBtn.textContent = "Division Wise Abstract";
+        if (awBtn) awBtn.textContent = "← Main Dashboard";
+        renderAllWorksPage();
       }
     }
 
@@ -3730,6 +4563,28 @@
       STATE.activePage = STATE.activePage === "abstract" ? "dashboard" : "abstract";
       renderActivePage();
     });
+    document.getElementById("allworks-switch-btn")?.addEventListener("click", () => {
+      STATE.activePage = STATE.activePage === "allworks" ? "dashboard" : "allworks";
+      renderActivePage();
+    });
+
+    ["f-aw-period", "f-aw-go", "f-aw-wo", "f-aw-cost", "f-aw-hoa", "f-aw-ae", "f-aw-aee"].forEach((id) => {
+      document.getElementById(id)?.addEventListener("change", () => {
+        if (STATE.activePage === "allworks") renderAllWorksPage();
+      });
+    });
+
+    document.getElementById("aw-mode-all-btn")?.addEventListener("click", () => {
+      STATE.allWorksOverdueOnly = false;
+      renderAllWorksPage();
+    });
+
+    document.getElementById("aw-mode-od-btn")?.addEventListener("click", () => {
+      STATE.allWorksOverdueOnly = true;
+      renderAllWorksPage();
+    });
+
+    document.getElementById("p4-dl-xlsx-btn")?.addEventListener("click", exportAllWorksFormattedExcel);
 
     document.getElementById("sync-btn")?.addEventListener("click", () => syncFromGoogleSheets(false));
 
@@ -3740,12 +4595,14 @@
       const parsed = parseWorkbookArrayBuffer(buf);
       STATE.masterRows = parsed.masterRows;
       STATE.diagRows = parsed.diagRows;
+      STATE.grantMap = parsed.grantMap || {};
       STATE.todayStr = parsed.todayStr;
       STATE.lastSynced = parsed.lastSynced;
       STATE.sourceLabel = `Uploaded (${file.name})`;
       await saveToFirebaseCache({
         masterRows: STATE.masterRows,
         diagRows: STATE.diagRows,
+        grantMap: STATE.grantMap,
         todayStr: STATE.todayStr,
         lastSynced: STATE.lastSynced,
         sourceLabel: STATE.sourceLabel
