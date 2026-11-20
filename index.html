@@ -2271,6 +2271,7 @@
         else if ((upper === "ACCOUNT SUPERINTENDENT" || upper === "ACCOUNTS SUPERINTENDENT") && map.as_off === undefined) map.as_off = idx;
         else if (["ಕಾಮಗಾರಿ ಹೆಸರು", "ಕಾಮಗಾರಿಯ ಹೆಸರು", "ಕಾಮಗಾರಿಗಳ ಹೆಸರು", "WORK NAME", "NAME OF WORK"].includes(norm) && map.work_name === undefined) map.work_name = idx;
         else if ((compact === "ಲೆಕ್ಕಶೀರ್ಷಿಕೆ" || compact === "ಲೆಕ್ಕಶೀರ್ಷಿಕೆಹೆಸರು") && map.hoa === undefined) map.hoa = idx;
+        else if ((/(^|[^A-Z])(S\s*\/\s*F|F\s*\/\s*S)([^A-Z]|$)/.test(upper) || upper === "S-F" || upper === "SF") && map.work_type === undefined) map.work_type = idx;
       });
 
       headers.forEach((col, idx) => {
@@ -2436,11 +2437,29 @@
           const baseEstForBal = !isNaN(revisedEstVal) && revisedEstVal > 0 ? revisedEstVal : (isNaN(estCostVal) ? 0 : estCostVal);
           const balCompleteVal = !isNaN(rawBalVal) ? rawBalVal : Math.max(0, baseEstForBal - totalExpVal);
 
-          const wtText = colMap.work_type !== undefined ? normalizeText(r[colMap.work_type]).toUpperCase() : "";
-          let isNewWork = 0;
-          if (wtText.includes("ಹೊಸ") || wtText.includes("NEW")) isNewWork = 1;
-          else if (wtText.includes("ಮುಂದುವರೆದ") || wtText.includes("SPILL") || wtText.includes("CONT")) isNewWork = 0;
-          else isNewWork = goFy === "2026-2027" ? 1 : 0;
+          const sfRaw = colMap.work_type !== undefined ? normalizeText(r[colMap.work_type]).toUpperCase().trim() : "";
+          let isNewWork = 0; // S = ಮುಂದುವರೆದ ಕಾಮಗಾರಿಗಳು
+          if (
+            sfRaw === "F" ||
+            sfRaw.startsWith("F ") ||
+            sfRaw.startsWith("F-") ||
+            sfRaw.startsWith("F/") ||
+            sfRaw.includes("FRESH") ||
+            sfRaw.includes("ಹೊಸ") ||
+            sfRaw.includes("NEW")
+          ) {
+            isNewWork = 1; // F = ಹೊಸ ಕಾಮಗಾರಿಗಳು
+          } else if (
+            sfRaw === "S" ||
+            sfRaw.startsWith("S ") ||
+            sfRaw.startsWith("S-") ||
+            sfRaw.startsWith("S/") ||
+            sfRaw.includes("SPILL") ||
+            sfRaw.includes("ಮುಂದುವರೆದ") ||
+            sfRaw.includes("CONT")
+          ) {
+            isNewWork = 0; // S = ಮುಂದುವರೆದ ಕಾಮಗಾರಿಗಳು
+          }
 
           const statusRaw = normalizeText(r[colMap.status]);
           const statusUpper = statusRaw.toUpperCase().trim();
