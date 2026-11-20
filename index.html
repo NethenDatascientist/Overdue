@@ -4135,7 +4135,7 @@
           const cd = pt.customdata;
           if (!Array.isArray(cd) || !cd[0]) return;
           const officerName = String(cd[0]).trim();
-          const isAeeMode = typeof cd[6] === "string" && cd[6].includes("<b>AEE:</b>");
+          const isAeeMode = typeof cd[6] === "string" && cd[6].startsWith("<b>AEE:</b>");
           openOfficerDetailsModal(officerName, isAeeMode);
         };
 
