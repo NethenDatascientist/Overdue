@@ -1520,7 +1520,7 @@
           <button type="button" id="abstract-switch-btn" class="btn-primary" style="width:auto;white-space:nowrap;padding:0.48rem 0.85rem;">Division Wise Abstract</button>
           <button type="button" id="allworks-switch-btn" class="btn-primary" style="width:auto;white-space:nowrap;padding:0.48rem 0.85rem;">All Works Report</button>
         </div>
-        <h1 class="main-title" id="page-main-title">Minor Irrigation — Overdue Works Dashboard</h1>
+        <h1 class="main-title" id="page-main-title">Minor Irrigation - Overdue Works Dashboard</h1>
         <div class="header-right-actions">
           <button type="button" id="chronic-open-btn" class="btn-chronic-urgent">
             <span class="urgent-beacon-dot"></span>
@@ -4461,28 +4461,28 @@
 
       if (STATE.activePage === "dashboard") {
         if (dashSec) dashSec.style.display = "block";
-        if (titleEl) titleEl.textContent = "Minor Irrigation — Overdue Works Dashboard";
+        if (titleEl) titleEl.textContent = "Minor Irrigation - Overdue Works Dashboard";
         if (switchBtn) switchBtn.textContent = "Analytics View →";
         if (absBtn) absBtn.textContent = "Division Wise Abstract";
         if (awBtn) awBtn.textContent = "All Works Report";
         renderDashboardPage();
       } else if (STATE.activePage === "analytics") {
         if (anSec) anSec.style.display = "block";
-        if (titleEl) titleEl.textContent = "Minor Irrigation — CE Analytics & Overdue and ETS";
+        if (titleEl) titleEl.textContent = "AE/AEE-Wise Ranking Based on Total Overdue Works";
         if (switchBtn) switchBtn.textContent = "← Main Dashboard";
         if (absBtn) absBtn.textContent = "Division Wise Abstract";
         if (awBtn) awBtn.textContent = "All Works Report";
         renderAnalyticsPage();
       } else if (STATE.activePage === "abstract") {
         if (absSec) absSec.style.display = "block";
-        if (titleEl) titleEl.textContent = "Minor Irrigation — Division Wise Abstract";
+        if (titleEl) titleEl.textContent = "Division Wise Overdue Works Abstract";
         if (switchBtn) switchBtn.textContent = "Analytics View →";
         if (absBtn) absBtn.textContent = "← Main Dashboard";
         if (awBtn) awBtn.textContent = "All Works Report";
         renderAbstractPage();
       } else if (STATE.activePage === "allworks") {
         if (awSec) awSec.style.display = "block";
-        if (titleEl) titleEl.textContent = "Minor Irrigation — All Works Report";
+        if (titleEl) titleEl.textContent = "All Works Report";
         if (switchBtn) switchBtn.textContent = "Analytics View →";
         if (absBtn) absBtn.textContent = "Division Wise Abstract";
         if (awBtn) awBtn.textContent = "← Main Dashboard";
