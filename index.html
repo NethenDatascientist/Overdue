@@ -3433,6 +3433,127 @@
     // =========================================================================
     // 6. RENDER PAGE 1: MAIN OVERDUE WORKS DASHBOARD
     // =========================================================================
+    let _officerHoverCache = { key: "", map: {} };
+
+    function buildOfficerHoverMap(rows, isAeeMode) {
+      const cleanVal = (v) => {
+        const s = String(v ?? "").trim();
+        if (!s || s === "-") return "";
+        const low = s.toLowerCase();
+        if (low === "unspecified" || low === "unassigned") return "";
+        if (typeof UNSPECIFIED_LABEL !== "undefined" && s === UNSPECIFIED_LABEL) return "";
+        return s;
+      };
+
+      const infoMap = new Map();
+
+      rows.forEach((r) => {
+        const key = String((isAeeMode ? r.aee_name : r.so_name) || "").trim();
+        if (!key) return;
+
+        if (!infoMap.has(key)) {
+          infoMap.set(key, {
+            divSubMap: new Map(),
+            aees: new Set(),
+            overdueAeCounts: new Map(),
+            overdue: 0,
+            ets: 0,
+            total: 0
+          });
+        }
+
+        const entry = infoMap.get(key);
+        entry.total += 1;
+        if (r.is_overdue) entry.overdue += 1;
+        if (r.is_status_ets) entry.ets += 1;
+
+        const div = cleanVal(r.division_name);
+        const sub = cleanVal(r.subdivision_name);
+        if (div) {
+          if (!entry.divSubMap.has(div)) entry.divSubMap.set(div, new Set());
+          if (sub) entry.divSubMap.get(div).add(sub);
+        }
+
+        if (!isAeeMode) {
+          const aee = cleanVal(r.aee_name);
+          if (aee) entry.aees.add(aee);
+        } else if (r.is_overdue) {
+          const ae = cleanVal(r.so_name) || "Unassigned";
+          entry.overdueAeCounts.set(ae, (entry.overdueAeCounts.get(ae) || 0) + 1);
+        }
+      });
+
+      const hoverMap = {};
+
+      infoMap.forEach((entry, officerName) => {
+        const divParts = [];
+        entry.divSubMap.forEach((subsSet, div) => {
+          const subs = Array.from(subsSet);
+          divParts.push(subs.length ? `${div} / ${subs.join(", ")}` : div);
+        });
+        const divSubText = divParts.length ? escapeHtml(divParts.join("; ")) : "-";
+        const odPct = entry.total > 0 ? ((entry.overdue / entry.total) * 100).toFixed(1) : "0.0";
+
+        if (!isAeeMode) {
+          const aeeText = entry.aees.size ? escapeHtml(Array.from(entry.aees).join(", ")) : "-";
+          hoverMap[officerName] = [
+            `<b>AE:</b> ${escapeHtml(officerName)}`,
+            `<b>Division & Sub-division:</b> ${divSubText}`,
+            `<b>AEE:</b> ${aeeText}`,
+            `<b>Overdue Works Count:</b> ${entry.overdue}`,
+            `<b>ETS Count:</b> ${entry.ets}`,
+            `<b>Total Works Count:</b> ${entry.total}`,
+            `<b>Percentage of OD:</b> ${odPct}%`
+          ].join("<br>");
+        } else {
+          const sortedOdAEs = Array.from(entry.overdueAeCounts.entries())
+            .sort((a, b) => b[1] - a[1]);
+
+          const aeListHtml = sortedOdAEs.length
+            ? "<br>" + sortedOdAEs.map(([ae, cnt]) => `&nbsp;&nbsp;• ${escapeHtml(ae)} (${cnt})`).join("<br>")
+            : " None";
+
+          hoverMap[officerName] = [
+            `<b>AEE:</b> ${escapeHtml(officerName)}`,
+            `<b>AEs with Overdue Works:</b>${aeListHtml}`,
+            `<b>Division & Sub-division:</b> ${divSubText}`,
+            `<b>Overdue Works Count:</b> ${entry.overdue}`,
+            `<b>ETS Count:</b> ${entry.ets}`,
+            `<b>Total Works Count:</b> ${entry.total}`,
+            `<b>Percentage of OD:</b> ${odPct}%`
+          ].join("<br>");
+        }
+      });
+
+      return hoverMap;
+    }
+
+    function getOfficerHoverHtml(rowObj, viewChoice) {
+      const vc = String(viewChoice || "").toLowerCase();
+      const isAeeMode = vc.includes("executive") || vc.includes("aee") || vc.includes("a.e.e");
+      const rows = typeof getFilteredScopeRows === "function" ? getFilteredScopeRows() : (STATE.masterRows || []);
+      const scopeLabel = typeof getFilterScopeLabel === "function" ? getFilterScopeLabel() : "";
+      const cacheKey = `${isAeeMode ? "AEE" : "AE"}|${scopeLabel}|${rows.length}|${STATE.lastSynced || ""}`;
+
+      if (_officerHoverCache.key !== cacheKey) {
+        _officerHoverCache = {
+          key: cacheKey,
+          map: buildOfficerHoverMap(rows, isAeeMode)
+        };
+      }
+
+      if (rowObj && typeof rowObj === "object") {
+        for (const val of Object.values(rowObj)) {
+          if (typeof val === "string") {
+            const k = val.trim();
+            if (_officerHoverCache.map[k]) return _officerHoverCache.map[k];
+          }
+        }
+      }
+
+      const fallback = Object.values(rowObj || {}).find((v) => typeof v === "string" && v.trim() !== "") || "";
+      return escapeHtml(fallback);
+    }
     function renderDashboardPage() {
       const scopeRows = getFilteredScopeRows();
       const viewChoice = document.querySelector('input[name="p1-view"]:checked').value;
@@ -3597,20 +3718,16 @@
         r.ets_works,
         r.rest_works,
         r.total_works,
-        r.overdue_pct.toFixed(1)
+        r.overdue_pct.toFixed(1),
+        getOfficerHoverHtml(r, viewChoice)
       ]);
 
-      const cleanHoverTemplate =
-        `<b>${viewChoice}:</b> %{customdata[0]}<br>` +
-        `<b>Overdue Works ('P'):</b> %{customdata[1]}<br>` +
-        `<b>ETS Works ('ETS'):</b> %{customdata[2]}<br>` +
-        `<b>Rest of Works:</b> %{customdata[3]}<br>` +
-        `<b>Total Works Assigned:</b> %{customdata[4]}<br>` +
-        `<b>Overdue Percentage:</b> %{customdata[5]}%<extra></extra>`;
+      const cleanHoverTemplate = "%{customdata[6]}<extra></extra>";
 
       const cleanHoverLabel = {
         bgcolor: "#0F172A",
         bordercolor: "#334155",
+        align: "left",
         namelength: 0,
         font: { color: "#FFFFFF", size: 12, family: "Inter, sans-serif" },
         align: "left"
