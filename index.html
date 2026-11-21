@@ -4209,11 +4209,11 @@
 
       document.getElementById("p1-kpi-grid").innerHTML = `
         <div class="kpi-card kpi-sky">
-          <div class="kpi-label">📅 Date (Today)</div>
+          <div class="kpi-label">Date (Today)</div>
           <div class="kpi-val">${escapeHtml(STATE.todayStr)}</div>
         </div>
         <div class="kpi-card kpi-lavender">
-          <div class="kpi-label">👥 ${escapeHtml(viewChoice)}s</div>
+          <div class="kpi-label"> ${escapeHtml(viewChoice)}s</div>
           <div class="kpi-val">${namedOfficersCount.toLocaleString()}</div>
         </div>
         <div class="kpi-card kpi-teal">
@@ -4221,15 +4221,15 @@
           <div class="kpi-val">${totalAssignedAll.toLocaleString()}</div>
         </div>
         <div class="kpi-card kpi-rose">
-          <div class="kpi-label">🔴 Overdue Works ('P')</div>
+          <div class="kpi-label">Overdue Works ('P')</div>
           <div class="kpi-val">${totalOverdueAll.toLocaleString()} (${overallOdPct}%)</div>
         </div>
         <div class="kpi-card kpi-amber">
-          <div class="kpi-label">⏳ Chronic Overdue (&gt;2 Yrs)</div>
+          <div class="kpi-label">Chronic Overdue (&gt;2 Yrs)</div>
           <div class="kpi-val">${chronicCount.toLocaleString()}</div>
         </div>
         <div class="kpi-card kpi-sage">
-          <div class="kpi-label">🟢 'ETS' Works</div>
+          <div class="kpi-label">'ETS' Works</div>
           <div class="kpi-val">${totalEtsAll.toLocaleString()}</div>
         </div>
       `;
