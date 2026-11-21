@@ -4217,7 +4217,7 @@
           <div class="kpi-val">${namedOfficersCount.toLocaleString()}</div>
         </div>
         <div class="kpi-card kpi-teal">
-          <div class="kpi-label">📋 Total Works</div>
+          <div class="kpi-label">Total Works (Inc.SDMF,ODF,ABHY)</div>
           <div class="kpi-val">${totalAssignedAll.toLocaleString()}</div>
         </div>
         <div class="kpi-card kpi-rose">
@@ -4607,17 +4607,17 @@
 
       document.getElementById("p2-kpi-grid").innerHTML = `
         <div class="kpi-card kpi-teal">
-          <div class="kpi-label">📋 Total Works in Scope</div>
+          <div class="kpi-label">Total Works (Inc.SDMF,ODF,ABHY)</div>
           <div class="kpi-val">${totWorks.toLocaleString()}</div>
           <div class="kpi-sub">${aeStats.length} AEs &bull; ${aeeStats.length} AEEs</div>
         </div>
         <div class="kpi-card kpi-rose">
-          <div class="kpi-label">🔴 True Overdue ('P')</div>
+          <div class="kpi-label">🔴 Overdue ('P')</div>
           <div class="kpi-val" style="color:#991B1B;">${totOd.toLocaleString()} (${odPct}%)</div>
           <div class="kpi-sub">Past Target Date &amp; Not in ETS</div>
         </div>
         <div class="kpi-card kpi-sage">
-          <div class="kpi-label">🟢 Claimed 'ETS' Works</div>
+          <div class="kpi-label">🟢 'ETS' Works</div>
           <div class="kpi-val" style="color:#065F46;">${totEts.toLocaleString()} (${etsPct}%)</div>
           <div class="kpi-sub">Extension of Time Status</div>
         </div>
@@ -4627,7 +4627,7 @@
           <div class="kpi-sub">Overdue ('P') + 'ETS' Combined</div>
         </div>
         <div class="kpi-card kpi-pink">
-          <div class="kpi-label">🕵️ Unexcused Overdue Ratio</div>
+          <div class="kpi-label">Overdue Ratio</div>
           <div class="kpi-val" style="color:#9D174D;">${unexcusedShare}%</div>
           <div class="kpi-sub">Of delayed works are NOT in ETS</div>
         </div>
