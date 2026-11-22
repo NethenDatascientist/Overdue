@@ -6523,7 +6523,8 @@
         logCurrentVisit();
       }
     }, 1200);
-     (function fixSidebarHeaderLayout() {
+     // Keep "Controls" cleanly aligned beside the ☰ button
+    (function fixSidebarHeaderLayout() {
       const apply = () => {
         const btn = Array.from(document.querySelectorAll("button")).find((b) => {
           const txt = (b.textContent || "").trim();
@@ -6543,21 +6544,22 @@
         const candidates = Array.from(document.querySelectorAll("h1, h2, h3, h4, div, p")).filter((el) => {
           if (btn && (el === btn || el.contains(btn))) return false;
           const txt = (el.textContent || "").trim();
-          return txt.includes("Dashboard Controls") && txt.length < 40;
+          return (txt.includes("Dashboard Controls") || txt === "Controls") && txt.length < 40;
         });
 
         const headerEl = candidates[candidates.length - 1];
         if (!headerEl) return;
 
-        let padLeft = 56;
-        let minH = 48;
+        if ((headerEl.textContent || "").trim() !== "Controls") {
+          headerEl.textContent = "Controls";
+        }
 
+        let padLeft = 52;
         if (btn) {
           const bRect = btn.getBoundingClientRect();
           const hRect = headerEl.getBoundingClientRect();
           if (hRect.width > 0 && hRect.left >= 0 && hRect.left < bRect.right) {
-            padLeft = Math.min(85, Math.max(52, Math.ceil(bRect.right - hRect.left + 10)));
-            minH = Math.max(48, Math.ceil(bRect.bottom - hRect.top + 8));
+            padLeft = Math.min(72, Math.max(48, Math.ceil(bRect.right - hRect.left + 12)));
           }
           if (!btn.dataset.headerFixBound) {
             btn.dataset.headerFixBound = "1";
@@ -6569,12 +6571,18 @@
         }
 
         headerEl.style.setProperty("padding-left", `${padLeft}px`, "important");
-        headerEl.style.setProperty("min-height", `${minH}px`, "important");
+        headerEl.style.setProperty("padding-top", "0", "important");
+        headerEl.style.setProperty("padding-bottom", "12px", "important");
+        headerEl.style.setProperty("margin-top", "0", "important");
+        headerEl.style.setProperty("height", "42px", "important");
+        headerEl.style.setProperty("min-height", "42px", "important");
         headerEl.style.setProperty("display", "flex", "important");
         headerEl.style.setProperty("align-items", "center", "important");
-        headerEl.style.setProperty("padding-bottom", "8px", "important");
-        headerEl.style.setProperty("margin-top", "0", "important");
-        headerEl.style.setProperty("font-size", "1.02rem", "important");
+        headerEl.style.setProperty("font-size", "1.08rem", "important");
+        headerEl.style.setProperty("font-weight", "800", "important");
+        headerEl.style.setProperty("color", "#0F172A", "important");
+        headerEl.style.setProperty("letter-spacing", "0.01em", "important");
+        headerEl.style.setProperty("line-height", "1", "important");
         headerEl.style.setProperty("white-space", "nowrap", "important");
         headerEl.style.setProperty("box-sizing", "border-box", "important");
       };
