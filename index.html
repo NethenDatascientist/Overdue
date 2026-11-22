@@ -1582,6 +1582,90 @@
       font-weight: 800;
       white-space: nowrap;
     }
+  /* =========================================================================
+       PACKAGE GROUPING STYLING (SINGLE SL. NO. + COMBINED WORK CARD)
+       ========================================================================= */
+    tr.pkg-row {
+      background: #F5F3FF !important;
+    }
+    tr.pkg-row:hover {
+      background: #EDE9FE !important;
+    }
+    tr.pkg-row > td:first-child {
+      border-left: 4px solid #4F46E5 !important;
+      vertical-align: middle !important;
+    }
+    .pkg-slno-num {
+      font-weight: 800;
+      font-size: 0.86rem;
+      color: #1E1B4B;
+      line-height: 1.2;
+    }
+    .pkg-slno-tag {
+      display: inline-block;
+      margin-top: 4px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: #4F46E5;
+      color: #FFFFFF;
+      font-size: 0.63rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+    }
+    .pkg-cell-box {
+      text-align: left;
+      padding: 2px 0;
+    }
+    .pkg-header-strip {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid #C7D2FE;
+    }
+    .pkg-count-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #4F46E5;
+      color: #FFFFFF;
+      font-size: 0.70rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .pkg-code-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: #EEF2FF;
+      border: 1px solid #A5B4FC;
+      color: #312E81;
+      font-size: 0.71rem;
+      font-weight: 800;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: nowrap;
+    }
+    .pkg-works-list {
+      margin: 0;
+      padding-left: 18px;
+      list-style: decimal;
+    }
+    .pkg-works-list li {
+      padding: 4px 0;
+      border-bottom: 1px dashed #CBD5E1;
+      line-height: 1.38;
+      color: #0F172A;
+      font-weight: 600;
+    }
+    .pkg-works-list li:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
   </style>
 </head>
 <body>
@@ -3924,26 +4008,30 @@
       `;
 
       const tbodyHtml = rows.map((r, idx) => {
-        const counterpartVal = isAeeMode ? (r.so_name || "-") : (r.aee_name || "-");
-        const odCls = r.is_overdue ? "odm-red-text" : "";
-        return `
-          <tr>
-            <td>${idx + 1}</td>
-            <td class="odm-work-col">${escapeHtml(r.work_name || "-")}</td>
-            <td>${escapeHtml(r.hoa || "-")}</td>
-            <td>${escapeHtml(r.division_name || "-")}</td>
-            <td>${escapeHtml(r.subdivision_name || "-")}</td>
-            <td>${escapeHtml(counterpartVal)}</td>
-            <td>${escapeHtml(r.ta_name || "-")}</td>
-            <td>${escapeHtml(r.as_name || "-")}</td>
-            <td>${escapeHtml(r.ee_name || "-")}</td>
-            ${showStatusCol ? `<td>${escapeHtml(r.status_raw || "-")}</td>` : ""}
-            <td style="white-space:nowrap;">${escapeHtml(r.start_date || "-")}</td>
-            <td class="${odCls}">${escapeHtml(r.target_date || "-")}</td>
-            <td class="${odCls}">${escapeHtml(r.overdue_by || "-")}</td>
-          </tr>
-        `;
-      }).join("");
+     const counterpartVal = isAeeMode ? (r.so_name || "-") : (r.aee_name || "-");
+     const odCls = r.is_overdue ? "odm-red-text" : "";
+     const rowCls = r.is_package ? ' class="pkg-row"' : "";
+     const slNoHtml = r.is_package
+       ? `<div class="pkg-slno-num">${idx + 1}</div><div class="pkg-slno-tag">PKG</div>`
+       : `${idx + 1}`;
+     return `
+       <tr${rowCls}>
+         <td>${slNoHtml}</td>
+         <td class="odm-work-col">${renderWorkNameCellHtml(r)}</td>
+         <td>${escapeHtml(r.hoa || "-")}</td>
+         <td>${escapeHtml(r.division_name || "-")}</td>
+         <td>${escapeHtml(r.subdivision_name || "-")}</td>
+         <td>${escapeHtml(counterpartVal)}</td>
+         <td>${escapeHtml(r.ta_name || "-")}</td>
+         <td>${escapeHtml(r.as_name || "-")}</td>
+         <td>${escapeHtml(r.ee_name || "-")}</td>
+         ${showStatusCol ? `<td>${escapeHtml(r.status_raw || "-")}</td>` : ""}
+         <td style="white-space:nowrap;">${escapeHtml(r.start_date || "-")}</td>
+         <td class="${odCls}">${escapeHtml(r.target_date || "-")}</td>
+         <td class="${odCls}">${escapeHtml(r.overdue_by || "-")}</td>
+       </tr>
+     `;
+   }).join("");
 
       bodyEl.innerHTML = `
         <table class="odm-table">
@@ -4154,6 +4242,196 @@
     }
 
     hookOfficerBarChartClicks();
+    // =========================================================================
+    // PACKAGE GROUPING ENGINE (APPLIES EVERYWHERE EXCEPT "ALL WORKS REPORT")
+    // =========================================================================
+    const PKG_CODE_REGEX = /\(\s*javascript\s+unique\s+code\s*:\s*([^)]+?)\s*\)/i;
+
+    function extractPackageInfo(workName) {
+      const raw = String(workName || "");
+      const match = raw.match(PKG_CODE_REGEX);
+      if (!match) {
+        return { code: "", cleanName: raw.replace(/\r?\n+/g, " ").replace(/\s+/g, " ").trim() };
+      }
+      const code = String(match[1] || "").trim();
+      const cleanName = raw
+        .replace(PKG_CODE_REGEX, "")
+        .replace(/\r?\n+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      return { code, cleanName };
+    }
+
+    function collapsePackageRows(rows) {
+      if (!Array.isArray(rows) || !rows.length) return rows || [];
+
+      const output = [];
+      const pkgIndexMap = new Map();
+
+      rows.forEach((r) => {
+        if (!r) return;
+        // If already collapsed, keep as-is
+        if (r.is_package) {
+          output.push(r);
+          return;
+        }
+
+        const { code, cleanName } = extractPackageInfo(r.work_name);
+        if (!code) {
+          output.push(r);
+          return;
+        }
+
+        const groupKey = code.toLowerCase();
+        if (!pkgIndexMap.has(groupKey)) {
+          pkgIndexMap.set(groupKey, {
+            outIdx: output.length,
+            code,
+            members: [r],
+            works: [cleanName || String(r.work_name || "-")]
+          });
+          output.push(null); // placeholder to preserve original row order
+        } else {
+          const grp = pkgIndexMap.get(groupKey);
+          grp.members.push(r);
+          grp.works.push(cleanName || String(r.work_name || "-"));
+        }
+      });
+
+      pkgIndexMap.forEach((grp) => {
+        const members = grp.members;
+        const works = grp.works;
+        const base = members.find((m) => m.is_overdue) || members[0];
+        const anyOverdue = members.some((m) => m.is_overdue);
+        const anyEts = !anyOverdue && members.some((m) => m.is_status_ets);
+
+        const countLabel = `${works.length} ${works.length === 1 ? "Work" : "Works"}`;
+        const headerLine = `[PACKAGE - ${countLabel} | JavaScript unique code : ${grp.code}]`;
+        const numberedLines = works.map((w, i) => `${i + 1}. ${w}`).join("\n");
+
+        output[grp.outIdx] = {
+          ...base,
+          is_overdue: anyOverdue,
+          is_status_ets: anyEts,
+          is_package: true,
+          package_code: grp.code,
+          package_count: works.length,
+          package_works: works,
+          work_name: `${headerLine}\n${numberedLines}`
+        };
+      });
+
+      return output;
+    }
+
+    function buildPackageCardHtmlFromParts(count, code, worksArr) {
+      const countLabel = `${count} ${Number(count) === 1 ? "Work" : "Works"}`;
+      const itemsHtml = (worksArr || [])
+        .map((w) => `<li>${escapeHtml(w)}</li>`)
+        .join("");
+      return `
+        <div class="pkg-cell-box">
+          <div class="pkg-header-strip">
+            <span class="pkg-count-pill">📦 PACKAGE (${escapeHtml(countLabel)})</span>
+            <span class="pkg-code-pill">JavaScript unique code : ${escapeHtml(code)}</span>
+          </div>
+          <ol class="pkg-works-list">${itemsHtml}</ol>
+        </div>
+      `;
+    }
+
+    function renderWorkNameCellHtml(row) {
+      if (row && row.is_package && Array.isArray(row.package_works)) {
+        return buildPackageCardHtmlFromParts(row.package_count, row.package_code, row.package_works);
+      }
+      return escapeHtml((row && row.work_name) || "-");
+    }
+
+    // Wrap getFilteredScopeRows so Dashboard, Hover, Modal, Analytics & Abstract
+    // automatically count each package as 1 work, while All Works Report stays untouched
+    if (typeof getFilteredScopeRows === "function" && !window.__pkgScopeWrapped) {
+      window.__pkgScopeWrapped = true;
+      const _origGetFilteredScopeRows = getFilteredScopeRows;
+      getFilteredScopeRows = function () {
+        const rawRows = _origGetFilteredScopeRows.apply(this, arguments);
+        if (typeof STATE !== "undefined" && STATE.activePage === "allworks") {
+          return rawRows;
+        }
+        return collapsePackageRows(rawRows);
+      };
+    }
+
+    // Automatically style package rows in other Dashboard / Analytics / Overdue tables
+    function upgradePackageTablesInDom() {
+      const pkgTextPattern = /^\[PACKAGE\s*-\s*(\d+)\s*Works?\s*\|\s*JavaScript unique code\s*:\s*([^\]]+)\]\s*\n([\s\S]+)$/i;
+      const cells = document.querySelectorAll("table td");
+
+      cells.forEach((td) => {
+        if (td.dataset.pkgUpgraded === "1" || td.children.length > 0) return;
+        if (
+          td.closest("#page-allworks") ||
+          td.closest("#officer-detail-modal") ||
+          td.closest("#mi-private-logs-overlay")
+        ) {
+          return;
+        }
+
+        const txt = (td.textContent || "").trim();
+        if (!txt.startsWith("[PACKAGE -")) return;
+
+        const m = txt.match(pkgTextPattern);
+        if (!m) return;
+
+        const count = m[1];
+        const code = m[2].trim();
+        const worksArr = m[3]
+          .split(/\r?\n/)
+          .map((line) => line.replace(/^\d+\.\s*/, "").trim())
+          .filter(Boolean);
+
+        td.dataset.pkgUpgraded = "1";
+        td.style.textAlign = "left";
+        td.innerHTML = buildPackageCardHtmlFromParts(count, code, worksArr);
+
+        const tr = td.closest("tr");
+        if (tr) {
+          tr.classList.add("pkg-row");
+          const firstTd = tr.querySelector("td:first-child");
+          if (firstTd && firstTd !== td && !firstTd.querySelector(".pkg-slno-tag")) {
+            const slTxt = (firstTd.textContent || "").trim();
+            if (/^\d+$/.test(slTxt)) {
+              firstTd.innerHTML = `<div class="pkg-slno-num">${escapeHtml(slTxt)}</div><div class="pkg-slno-tag">PKG</div>`;
+            }
+          }
+        }
+      });
+    }
+
+    if (!window.__pkgDomObserverBound) {
+      window.__pkgDomObserverBound = true;
+      let pkgRafPending = false;
+      const schedulePkgUpgrade = () => {
+        if (pkgRafPending) return;
+        pkgRafPending = true;
+        requestAnimationFrame(() => {
+          pkgRafPending = false;
+          upgradePackageTablesInDom();
+        });
+      };
+
+      const startPkgObserver = () => {
+        if (!document.body) return;
+        const obs = new MutationObserver(schedulePkgUpgrade);
+        obs.observe(document.body, { childList: true, subtree: true });
+        schedulePkgUpgrade();
+      };
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", startPkgObserver);
+      } else {
+        startPkgObserver();
+      }
+    }
     function renderDashboardPage() {
       const scopeRows = getFilteredScopeRows();
       const viewChoice = document.querySelector('input[name="p1-view"]:checked').value;
