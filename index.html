@@ -1736,6 +1736,52 @@
       border-bottom: none;
       padding-bottom: 0;
     }
+  /* =========================================================================
+       SIDEBAR PORTAL DETAILS CARD
+       ========================================================================= */
+    .sb-info-card {
+      margin-top: 16px;
+      padding: 12px 13px;
+      border-radius: 10px;
+      background: #FFFFFF;
+      border: 1px solid #CBD5E1;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
+      font-size: 0.77rem;
+      color: #0F172A;
+    }
+    .sb-info-title {
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #1E3A8A;
+      margin-bottom: 8px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid #E2E8F0;
+    }
+    .sb-info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 4px 0;
+      border-bottom: 1px dashed #F1F5F9;
+      line-height: 1.35;
+    }
+    .sb-info-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    .sb-info-key {
+      color: #475569;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .sb-info-val {
+      color: #0F172A;
+      font-weight: 800;
+      text-align: right;
+    }
   </style>
 </head>
 <body>
@@ -6594,6 +6640,53 @@
       }
       window.addEventListener("load", apply);
       window.addEventListener("resize", apply);
+    })();
+  // Add portal architecture & refresh details inside the sidebar
+    (function addSidebarPortalDetails() {
+      const PORTAL_META = [
+        { key: "Coding Langs", val: "HTML, CSS, JS" },
+        { key: "Hosting App", val: "Vercel" },
+        { key: "Realtime DB", val: "Google Firebase" },
+        { key: "Code Repo", val: "GitHub" },
+        { key: "Daily Refresh", val: "Gemini Pro Tasks (6:00 AM)" }
+      ];
+
+      const mountCard = () => {
+        if (document.getElementById("sb-portal-details-card")) return;
+
+        const targetCb = Array.from(document.querySelectorAll('input[type="checkbox"]')).find((cb) => {
+          const parentTxt = (cb.closest("label, div") && cb.closest("label, div").textContent) || "";
+          return parentTxt.includes("Show Right-Edge Scroll HUD Ruler");
+        });
+
+        const hostContainer = targetCb
+          ? (targetCb.closest("aside, nav, [class*='sidebar'], [id*='sidebar']") || targetCb.parentElement?.parentElement)
+          : null;
+
+        if (!hostContainer) return;
+
+        const card = document.createElement("div");
+        card.id = "sb-portal-details-card";
+        card.className = "sb-info-card";
+        card.innerHTML = `
+          <div class="sb-info-title">Portal Details</div>
+          ${PORTAL_META.map((item) => `
+            <div class="sb-info-row">
+              <span class="sb-info-key">${item.key}:</span>
+              <span class="sb-info-val">${item.val}</span>
+            </div>
+          `).join("")}
+        `;
+
+        hostContainer.appendChild(card);
+      };
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", mountCard);
+      } else {
+        mountCard();
+      }
+      setTimeout(mountCard, 500);
     })();
   </script>
 </body>
