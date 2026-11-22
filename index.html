@@ -3811,31 +3811,41 @@
     }
 
     function getOfficerHoverHtml(rowObj, viewChoice) {
-      const vc = String(viewChoice || "").toLowerCase();
-      const isAeeMode = vc.includes("executive") || vc.includes("aee") || vc.includes("a.e.e");
-      const rows = typeof getFilteredScopeRows === "function" ? getFilteredScopeRows() : (STATE.masterRows || []);
-      const scopeLabel = typeof getFilterScopeLabel === "function" ? getFilterScopeLabel() : "";
-      const cacheKey = `${isAeeMode ? "AEE" : "AE"}|${scopeLabel}|${rows.length}|${STATE.lastSynced || ""}`;
+   const vc = String(viewChoice || "").toLowerCase();
+   const isAeeMode = vc.includes("executive") || vc.includes("aee") || vc.includes("a.e.e");
+   const sig = typeof getScopeCacheSignature === "function"
+     ? getScopeCacheSignature()
+     : `${typeof getFilterScopeLabel === "function" ? getFilterScopeLabel() : ""}|${(STATE.masterRows || []).length}|${STATE.lastSynced || ""}`;
 
-      if (_officerHoverCache.key !== cacheKey) {
-        _officerHoverCache = {
-          key: cacheKey,
-          map: buildOfficerHoverMap(rows, isAeeMode)
-        };
-      }
+   if (_officerHoverCache.key !== sig || _officerHoverCache.masterRef !== STATE.masterRows) {
+     _officerHoverCache = {
+       key: sig,
+       masterRef: STATE.masterRows,
+       aeMap: null,
+       aeeMap: null
+     };
+   }
 
-      if (rowObj && typeof rowObj === "object") {
-        for (const val of Object.values(rowObj)) {
-          if (typeof val === "string") {
-            const k = val.trim();
-            if (_officerHoverCache.map[k]) return _officerHoverCache.map[k];
-          }
-        }
-      }
+   let activeMap = isAeeMode ? _officerHoverCache.aeeMap : _officerHoverCache.aeMap;
+   if (!activeMap) {
+     const rows = typeof getFilteredScopeRows === "function" ? getFilteredScopeRows() : (STATE.masterRows || []);
+     activeMap = buildOfficerHoverMap(rows, isAeeMode);
+     if (isAeeMode) _officerHoverCache.aeeMap = activeMap;
+     else _officerHoverCache.aeMap = activeMap;
+   }
 
-      const fallback = Object.values(rowObj || {}).find((v) => typeof v === "string" && v.trim() !== "") || "";
-      return escapeHtml(fallback);
-    }
+   if (rowObj && typeof rowObj === "object") {
+     for (const val of Object.values(rowObj)) {
+       if (typeof val === "string") {
+         const k = val.trim();
+         if (activeMap[k]) return activeMap[k];
+       }
+     }
+   }
+
+   const fallback = Object.values(rowObj || {}).find((v) => typeof v === "string" && v.trim() !== "") || "";
+   return escapeHtml(fallback);
+ }
     // =========================================================================
     // OFFICER BAR CLICK -> POP-UP MODAL (WITH EXCEL & CSV DOWNLOAD)
     // =========================================================================
@@ -4228,10 +4238,14 @@
         gd.on("plotly_click", gd.__officerClickHandler);
       };
 
-      ["newPlot", "react"].forEach((fnName) => {
-     const orig = window.Plotly[fnName];
+      const origNewPlot = window.Plotly.newPlot;
+   const origReact = window.Plotly.react;
+
+   ["newPlot", "react"].forEach((fnName) => {
+     const orig = fnName === "newPlot" ? origNewPlot : origReact;
      if (typeof orig !== "function") return;
      window.Plotly[fnName] = function (...args) {
+       const targetDiv = typeof args[0] === "string" ? document.getElementById(args[0]) : args[0];
        const traces = args[1];
        const layout = args[2];
        const firstCd = Array.isArray(traces?.[0]?.customdata) ? traces[0].customdata[0] : null;
@@ -4241,15 +4255,26 @@
        if (isOfficerChart && layout && typeof layout === "object") {
          const oldMt = Number(layout.margin?.t) || 0;
          const newMt = Math.max(oldMt, 78);
-         const extraH = newMt - oldMt;
-         const mb = Number(layout.margin?.b) || 40;
-         const newHeight = (typeof layout.height === "number" ? layout.height : 400) + extraH;
-         const plotH = Math.max(60, newHeight - newMt - mb);
+         const oldMb = Number(layout.margin?.b) || 0;
+         const newMb = Math.max(oldMb, 58);
+         const extraH = (newMt - oldMt) + (newMb - oldMb);
+         const baseH = typeof layout.height === "number" ? layout.height : 400;
+         const newHeight = baseH + extraH;
+         const plotH = Math.max(60, newHeight - newMt - newMb);
+
+         if (targetDiv && typeof layout.height === "number") {
+           targetDiv.style.height = `${newHeight}px`;
+           targetDiv.style.minHeight = `${newHeight}px`;
+           if (targetDiv.parentElement && targetDiv.parentElement.style.height) {
+             targetDiv.parentElement.style.height = "auto";
+           }
+         }
 
          args[2] = {
            ...layout,
+           datarevision: Date.now(),
            height: typeof layout.height === "number" ? newHeight : layout.height,
-           margin: { ...(layout.margin || {}), t: newMt },
+           margin: { ...(layout.margin || {}), t: newMt, b: newMb },
            legend: {
              ...(layout.legend || {}),
              orientation: "h",
@@ -4262,7 +4287,8 @@
          };
        }
 
-       const res = orig.apply(this, args);
+       const useFastReact = fnName === "newPlot" && isOfficerChart && targetDiv && Array.isArray(targetDiv.data) && targetDiv.data.length > 0 && typeof origReact === "function";
+       const res = (useFastReact ? origReact : orig).apply(this, args);
        Promise.resolve(res).then(() => attachToDiv(args[0]));
        return res;
      };
@@ -4377,17 +4403,33 @@
 
     // Wrap getFilteredScopeRows so Dashboard, Hover, Modal, Analytics & Abstract
     // automatically count each package as 1 work, while All Works Report stays untouched
-    if (typeof getFilteredScopeRows === "function" && !window.__pkgScopeWrapped) {
-      window.__pkgScopeWrapped = true;
-      const _origGetFilteredScopeRows = getFilteredScopeRows;
-      getFilteredScopeRows = function () {
-        const rawRows = _origGetFilteredScopeRows.apply(this, arguments);
-        if (typeof STATE !== "undefined" && STATE.activePage === "allworks") {
-          return rawRows;
-        }
-        return collapsePackageRows(rawRows);
-      };
-    }
+    function getScopeCacheSignature() {
+   const scopeLbl = typeof getFilterScopeLabel === "function" ? getFilterScopeLabel() : "";
+   const filterVals = ["f-div", "f-subdiv", "f-ee", "f-ta", "f-as", "f-period", "f-go", "f-wo", "f-cost", "f-hoa"]
+     .map((id) => document.getElementById(id)?.value || "")
+     .join("|");
+   return `${scopeLbl}||${filterVals}||${(STATE.masterRows || []).length}||${STATE.lastSynced || ""}`;
+ }
+
+ let _pkgScopeCache = { sig: "", masterRef: null, rows: null };
+
+ if (typeof getFilteredScopeRows === "function" && !window.__pkgScopeWrapped) {
+   window.__pkgScopeWrapped = true;
+   const _origGetFilteredScopeRows = getFilteredScopeRows;
+   getFilteredScopeRows = function () {
+     if (typeof STATE !== "undefined" && STATE.activePage === "allworks") {
+       return _origGetFilteredScopeRows.apply(this, arguments);
+     }
+     const sig = getScopeCacheSignature();
+     if (_pkgScopeCache.sig === sig && _pkgScopeCache.masterRef === STATE.masterRows && _pkgScopeCache.rows) {
+       return _pkgScopeCache.rows;
+     }
+     const rawRows = _origGetFilteredScopeRows.apply(this, arguments);
+     const collapsed = collapsePackageRows(rawRows);
+     _pkgScopeCache = { sig, masterRef: STATE.masterRows, rows: collapsed };
+     return collapsed;
+   };
+ }
 
     // Automatically style package rows in other Dashboard / Analytics / Overdue tables
     function upgradePackageTablesInDom() {
@@ -4449,7 +4491,21 @@
 
       const startPkgObserver = () => {
         if (!document.body) return;
-        const obs = new MutationObserver(schedulePkgUpgrade);
+        const obs = new MutationObserver((mutations) => {
+       for (const m of mutations) {
+         const tag = m.target && m.target.nodeName;
+         if (tag === "TABLE" || tag === "TBODY" || tag === "TR") {
+           schedulePkgUpgrade();
+           return;
+         }
+         for (const node of m.addedNodes) {
+           if (node.nodeType === 1 && (node.nodeName === "TABLE" || node.nodeName === "TBODY" || node.nodeName === "TR" || node.querySelector?.("table"))) {
+             schedulePkgUpgrade();
+             return;
+           }
+         }
+       }
+     });
         obs.observe(document.body, { childList: true, subtree: true });
         schedulePkgUpgrade();
       };
