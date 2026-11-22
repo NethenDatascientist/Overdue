@@ -6524,5 +6524,29 @@
       }
     }, 1200);
   </script>
+  // Align "Dashboard Controls" cleanly beside the ☰ toggle button
+    (function fixSidebarHeaderLayout() {
+      const apply = () => {
+        const els = document.querySelectorAll("h1, h2, h3, h4, div, p, span");
+        for (const el of els) {
+          const txt = (el.textContent || "").trim();
+          if (el.children.length === 0 && txt.includes("Dashboard Controls") && txt.length < 35) {
+            el.style.paddingLeft = "52px";
+            el.style.minHeight = "44px";
+            el.style.display = "flex";
+            el.style.alignItems = "center";
+            el.style.paddingBottom = "6px";
+            el.style.marginTop = "0";
+            el.style.boxSizing = "border-box";
+            break;
+          }
+        }
+      };
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", apply);
+      } else {
+        apply();
+      }
+    })();
 </body>
 </html>
