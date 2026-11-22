@@ -6524,29 +6524,70 @@
       }
     }, 1200);
   </script>
-  // Align "Dashboard Controls" cleanly beside the ☰ toggle button
+ // Keep "Dashboard Controls" and its divider cleanly clear of the ☰ button
     (function fixSidebarHeaderLayout() {
       const apply = () => {
-        const els = document.querySelectorAll("h1, h2, h3, h4, div, p, span");
-        for (const el of els) {
+        const btn = Array.from(document.querySelectorAll("button")).find((b) => {
+          const txt = (b.textContent || "").trim();
+          const idCls = `${b.id || ""} ${b.className || ""} ${b.getAttribute("aria-label") || ""}`.toLowerCase();
+          const r = b.getBoundingClientRect();
+          const isTopLeft = r.width > 18 && r.width < 70 && r.left >= 0 && r.left < 90 && r.top >= 0 && r.top < 90;
+          return isTopLeft && (
+            txt.includes("☰") ||
+            txt.includes("≡") ||
+            idCls.includes("sidebar") ||
+            idCls.includes("toggle") ||
+            idCls.includes("menu") ||
+            Boolean(b.querySelector("svg"))
+          );
+        });
+
+        const candidates = Array.from(document.querySelectorAll("h1, h2, h3, h4, div, p")).filter((el) => {
+          if (btn && (el === btn || el.contains(btn))) return false;
           const txt = (el.textContent || "").trim();
-          if (el.children.length === 0 && txt.includes("Dashboard Controls") && txt.length < 35) {
-            el.style.paddingLeft = "52px";
-            el.style.minHeight = "44px";
-            el.style.display = "flex";
-            el.style.alignItems = "center";
-            el.style.paddingBottom = "6px";
-            el.style.marginTop = "0";
-            el.style.boxSizing = "border-box";
-            break;
+          return txt.includes("Dashboard Controls") && txt.length < 40;
+        });
+
+        const headerEl = candidates[candidates.length - 1];
+        if (!headerEl) return;
+
+        let padLeft = 56;
+        let minH = 48;
+
+        if (btn) {
+          const bRect = btn.getBoundingClientRect();
+          const hRect = headerEl.getBoundingClientRect();
+          if (hRect.width > 0 && hRect.left >= 0 && hRect.left < bRect.right) {
+            padLeft = Math.min(85, Math.max(52, Math.ceil(bRect.right - hRect.left + 10)));
+            minH = Math.max(48, Math.ceil(bRect.bottom - hRect.top + 8));
+          }
+          if (!btn.dataset.headerFixBound) {
+            btn.dataset.headerFixBound = "1";
+            btn.addEventListener("click", () => {
+              setTimeout(apply, 60);
+              setTimeout(apply, 350);
+            });
           }
         }
+
+        headerEl.style.setProperty("padding-left", `${padLeft}px`, "important");
+        headerEl.style.setProperty("min-height", `${minH}px`, "important");
+        headerEl.style.setProperty("display", "flex", "important");
+        headerEl.style.setProperty("align-items", "center", "important");
+        headerEl.style.setProperty("padding-bottom", "8px", "important");
+        headerEl.style.setProperty("margin-top", "0", "important");
+        headerEl.style.setProperty("font-size", "1.02rem", "important");
+        headerEl.style.setProperty("white-space", "nowrap", "important");
+        headerEl.style.setProperty("box-sizing", "border-box", "important");
       };
+
       if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", apply);
       } else {
         apply();
       }
+      window.addEventListener("load", apply);
+      window.addEventListener("resize", apply);
     })();
 </body>
 </html>
