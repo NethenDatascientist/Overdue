@@ -6523,9 +6523,7 @@
         logCurrentVisit();
       }
     }, 1200);
-  </script>
- // Keep "Dashboard Controls" and its divider cleanly clear of the ☰ button
-    (function fixSidebarHeaderLayout() {
+     (function fixSidebarHeaderLayout() {
       const apply = () => {
         const btn = Array.from(document.querySelectorAll("button")).find((b) => {
           const txt = (b.textContent || "").trim();
@@ -6589,5 +6587,6 @@
       window.addEventListener("load", apply);
       window.addEventListener("resize", apply);
     })();
+  </script>
 </body>
 </html>
