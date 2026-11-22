@@ -4229,14 +4229,44 @@
       };
 
       ["newPlot", "react"].forEach((fnName) => {
-        const orig = window.Plotly[fnName];
-        if (typeof orig !== "function") return;
-        window.Plotly[fnName] = function (...args) {
-          const res = orig.apply(this, args);
-          Promise.resolve(res).then(() => attachToDiv(args[0]));
-          return res;
-        };
-      });
+     const orig = window.Plotly[fnName];
+     if (typeof orig !== "function") return;
+     window.Plotly[fnName] = function (...args) {
+       const traces = args[1];
+       const layout = args[2];
+       const firstCd = Array.isArray(traces?.[0]?.customdata) ? traces[0].customdata[0] : null;
+       const isOfficerChart = Array.isArray(firstCd) && typeof firstCd[6] === "string" &&
+         (firstCd[6].includes("<b>AE:</b>") || firstCd[6].includes("<b>AEE:</b>"));
+
+       if (isOfficerChart && layout && typeof layout === "object") {
+         const oldMt = Number(layout.margin?.t) || 0;
+         const newMt = Math.max(oldMt, 78);
+         const extraH = newMt - oldMt;
+         const mb = Number(layout.margin?.b) || 40;
+         const newHeight = (typeof layout.height === "number" ? layout.height : 400) + extraH;
+         const plotH = Math.max(60, newHeight - newMt - mb);
+
+         args[2] = {
+           ...layout,
+           height: typeof layout.height === "number" ? newHeight : layout.height,
+           margin: { ...(layout.margin || {}), t: newMt },
+           legend: {
+             ...(layout.legend || {}),
+             orientation: "h",
+             x: 0,
+             xanchor: "left",
+             y: 1 + 18 / plotH,
+             yanchor: "bottom",
+             bgcolor: "rgba(0,0,0,0)"
+           }
+         };
+       }
+
+       const res = orig.apply(this, args);
+       Promise.resolve(res).then(() => attachToDiv(args[0]));
+       return res;
+     };
+   });
     }
 
     hookOfficerBarChartClicks();
