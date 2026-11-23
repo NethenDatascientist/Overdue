@@ -1782,6 +1782,34 @@
       font-weight: 800;
       text-align: right;
     }
+  /* =========================================================================
+       TOP BAR PORTAL DETAILS (REPLACES "ROW RULE" TEXT)
+       ========================================================================= */
+    .portal-meta-strip {
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      vertical-align: middle;
+    }
+    .portal-meta-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 9px;
+      border-radius: 999px;
+      background: #EFF6FF;
+      border: 1px solid #93C5FD;
+      color: #1E3A8A;
+      font-size: 0.74rem;
+      font-weight: 700;
+      line-height: 1.3;
+      white-space: nowrap;
+    }
+    .portal-meta-pill b {
+      color: #1D4ED8;
+      font-weight: 800;
+    }
   </style>
 </head>
 <body>
@@ -1928,7 +1956,13 @@
       <div class="mi-status-bar">
         <span class="mi-status-pill" id="status-source-pill">Loading...</span>
         <span><b>Last Synced:</b> <span id="status-time-label">-</span> IST</span>
-        <span><b>Row Rule:</b> Valid text in <b>Division</b> column (empty <b>Sub-division</b> rows included)</span>
+        `<span class="portal-meta-strip">` +
+  `<span class="portal-meta-pill"><b>Coding:</b> HTML, CSS, JS</span>` +
+  `<span class="portal-meta-pill"><b>Hosting:</b> Vercel</span>` +
+  `<span class="portal-meta-pill"><b>DB:</b> Google Firebase</span>` +
+  `<span class="portal-meta-pill"><b>Repo:</b> GitHub</span>` +
+  `<span class="portal-meta-pill"><b>Daily Refresh:</b> Gemini Pro Tasks (6:00 AM)</span>` +
+`</span>`
       </div>
 
       <!-- Shared 5-Column Top Filter Row (Works on All 3 Pages) -->
@@ -6687,6 +6721,20 @@
         mountCard();
       }
       setTimeout(mountCard, 500);
+    })();
+  // Ensure "Row Rule:" text never reappears next to the timestamp
+    (function stripRowRuleText() {
+      const clean = () => {
+        const walker = document.createTreeWalker(document.body || document.documentElement, NodeFilter.SHOW_TEXT);
+        let n;
+        while ((n = walker.nextNode())) {
+          if (n.nodeValue && n.nodeValue.includes("Row Rule:")) {
+            n.nodeValue = n.nodeValue.replace(/Row Rule:[^\n]*/gi, "").trim();
+          }
+        }
+      };
+      new MutationObserver(clean).observe(document.body || document.documentElement, { childList: true, subtree: true, characterData: true });
+      clean();
     })();
   </script>
 </body>
