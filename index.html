@@ -4710,10 +4710,13 @@
           <div class="kpi-label"> ${escapeHtml(viewChoice)}s</div>
           <div class="kpi-val">${namedOfficersCount.toLocaleString()}</div>
         </div>
-        <div class="kpi-card kpi-teal">
-          <div class="kpi-label">Total Works (Inc.SDMF,ODF,ABHY)(per pkg as 1)</div>
-          <div class="kpi-val">${totalAssignedAll.toLocaleString()}</div>
-        </div>
+          <div class="kpi-card kpi-teal">
+  <div class="kpi-label">Total Works</div>
+  <div class="kpi-val">${totalAssignedAll.toLocaleString()}</div>
+  <div style="font-size:0.65rem; font-weight:700; opacity:0.8; margin-top:3px; line-height:1.2;">
+    Inc. SDMF, ODF, ABHY • 1 Pkg = 1
+  </div>
+</div>
         <div class="kpi-card kpi-rose">
           <div class="kpi-label">Overdue Works ('P')</div>
           <div class="kpi-val">${totalOverdueAll.toLocaleString()} (${overallOdPct}%)</div>
