@@ -4100,7 +4100,7 @@
      return `
        <tr${rowCls}>
          <td>${slNoHtml}</td>
-         <td class="odm-work-col">${renderWorkNameCellHtml(r)}</td>
+         <td class="odm-work-col">${renderWorkNameCellHtml(r, showStatusCol ? "all" : "filtered")}</td>
          <td>${escapeHtml(r.hoa || "-")}</td>
          <td>${escapeHtml(r.division_name || "-")}</td>
          <td>${escapeHtml(r.subdivision_name || "-")}</td>
@@ -4428,53 +4428,108 @@
       });
 
       pkgIndexMap.forEach((grp) => {
-        const members = grp.members;
-        const works = grp.works;
-        const base = members.find((m) => m.is_overdue) || members[0];
-        const anyOverdue = members.some((m) => m.is_overdue);
-        const anyEts = !anyOverdue && members.some((m) => m.is_status_ets);
+     const members = grp.members;
+     const works = grp.works;
+     const overdueWorks = [];
+     const etsWorks = [];
 
-        const countLabel = `${works.length} ${works.length === 1 ? "Work" : "Works"}`;
-        const headerLine = `[PACKAGE - ${countLabel} | JavaScript unique code : ${grp.code}]`;
-        const numberedLines = works.map((w, i) => `${i + 1}. ${w}`).join("\n");
+     members.forEach((m, idx) => {
+       if (m.is_overdue) overdueWorks.push(works[idx]);
+       else if (m.is_status_ets) etsWorks.push(works[idx]);
+     });
 
-        output[grp.outIdx] = {
-          ...base,
-          is_overdue: anyOverdue,
-          is_status_ets: anyEts,
-          is_package: true,
-          package_code: grp.code,
-          package_count: works.length,
-          package_works: works,
-          work_name: `${headerLine}\n${numberedLines}`
-        };
-      });
+     const base =
+       members.find((m) => m.is_overdue) ||
+       members.find((m) => m.is_status_ets) ||
+       members[0];
+     const anyOverdue = overdueWorks.length > 0;
+     const anyEts = !anyOverdue && etsWorks.length > 0;
 
-      return output;
-    }
+     const displayWorks = anyOverdue
+       ? overdueWorks
+       : (anyEts ? etsWorks : works);
 
-    function buildPackageCardHtmlFromParts(count, code, worksArr) {
-      const countLabel = `${count} ${Number(count) === 1 ? "Work" : "Works"}`;
-      const itemsHtml = (worksArr || [])
-        .map((w) => `<li>${escapeHtml(w)}</li>`)
-        .join("");
-      return `
-        <div class="pkg-cell-box">
-          <div class="pkg-header-strip">
-            <span class="pkg-count-pill"> PACKAGE (${escapeHtml(countLabel)})</span>
-            <span class="pkg-code-pill">JavaScript unique code : ${escapeHtml(code)}</span>
-          </div>
-          <ol class="pkg-works-list">${itemsHtml}</ol>
-        </div>
-      `;
-    }
+     const countLabel = formatPkgCountLabel(displayWorks.length, works.length);
+     const headerLine = `[PACKAGE - ${countLabel} | JavaScript unique code : ${grp.code}]`;
+     const numberedLines = displayWorks.map((w, i) => `${i + 1}. ${w}`).join("\n");
 
-    function renderWorkNameCellHtml(row) {
-      if (row && row.is_package && Array.isArray(row.package_works)) {
-        return buildPackageCardHtmlFromParts(row.package_count, row.package_code, row.package_works);
-      }
-      return escapeHtml((row && row.work_name) || "-");
-    }
+     output[grp.outIdx] = {
+       ...base,
+       is_overdue: anyOverdue,
+       is_status_ets: anyEts,
+       is_package: true,
+       package_code: grp.code,
+       package_count: works.length,
+       package_works: works,
+       package_overdue_works: overdueWorks,
+       package_ets_works: etsWorks,
+       work_name: `${headerLine}\n${numberedLines}`
+     };
+   });
+
+   return output;
+ }
+
+ function formatPkgCountLabel(shownCount, totalCount) {
+   const s = Number(shownCount) || 0;
+   const t = Number(totalCount) || s;
+   if (t > s && s > 0) {
+     return `${s} of ${t} Works`;
+   }
+   return `${s} ${s === 1 ? "Work" : "Works"}`;
+ }
+
+ function buildPackageCardHtmlFromParts(countText, code, worksArr) {
+   const countStr = String(countText || "").trim();
+   const label = /work/i.test(countStr)
+     ? countStr
+     : `${countStr} ${countStr === "1" ? "Work" : "Works"}`;
+   const itemsHtml = (worksArr || [])
+     .map((w) => `<li>${escapeHtml(w)}</li>`)
+     .join("");
+   return `
+     <div class="pkg-cell-box">
+       <div class="pkg-header-strip">
+         <span class="pkg-count-pill">PACKAGE (${escapeHtml(label)})</span>
+         <span class="pkg-code-pill">JavaScript unique code : ${escapeHtml(code)}</span>
+       </div>
+       <ol class="pkg-works-list">${itemsHtml}</ol>
+     </div>
+   `;
+ }
+
+ function renderWorkNameCellHtml(row, mode) {
+   if (row && row.is_package && Array.isArray(row.package_works)) {
+     const total = row.package_count || row.package_works.length;
+     if (mode === "all") {
+       return buildPackageCardHtmlFromParts(
+         formatPkgCountLabel(row.package_works.length, total),
+         row.package_code,
+         row.package_works
+       );
+     }
+     if (row.is_overdue && Array.isArray(row.package_overdue_works) && row.package_overdue_works.length) {
+       return buildPackageCardHtmlFromParts(
+         formatPkgCountLabel(row.package_overdue_works.length, total),
+         row.package_code,
+         row.package_overdue_works
+       );
+     }
+     if (row.is_status_ets && Array.isArray(row.package_ets_works) && row.package_ets_works.length) {
+       return buildPackageCardHtmlFromParts(
+         formatPkgCountLabel(row.package_ets_works.length, total),
+         row.package_code,
+         row.package_ets_works
+       );
+     }
+     return buildPackageCardHtmlFromParts(
+       formatPkgCountLabel(row.package_works.length, total),
+       row.package_code,
+       row.package_works
+     );
+   }
+   return escapeHtml((row && row.work_name) || "-");
+ }
 
     // Wrap getFilteredScopeRows so Dashboard, Hover, Modal, Analytics & Abstract
     // automatically count each package as 1 work, while All Works Report stays untouched
@@ -4508,7 +4563,7 @@
 
     // Automatically style package rows in other Dashboard / Analytics / Overdue tables
     function upgradePackageTablesInDom() {
-      const pkgTextPattern = /^\[PACKAGE\s*-\s*(\d+)\s*Works?\s*\|\s*JavaScript unique code\s*:\s*([^\]]+)\]\s*\n([\s\S]+)$/i;
+      const pkgTextPattern = /^\[PACKAGE\s*-\s*(\d+(?:\s+of\s+\d+)?)\s*Works?\s*\|\s*JavaScript unique code\s*:\s*([^\]]+)\]\s*\n([\s\S]+)$/i;
       const cells = document.querySelectorAll("table td");
 
       cells.forEach((td) => {
