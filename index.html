@@ -1789,6 +1789,14 @@
       flex-shrink: 0;
       display: inline-block;
     }
+    .odm-shrink-note {
+      margin-left: auto;
+      font-size: 0.76rem;
+      font-weight: 500;
+      color: #64748B;
+      line-height: 1.3;
+      white-space: nowrap;
+    }
   /* Bold Kannada & English officer names on chart Y-axis */
     .js-plotly-plot .ytick text {
       font-family: "Inter", "Segoe UI", "Noto Sans Kannada", "Nirmala UI", sans-serif !important;
@@ -4409,8 +4417,13 @@
               legend.appendChild(item);
             });
 
-            topBar.appendChild(hint);
-            topBar.appendChild(legend);
+            const shrinkNote = document.createElement("span");
+         shrinkNote.className = "odm-shrink-note";
+         shrinkNote.textContent = "Bars with >250 works are shrunk for better view";
+
+         topBar.appendChild(hint);
+         topBar.appendChild(shrinkNote);
+         topBar.appendChild(legend);
             gd.parentElement.insertBefore(topBar, gd);
           } else {
             topBar.querySelectorAll(".odm-legend-item").forEach((el) => el.classList.remove("is-off"));
@@ -4929,7 +4942,7 @@
 
       const barLabels = plotArr.map((r) => {
         const isShrunk = shrinkOutliers && r.total_works > BAR_SHRINK_THRESHOLD && barMode === "overlay";
-        const shrinkTag = isShrunk ? ` [>${BAR_SHRINK_THRESHOLD} Shrunk]` : "";
+        const shrinkTag = isShrunk ? ` [>${BAR_SHRINK_THRESHOLD}]` : "";
         if (sortChoice === "pct") {
           return `  <b>${r.overdue_pct.toFixed(1)}% Overdue</b> (${r.overdue_works} Overdue | ${r.ets_works} ETS / ${r.total_works} Total)${shrinkTag}`;
         }
