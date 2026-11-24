@@ -5124,7 +5124,6 @@
         <div class="kpi-card kpi-teal">
   <div class="kpi-label">Total Works</div>
   <div class="kpi-val">${totWorks.toLocaleString()}</div>
-  <div class="kpi-sub">${aeStats.length} AEs &bull; ${aeeStats.length} AEEs</div>
   <div style="font-size:0.65rem; font-weight:700; opacity:0.8; margin-top:2px; line-height:1.2;">
     Inc. SDMF, ODF, ABHY&bull;Each PKG counted as 1
   </div>
@@ -5132,12 +5131,12 @@
         <div class="kpi-card kpi-rose">
           <div class="kpi-label">Overdue ('P')</div>
           <div class="kpi-val" style="color:#991B1B;">${totOd.toLocaleString()} (${odPct}%)</div>
-          <div class="kpi-sub">Past Target Date &amp; Not in ETS</div>
+          <div class="kpi-sub">Status = "Progress" &amp; Not in ETS</div>
         </div>
         <div class="kpi-card kpi-sage">
           <div class="kpi-label">'ETS' Works</div>
           <div class="kpi-val" style="color:#065F46;">${totEts.toLocaleString()} (${etsPct}%)</div>
-          <div class="kpi-sub">Extension of Time Status</div>
+          <div class="kpi-sub">Estimation to be Sanctioned</div>
         </div>
         <div class="kpi-card kpi-amber">
           <div class="kpi-label">Total Delayed Exposure</div>
