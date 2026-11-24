@@ -1746,6 +1746,49 @@
       text-shadow: none !important;
       margin-bottom: 6px !important;
     }
+  /* =========================================================================
+       CHART TOP BAR (TIP ON LEFT + LEGEND ON RIGHT)
+       ========================================================================= */
+    .odm-chart-topbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px 18px;
+      margin-bottom: 4px;
+    }
+    .odm-chart-topbar .tip-eye-catch {
+      margin-bottom: 0 !important;
+    }
+    .odm-custom-legend {
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 18px;
+      padding: 4px 4px;
+    }
+    .odm-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: #0F172A;
+      cursor: pointer;
+      user-select: none;
+      transition: opacity 0.15s ease;
+    }
+    .odm-legend-item.is-off {
+      opacity: 0.38;
+      text-decoration: line-through;
+    }
+    .odm-legend-swatch {
+      width: 13px;
+      height: 13px;
+      border-radius: 2px;
+      flex-shrink: 0;
+      display: inline-block;
+    }
   </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Kannada:wght@600;700;800&display=swap">
 </head>
@@ -4309,12 +4352,72 @@
         if (!isOfficerChart) return;
 
         // Add subtle tip pill once right above the chart
-        if (gd.parentElement && !gd.parentElement.querySelector(".odm-click-hint")) {
-  const hint = document.createElement("div");
-  hint.className = "odm-click-hint tip-eye-catch";
-  hint.textContent = "💡 Tip: Click any officer's bar below to view their full overdue works list";
-  gd.parentElement.insertBefore(hint, gd);
-}
+        if (gd.parentElement) {
+          let topBar = gd.parentElement.querySelector(".odm-chart-topbar");
+          if (!topBar) {
+            topBar = document.createElement("div");
+            topBar.className = "odm-chart-topbar";
+
+            const hint = document.createElement("div");
+            hint.className = "odm-click-hint tip-eye-catch";
+            hint.textContent = "💡 Tip: Click any officer's bar below to view their full overdue works list";
+
+            const legend = document.createElement("div");
+            legend.className = "odm-custom-legend";
+
+            const fallbackItems = [
+              { name: "Overdue Works ('P')", bg: "#DC2626", border: "none" },
+              { name: "ETS Works ('ETS')", bg: "#059669", border: "none" },
+              { name: "Rest of Works (Other Statuses)", bg: "#CBD5E1", border: "1.5px solid #64748B" }
+            ];
+
+            const traces = Array.isArray(gd.data) && gd.data.length ? gd.data : fallbackItems;
+            traces.forEach((tr, idx) => {
+              if (tr.showlegend === false) return;
+              const fb = fallbackItems[idx] || { name: tr.name || `Series ${idx + 1}`, bg: "#64748B", border: "none" };
+              const fill = typeof tr?.marker?.color === "string" ? tr.marker.color : fb.bg;
+              const lineCol = typeof tr?.marker?.line?.color === "string" ? tr.marker.line.color : "";
+              const border = lineCol ? `1.5px solid ${lineCol}` : fb.border;
+
+              const item = document.createElement("span");
+              item.className = "odm-legend-item";
+
+              const swatch = document.createElement("span");
+              swatch.className = "odm-legend-swatch";
+              swatch.style.background = fill;
+              swatch.style.border = border;
+
+              const label = document.createElement("span");
+              label.textContent = tr.name || fb.name;
+
+              item.appendChild(swatch);
+              item.appendChild(label);
+
+              item.addEventListener("click", () => {
+                if (!window.Plotly || !gd.data || !gd.data[idx]) return;
+                const isOff = gd.data[idx].visible === "legendonly";
+                window.Plotly.restyle(gd, { visible: isOff ? true : "legendonly" }, [idx]);
+                item.classList.toggle("is-off", !isOff);
+              });
+
+              legend.appendChild(item);
+            });
+
+            topBar.appendChild(hint);
+            topBar.appendChild(legend);
+            gd.parentElement.insertBefore(topBar, gd);
+          } else {
+            topBar.querySelectorAll(".odm-legend-item").forEach((el) => el.classList.remove("is-off"));
+          }
+
+          // Hide Plotly's inner legend and pull the first bar upward
+          if (window.Plotly && gd._fullLayout) {
+            const curTop = gd._fullLayout.margin ? gd._fullLayout.margin.t : 60;
+            if (gd._fullLayout.showlegend !== false || curTop > 12) {
+              window.Plotly.relayout(gd, { showlegend: false, "margin.t": 8 });
+            }
+          }
+        }
 
         if (gd.__officerClickHandler && typeof gd.removeListener === "function") {
           gd.removeListener("plotly_click", gd.__officerClickHandler);
