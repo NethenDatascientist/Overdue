@@ -2399,7 +2399,7 @@
     const TARGET_SHEETS = [
       "4702_MOT", "4702-New Tanks", "4702-LIS", "4702_A&P", "PMKSY-SMI-RRR",
       "4702_Paschima Vahini", "4711__Other Flood Control", "4702-Kharland",
-      "NABARD - New Tank", "SDMF", "KMERC", "NABARD - A&P", "ATAL BHUJAL",
+      "NABARD - New Tank", "KMERC", "NABARD - A&P",
       "NABARD_MOT", "NABARD - LIS", "other dept funds", "SCP (LIS)",
       "SCP (Borewell)", "SCP (Checkdam)", "TSP (Checkdam)", "TSP (Borewell)",
       "TSP (LIS)", "NABARD - Other Flood Control"
@@ -3106,8 +3106,6 @@
       if (s.includes("ಗಿರಿಜನ ಉಪಯೋಜನೆ") || u.startsWith("TSP")) return "TSP";
       if (u.includes("PMKSY")) return "PMKSY";
       if (s.includes("ಕೆ.ಎಂ.ಇ.ಆರ್") || u.includes("KMERC") || u.includes("K.M.E.R.C")) return "KMERC";
-      if (u.includes("SDMF") || s.includes("ವಿಪತ್ತು ನಿರ್ವಹಣಾ")) return "SDMF";
-      if (u.includes("ABHY") || s.includes("ಅಟಲ್ ಭೂಜಲ") || u.includes("ATAL BHUJAL")) return "ABHY";
       if (u.includes("436-P") || s.includes("ನಬಾರ್ಡ") || u.includes("NABARD")) {
         if (u.includes("NMOT") || s.includes("ಆಧುನೀಕರಣ") || u.includes("MOT")) return "NMOT";
         if (u.includes("NAPB") || s.includes("ಅಣೆಕಟ್ಟು") || s.includes("ಬಂದಾರು") || u.includes("A&P")) return "NAPB";
@@ -4878,7 +4876,7 @@
   <div class="kpi-label">Total Works</div>
   <div class="kpi-val">${totalAssignedAll.toLocaleString()}</div>
   <div style="font-size:0.65rem; font-weight:700; opacity:0.8; margin-top:3px; line-height:1.2;">
-    Inc. SDMF, ODF, ABHY•Each PKG counted as 1
+    Inc. Other Dept Funds
   </div>
 </div>
         <div class="kpi-card kpi-rose">
@@ -5271,7 +5269,7 @@
   <div class="kpi-label">Total Works</div>
   <div class="kpi-val">${totWorks.toLocaleString()}</div>
   <div style="font-size:0.65rem; font-weight:700; opacity:0.8; margin-top:2px; line-height:1.2;">
-    Inc. SDMF, ODF, ABHY&bull;Each PKG counted as 1
+    Inc. Other Dept Funds
   </div>
 </div>
         <div class="kpi-card kpi-rose">
