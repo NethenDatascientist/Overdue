@@ -2036,21 +2036,6 @@
         </div>
 
         <div class="exec-section-banner">
-          <div class="exec-section-title" id="p1-dossier-title">Combined Overdue Works</div>
-          <div class="exec-scope-badge" id="p1-scope-badge-2"></div>
-        </div>
-        <div class="filter-card" style="margin-bottom:10px;">
-          <label for="p1-officer-select" id="p1-officer-select-label">Select Officer to view and download their Overdue Works:</label>
-          <select id="p1-officer-select" class="filter-select"></select>
-        </div>
-        <div id="p1-officer-meta" style="font-size:0.84rem;margin-bottom:8px;font-weight:600;"></div>
-        <div style="display:flex;gap:10px;max-width:420px;margin-bottom:8px;">
-          <button type="button" id="dl-xlsx-btn" class="btn-primary">Download Excel (.xlsx)</button>
-          <button type="button" id="dl-csv-btn" class="btn-primary">Download CSV (.csv)</button>
-        </div>
-        <div id="p1-overdue-table-wrap"></div>
-
-        <div class="exec-section-banner">
           <div class="exec-section-title">Officer-Wise Summary Table</div>
           <div class="exec-scope-badge" id="p1-scope-badge-3"></div>
         </div>
@@ -4947,9 +4932,7 @@
       document.getElementById("p1-chart-title").textContent =
         `Overdue & ETS Works by ${viewChoice} (${sortChoice === "pct" ? "Highest Overdue Percentage (%) at Top" : "Highest Overdue Count at Top"})`;
       document.getElementById("p1-scope-badge-1").textContent = scopeLabel;
-      document.getElementById("p1-scope-badge-2").textContent = scopeLabel;
       document.getElementById("p1-scope-badge-3").textContent = scopeLabel;
-      document.getElementById("p1-dossier-title").textContent = `Combined Overdue Works by ${viewChoice}`;
 
       const chartSource = hideZero
         ? summaryList.filter((r) => r.overdue_works > 0 || r.is_unassigned)
@@ -5079,17 +5062,6 @@
         margin: { l: 245, r: 20, t: 36, b: 40 }
       }, { responsive: true, displayModeBar: false });
 
-      const offSelect = document.getElementById("p1-officer-select");
-      const prevOff = offSelect.value;
-      const offPool = chartSource.length ? chartSource : summaryList;
-      offSelect.innerHTML = offPool.map((r) =>
-        `<option value="${escapeHtml(r.name)}">${escapeHtml(r.name)} — (${r.overdue_works} Overdue | ${r.ets_works} ETS / ${r.total_works} Total | ${r.overdue_pct.toFixed(1)}%)</option>`
-      ).join("");
-      if (offPool.some((r) => r.name === prevOff)) offSelect.value = prevOff;
-      syncCustomSelect(offSelect);
-
-      renderSelectedOfficerOverdueTable(scopeRows, viewChoice);
-
       const sumCols = ["Sl. No.", viewChoice, "Total Works Assigned", "Overdue Works ('P')", "ETS Works ('ETS')", "Rest of Works", "Ongoing Works ('P')", "Overdue %"];
       const sumRows = summaryList.map((r, i) => ({
         "Sl. No.": i + 1,
@@ -5137,38 +5109,6 @@
         };
       });
       document.getElementById("p1-debug-table-wrap").innerHTML = buildHtmlTable(dbgCols, dbgData, 420);
-    }
-
-    function renderSelectedOfficerOverdueTable(scopeRows, viewChoice) {
-      const selName = document.getElementById("p1-officer-select").value;
-      const groupKey = viewChoice === "Assistant Engineer" ? "so_name" : "aee_name";
-      const oppKey = viewChoice === "Assistant Engineer" ? "aee_name" : "so_name";
-      const oppLabel = viewChoice === "Assistant Engineer" ? "Assistant Executive Engineer" : "Assistant Engineer";
-
-      const odRows = scopeRows.filter((r) => r.is_overdue && r[groupKey] === selName);
-      const cols = ["Sl. No.", "Work Name", "Division", "Sub-division", oppLabel, "Technical Assistant", "Account Superintendent", "Executive Engineer", "Start Date", "Target Date", "Overdue By", "H.O.A."];
-
-      const formattedRows = odRows.map((r, i) => ({
-        "Sl. No.": i + 1,
-        "Work Name": r.work_name || "-",
-        "Division": r.division_name || "-",
-        "Sub-division": [UNSPECIFIED_LABEL, UNASSIGNED_LABEL].includes(r.subdivision_name) ? "-" : r.subdivision_name,
-        [oppLabel]: [UNSPECIFIED_LABEL, UNASSIGNED_LABEL].includes(r[oppKey]) ? "-" : r[oppKey],
-        "Technical Assistant": [UNSPECIFIED_LABEL, UNASSIGNED_LABEL].includes(r.ta_name) ? "-" : r.ta_name,
-        "Account Superintendent": [UNSPECIFIED_LABEL, UNASSIGNED_LABEL].includes(r.as_name) ? "-" : r.as_name,
-        "Executive Engineer": [UNSPECIFIED_LABEL, UNASSIGNED_LABEL].includes(r.ee_name) ? "-" : r.ee_name,
-        "Start Date": r.start_date || "-",
-        "Target Date": r.target_date || "-",
-        "Overdue By": r.overdue_by || "-",
-        "H.O.A.": r.hoa || "-"
-      }));
-
-      STATE.currentOfficerOverdueRows = formattedRows;
-      const hoas = Array.from(new Set(formattedRows.map((r) => r["H.O.A."]))).join(", ");
-      document.getElementById("p1-officer-meta").innerHTML =
-        `<b>Selected ${escapeHtml(viewChoice)}:</b> ${escapeHtml(selName)} &nbsp;|&nbsp; <b>Total Overdue Works:</b> ${formattedRows.length} &nbsp;|&nbsp; <b>Account Heads (H.O.A.):</b> ${escapeHtml(hoas || "-")}`;
-
-      document.getElementById("p1-overdue-table-wrap").innerHTML = buildHtmlTable(cols, formattedRows, 540);
     }
 
     function buildHtmlTable(columns, rows, maxHeight = 540) {
@@ -6356,11 +6296,6 @@
       if (hud) hud.style.display = e.target.checked ? "block" : "none";
     });
 
-    document.getElementById("p1-officer-select")?.addEventListener("change", () => {
-      const viewChoice = document.querySelector('input[name="p1-view"]:checked').value;
-      renderSelectedOfficerOverdueTable(getFilteredScopeRows(), viewChoice);
-    });
-
     document.querySelectorAll('input[name="p2-audit-role"]').forEach((el) => {
       el.addEventListener("change", renderAnalyticsPage);
     });
@@ -6435,13 +6370,6 @@
       a.download = fileName;
       a.click();
     }
-
-    document.getElementById("dl-xlsx-btn")?.addEventListener("click", () => {
-      triggerDownloadXlsx(STATE.currentOfficerOverdueRows, "Overdue_Works", `Overdue_Works_${STATE.todayStr}.xlsx`);
-    });
-    document.getElementById("dl-csv-btn")?.addEventListener("click", () => {
-      triggerDownloadCsv(STATE.currentOfficerOverdueRows, `Overdue_Works_${STATE.todayStr}.csv`);
-    });
 
     document.getElementById("chronic-dl-xlsx-btn")?.addEventListener("click", () => {
       triggerDownloadXlsx(STATE.currentChronicExportRows, `Chronic_${STATE.activeChronicYr}Yrs_Plus`, `Chronic_Overdue_${STATE.activeChronicYr}Yrs_Plus_${STATE.todayStr}.xlsx`);
