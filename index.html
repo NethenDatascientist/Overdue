@@ -1803,6 +1803,30 @@
       font-weight: 700 !important;
       fill: #0F172A !important;
     }
+  /* Leaderboard Card JPG Download Button */
+    .lb-jpg-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 11px;
+      border-radius: 999px;
+      border: 1.5px solid #1D4ED8;
+      background: #EFF6FF;
+      color: #1E3A8A;
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .lb-jpg-btn:hover {
+      background: #1D4ED8;
+      color: #FFFFFF;
+    }
+    .lb-jpg-btn:disabled {
+      opacity: 0.65;
+      cursor: wait;
+    }
   </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Kannada:wght@600;700;800&display=swap">
 </head>
@@ -7130,6 +7154,118 @@
             subtree: true
           });
         }
+      };
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+      } else {
+        init();
+      }
+      window.addEventListener("load", init);
+    })();
+  // Add 1-click "Download JPG" button to every Executive Leaderboard card
+    (function addLeaderboardJpgExport() {
+      function loadHtml2Canvas() {
+        if (typeof window.html2canvas === "function") return Promise.resolve();
+        return new Promise((resolve, reject) => {
+          const src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+          const existing = document.querySelector(`script[src="${src}"]`);
+          if (existing) {
+            existing.addEventListener("load", () => resolve());
+            existing.addEventListener("error", reject);
+            return;
+          }
+          const s = document.createElement("script");
+          s.src = src;
+          s.async = true;
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error("Failed to load html2canvas"));
+          document.head.appendChild(s);
+        });
+      }
+
+      async function downloadCardAsJpg(cardEl, titleText, btn) {
+        const origText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "Saving...";
+        try {
+          await loadHtml2Canvas();
+          if (document.fonts && document.fonts.ready) {
+            await Promise.race([
+              document.fonts.ready,
+              new Promise((r) => setTimeout(r, 800))
+            ]);
+          }
+
+          const canvas = await window.html2canvas(cardEl, {
+            scale: 2.5,
+            useCORS: true,
+            backgroundColor: "#FFFFFF",
+            logging: false,
+            ignoreElements: (el) => el.classList && el.classList.contains("lb-jpg-btn")
+          });
+
+          const now = new Date();
+          const pad = (n) => String(n).padStart(2, "0");
+          const dateTag = `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}`;
+          const safeName = `${titleText} (${dateTag})`
+            .replace(/[\\/:*?"<>|]+/g, "_")
+            .replace(/\s+/g, " ")
+            .trim();
+
+          const link = document.createElement("a");
+          link.download = `${safeName}.jpg`;
+          link.href = canvas.toDataURL("image/jpeg", 0.95);
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+        } catch (err) {
+          console.error("JPG export failed:", err);
+          alert("Could not save image. Please check your internet connection and try again.");
+        } finally {
+          btn.disabled = false;
+          btn.textContent = origText;
+        }
+      }
+
+      function injectButtons() {
+        const candidates = document.querySelectorAll("h2, h3, h4, div, span");
+        candidates.forEach((el) => {
+          if (el.children.length > 0) return;
+          const txt = (el.textContent || "").trim();
+          if (!/^Top\s+\d+\s+.*?(Highest|Least)\s+Overdue/i.test(txt)) return;
+
+          const headerEl = el.parentElement;
+          const cardEl = headerEl && headerEl.parentElement;
+          if (!headerEl || !cardEl || headerEl.querySelector(".lb-jpg-btn")) return;
+
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "lb-jpg-btn";
+          btn.textContent = "📷 Download JPG";
+          btn.title = "Save this leaderboard card as a JPG image";
+          btn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            downloadCardAsJpg(cardEl, txt, btn);
+          });
+
+          // Place right between the title and the "Ranked by..." badge
+          if (headerEl.children.length >= 2) {
+            headerEl.insertBefore(btn, headerEl.lastElementChild);
+          } else {
+            headerEl.appendChild(btn);
+          }
+        });
+      }
+
+      const init = () => {
+        injectButtons();
+        let timer = null;
+        new MutationObserver(() => {
+          clearTimeout(timer);
+          timer = setTimeout(injectButtons, 120);
+        }).observe(document.body, { childList: true, subtree: true });
       };
 
       if (document.readyState === "loading") {
