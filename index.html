@@ -3935,7 +3935,7 @@
 
           hoverMap[officerName] = [
             `<b>AEE:</b> ${escapeHtml(officerName)}`,
-            `<b>AE(s) with Overdue Works:</b>${aeListHtml}`,
+            `<b>AE(s) under ${escapeHtml(officerName)} with Overdue Works:</b>${aeListHtml}`,
             `<b>Division & Sub-division:</b> ${divSubText}`,
             `<b>Overdue Works Count:</b> ${entry.overdue}`,
             `<b>ETS Count:</b> ${entry.ets}`,
@@ -4091,7 +4091,7 @@
        .sort((a, b) => b[1] - a[1])
        .map(([ae, cnt]) => `${escapeHtml(ae)} (${cnt})`)
        .join(", ");
-     extraOfficerChip = `<span class="odm-chip odm-chip-aee"><span class="odm-chip-label">AE<span style="text-transform:none;">(s)</span> with Overdue Works:</span> ${sortedAEs || "None"}</span>`;
+     extraOfficerChip = `<span class="odm-chip odm-chip-aee"><span class="odm-chip-label">AE<span style="text-transform:none;">(s)</span> under ${escapeHtml(officerName)} with Overdue Works:</span> ${sortedAEs || "None"}</span>`;
    }
 
    const sumEl = document.getElementById("odm-summary-bar");
