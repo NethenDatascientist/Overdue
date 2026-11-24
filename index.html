@@ -6689,7 +6689,199 @@
       clean();
     })();
   // Replace "Download CSV (.csv)" with formatted A4 Landscape PDF export
+    // Replace "Download CSV (.csv)" with direct 1-click A4 Landscape PDF download (regular non-bold fonts)
     (function upgradeModalCsvToPdf() {
+      function loadScriptOnce(src, checkFn) {
+        if (checkFn()) return Promise.resolve();
+        return new Promise((resolve, reject) => {
+          const existing = document.querySelector(`script[src="${src}"]`);
+          if (existing) {
+            existing.addEventListener("load", () => resolve());
+            existing.addEventListener("error", reject);
+            return;
+          }
+          const s = document.createElement("script");
+          s.src = src;
+          s.async = true;
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error("Failed to load " + src));
+          document.head.appendChild(s);
+        });
+      }
+
+      function ensureRegularPdfAssets() {
+        if (!document.getElementById("odm-noto-regular-font")) {
+          const link = document.createElement("link");
+          link.id = "odm-noto-regular-font";
+          link.rel = "stylesheet";
+          link.href = "https://fonts.googleapis.com/css2?family=Noto+Sans+Kannada:wght@400&display=swap";
+          document.head.appendChild(link);
+        }
+
+        if (!document.getElementById("odm-pdf-staging-css")) {
+          const st = document.createElement("style");
+          st.id = "odm-pdf-staging-css";
+          st.textContent = `
+            #odm-pdf-staging,
+            #odm-pdf-staging * {
+              font-family: "Inter", "Segoe UI", "Noto Sans Kannada", "Nirmala UI", sans-serif !important;
+              font-weight: 400 !important;
+              box-sizing: border-box !important;
+            }
+            #odm-pdf-staging .pdf-page {
+              width: 1124px;
+              min-height: 776px;
+              background: #FFFFFF;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              padding: 0;
+              margin: 0;
+              color: #0F172A;
+            }
+            #odm-pdf-staging .pdf-page-content {
+              width: 100%;
+            }
+            #odm-pdf-staging .pdf-banner {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              background: linear-gradient(90deg, #1E3A8A 0%, #1D4ED8 100%);
+              color: #FFFFFF;
+              padding: 10px 16px;
+              border-radius: 6px 6px 0 0;
+            }
+            #odm-pdf-staging .pdf-banner-title {
+              font-size: 16px;
+              line-height: 1.3;
+              color: #FFFFFF;
+            }
+            #odm-pdf-staging .pdf-banner-meta {
+              text-align: right;
+              font-size: 11px;
+              line-height: 1.4;
+              color: #FFFFFF;
+              white-space: nowrap;
+            }
+            #odm-pdf-staging .pdf-tab-badge {
+              display: inline-block;
+              background: #DC2626;
+              color: #FFFFFF;
+              padding: 2px 10px;
+              border-radius: 999px;
+              font-size: 11px;
+              margin-bottom: 3px;
+            }
+            #odm-pdf-staging .pdf-summary {
+              background: #F8FAFC;
+              border: 1px solid #94A3B8;
+              border-top: none;
+              padding: 8px 14px;
+              margin-bottom: 8px;
+            }
+            #odm-pdf-staging .odm-chip-row {
+              display: flex;
+              flex-wrap: wrap;
+              align-items: baseline;
+              margin-bottom: 4px;
+            }
+            #odm-pdf-staging .odm-chip-row:last-child {
+              margin-bottom: 0;
+            }
+            #odm-pdf-staging .odm-chip {
+              display: inline-block;
+              font-size: 12px;
+              color: #DC2626;
+              padding-right: 11px;
+              margin-right: 11px;
+              border-right: 1px solid #CBD5E1;
+              line-height: 1.4;
+            }
+            #odm-pdf-staging .odm-chip:last-child {
+              border-right: none;
+              padding-right: 0;
+              margin-right: 0;
+            }
+            #odm-pdf-staging .odm-chip-label {
+              color: #1E3A8A;
+              margin-right: 4px;
+            }
+            #odm-pdf-staging table.odm-table {
+              width: 100%;
+              border-collapse: collapse;
+              font-size: 11px;
+              color: #0F172A;
+              margin: 0;
+            }
+            #odm-pdf-staging table.odm-table thead th {
+              position: static !important;
+              background: #DCE8F7 !important;
+              color: #0F172A !important;
+              text-align: center;
+              padding: 7px 6px;
+              border: 1px solid #64748B;
+              line-height: 1.25;
+            }
+            #odm-pdf-staging table.odm-table td {
+              padding: 6px 6px;
+              border: 1px solid #94A3B8;
+              text-align: center;
+              vertical-align: middle;
+              line-height: 1.35;
+            }
+            #odm-pdf-staging table.odm-table tbody tr:nth-child(even) {
+              background: #F8FAFC;
+            }
+            #odm-pdf-staging table.odm-table td.odm-work-col {
+              text-align: left;
+              min-width: 240px;
+              max-width: 340px;
+              white-space: normal;
+            }
+            #odm-pdf-staging .pkg-cell-box {
+              background: #EFF6FF;
+              border-left: 3px solid #2563EB;
+              padding: 5px 7px;
+              border-radius: 4px;
+            }
+            #odm-pdf-staging .pkg-header-strip {
+              margin-bottom: 4px;
+            }
+            #odm-pdf-staging .pkg-count-pill,
+            #odm-pdf-staging .pkg-code-pill {
+              display: inline-block;
+              background: #2563EB;
+              color: #FFFFFF;
+              font-size: 10px;
+              padding: 2px 7px;
+              border-radius: 999px;
+              margin-right: 5px;
+              margin-bottom: 2px;
+            }
+            #odm-pdf-staging .pkg-works-list {
+              margin: 0;
+              padding-left: 18px;
+              font-size: 10.5px;
+              line-height: 1.38;
+            }
+            #odm-pdf-staging .pkg-works-list li {
+              margin-bottom: 2px;
+            }
+            #odm-pdf-staging .pdf-page-footer {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              font-size: 10px;
+              color: #475569;
+              padding-top: 6px;
+              border-top: 1px solid #E2E8F0;
+              margin-top: 6px;
+            }
+          `;
+          document.head.appendChild(st);
+        }
+      }
+
       function relabelCsvButton() {
         const dlg = document.querySelector(".odm-dialog");
         if (!dlg) return;
@@ -6702,272 +6894,221 @@
         });
       }
 
-      function exportModalToFormattedPdf() {
+      async function exportModalToDirectPdf(triggerBtn) {
         const dlg = document.querySelector(".odm-dialog");
         if (!dlg) return;
 
         const tableEl = dlg.querySelector("table.odm-table");
-        if (!tableEl || !tableEl.querySelector("tbody tr")) {
+        const origRows = tableEl ? Array.from(tableEl.querySelectorAll("tbody tr")) : [];
+        if (!origRows.length) {
           alert("No rows available to export to PDF.");
           return;
         }
 
-        // Grab modal title (excluding the Close button)
-        const headerEl = dlg.querySelector(".odm-header, .odm-title, h2, h3");
-        let titleText = "Overdue Works Report";
-        if (headerEl) {
-          const hClone = headerEl.cloneNode(true);
-          hClone.querySelectorAll("button").forEach((b) => b.remove());
-          const cleaned = (hClone.textContent || "").trim();
-          if (cleaned) titleText = cleaned;
+        const origBtnText = triggerBtn ? triggerBtn.textContent : "Download PDF (.pdf)";
+        if (triggerBtn) {
+          triggerBtn.disabled = true;
+          triggerBtn.textContent = "Generating PDF...";
         }
 
-        // Grab active tab label (e.g., Overdue Works (41))
-        const activeTabEl = dlg.querySelector(".odm-tab.active, button.active");
-        const activeTabText = activeTabEl ? (activeTabEl.textContent || "").trim() : "Works List";
+        let staging = null;
+        try {
+          ensureRegularPdfAssets();
+          await Promise.all([
+            loadScriptOnce(
+              "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
+              () => typeof window.html2canvas === "function"
+            ),
+            loadScriptOnce(
+              "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
+              () => Boolean(window.jspdf && window.jspdf.jsPDF)
+            )
+          ]);
 
-        // Grab summary bar HTML
-        const summaryHtml = dlg.querySelector("#odm-summary-bar")?.innerHTML || "";
+          if (document.fonts && document.fonts.ready) {
+            await Promise.race([
+              document.fonts.ready,
+              new Promise((r) => setTimeout(r, 1200))
+            ]);
+          }
 
-        // Clone table cleanly
-        const tableHtml = tableEl.outerHTML;
+          // Extract modal title
+          const headerEl = dlg.querySelector(".odm-header, .odm-title, h2, h3");
+          let titleText = "Overdue Works Report";
+          if (headerEl) {
+            const hClone = headerEl.cloneNode(true);
+            hClone.querySelectorAll("button").forEach((b) => b.remove());
+            const cleaned = (hClone.textContent || "").trim();
+            if (cleaned) titleText = cleaned;
+          }
 
-        // Build clean filename & timestamp
-        const now = new Date();
-        const pad = (n) => String(n).padStart(2, "0");
-        const dateTag = `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}`;
-        const timestamp = now.toLocaleString("en-IN", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true
-        });
-        const safeFileName = `${titleText} - ${activeTabText} (${dateTag})`
-          .replace(/[\\/:*?"<>|]+/g, "_")
-          .replace(/\s+/g, " ")
-          .trim();
+          // Detect active tab accurately
+          const tabBtns = Array.from(dlg.querySelectorAll("button")).filter((b) =>
+            /^(overdue|ets|all)\s+works/i.test((b.textContent || "").trim())
+          );
+          const activeTabEl = tabBtns.find((b) => {
+            const cls = (b.className || "").toLowerCase();
+            const bg = window.getComputedStyle(b).backgroundColor || "";
+            const isColored = bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "rgb(255, 255, 255)" && bg !== "transparent";
+            return cls.includes("active") || cls.includes("selected") || isColored;
+          });
+          const activeTabText = activeTabEl ? (activeTabEl.textContent || "").trim() : "Overdue Works";
 
-        const printDocHtml = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>${safeFileName}</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Kannada:wght@500;700;800&display=swap">
-  <style>
-    @page {
-      size: A4 landscape;
-      margin: 7mm;
-    }
-    * {
-      box-sizing: border-box;
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-    }
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: "Inter", "Segoe UI", "Noto Sans Kannada", "Nirmala UI", sans-serif;
-      color: #0F172A;
-      background: #FFFFFF;
-    }
-    .pdf-banner {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      background: linear-gradient(90deg, #1E3A8A 0%, #1D4ED8 100%);
-      color: #FFFFFF;
-      padding: 9px 14px;
-      border-radius: 6px 6px 0 0;
-    }
-    .pdf-banner-title {
-      font-size: 13pt;
-      font-weight: 800;
-      line-height: 1.25;
-    }
-    .pdf-banner-meta {
-      text-align: right;
-      font-size: 8.5pt;
-      font-weight: 700;
-      line-height: 1.35;
-      white-space: nowrap;
-    }
-    .pdf-tab-badge {
-      display: inline-block;
-      background: #DC2626;
-      color: #FFFFFF;
-      padding: 2px 8px;
-      border-radius: 999px;
-      font-size: 8pt;
-      font-weight: 800;
-      margin-bottom: 2px;
-    }
-    .pdf-summary {
-      background: #F8FAFC;
-      border: 1px solid #94A3B8;
-      border-top: none;
-      padding: 7px 12px;
-      margin-bottom: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .odm-chip-row {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 4px 10px;
-    }
-    .odm-chip {
-      display: inline-flex;
-      flex-wrap: wrap;
-      align-items: baseline;
-      gap: 4px;
-      font-size: 8.5pt;
-      font-weight: 800;
-      color: #DC2626;
-      padding-right: 10px;
-      border-right: 1px solid #CBD5E1;
-    }
-    .odm-chip:last-child {
-      border-right: none;
-      padding-right: 0;
-    }
-    .odm-chip-label {
-      color: #1E3A8A;
-      font-weight: 800;
-    }
-    table.odm-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 7.8pt;
-      color: #0F172A;
-    }
-    table.odm-table thead {
-      display: table-header-group;
-    }
-    table.odm-table tr {
-      break-inside: avoid;
-      page-break-inside: avoid;
-    }
-    table.odm-table thead th {
-      background: #DCE8F7 !important;
-      color: #0F172A !important;
-      font-weight: 800;
-      text-align: center;
-      padding: 6px 5px;
-      border: 1px solid #64748B;
-      line-height: 1.25;
-      position: static !important;
-    }
-    table.odm-table td {
-      padding: 5px 5px;
-      border: 1px solid #94A3B8;
-      text-align: center;
-      vertical-align: middle;
-      font-weight: 600;
-      line-height: 1.3;
-    }
-    table.odm-table tbody tr:nth-child(even) {
-      background: #F8FAFC;
-    }
-    table.odm-table td.odm-work-col {
-      text-align: left;
-      min-width: 180px;
-      max-width: 280px;
-      white-space: normal;
-      line-height: 1.35;
-    }
-    .pkg-cell-box {
-      background: #EFF6FF;
-      border-left: 3px solid #2563EB;
-      padding: 4px 6px;
-      border-radius: 4px;
-    }
-    .pkg-header-strip {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      margin-bottom: 4px;
-    }
-    .pkg-count-pill,
-    .pkg-code-pill {
-      display: inline-block;
-      background: #2563EB;
-      color: #FFFFFF;
-      font-size: 6.8pt;
-      font-weight: 800;
-      padding: 1.5px 6px;
-      border-radius: 999px;
-    }
-    .pkg-works-list {
-      margin: 0;
-      padding-left: 16px;
-      font-size: 7.5pt;
-      line-height: 1.35;
-    }
-    .pkg-works-list li {
-      margin-bottom: 2px;
-    }
-  </style>
-</head>
-<body>
-  <div class="pdf-banner">
-    <div class="pdf-banner-title">${titleText}</div>
-    <div class="pdf-banner-meta">
-      <div class="pdf-tab-badge">${activeTabText}</div>
-      <div>Generated: ${timestamp}</div>
-    </div>
-  </div>
-  <div class="pdf-summary">${summaryHtml}</div>
-  ${tableHtml}
-</body>
-</html>`;
+          const summaryHtml = dlg.querySelector("#odm-summary-bar")?.innerHTML || "";
+          const theadEl = tableEl.querySelector("thead");
 
-        // Create hidden iframe to trigger native A4 Landscape PDF print
-        const oldFrame = document.getElementById("odm-pdf-print-frame");
-        if (oldFrame) oldFrame.remove();
+          const now = new Date();
+          const pad = (n) => String(n).padStart(2, "0");
+          const dateTag = `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}`;
+          const timestamp = now.toLocaleString("en-IN", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true
+          });
+          const safeFileName = `${titleText} - ${activeTabText} (${dateTag})`
+            .replace(/[\\/:*?"<>|]+/g, "_")
+            .replace(/\s+/g, " ")
+            .trim();
 
-        const iframe = document.createElement("iframe");
-        iframe.id = "odm-pdf-print-frame";
-        iframe.style.position = "fixed";
-        iframe.style.right = "0";
-        iframe.style.bottom = "0";
-        iframe.style.width = "0";
-        iframe.style.height = "0";
-        iframe.style.border = "0";
-        iframe.style.visibility = "hidden";
-        document.body.appendChild(iframe);
+          // Clone rows while preserving cell colours and keeping dates on 1 line
+          const clonedRows = origRows.map((origTr) => {
+            const trClone = origTr.cloneNode(true);
+            const origCells = origTr.querySelectorAll("td");
+            const cloneCells = trClone.querySelectorAll("td");
+            cloneCells.forEach((td, idx) => {
+              const origTd = origCells[idx];
+              if (origTd) {
+                const col = window.getComputedStyle(origTd).color;
+                if (col) td.style.color = col;
+              }
+              const txt = (td.textContent || "").trim();
+              if (idx === 0 || /^\d{2}-\d{2}-\d{4}$/.test(txt)) {
+                td.style.whiteSpace = "nowrap";
+              }
+            });
+            return trClone;
+          });
 
-        const iWin = iframe.contentWindow;
-        const iDoc = iWin.document;
-        iDoc.open();
-        iDoc.write(printDocHtml);
-        iDoc.close();
+          // Off-screen staging area for clean A4 Landscape pagination
+          staging = document.createElement("div");
+          staging.id = "odm-pdf-staging";
+          staging.style.cssText = "position:fixed;left:-12000px;top:0;width:1124px;background:#FFFFFF;z-index:-1;";
+          document.body.appendChild(staging);
 
-        const prevTitle = document.title;
-        const triggerPrint = () => {
-          document.title = safeFileName;
-          const cleanup = () => {
-            document.title = prevTitle;
-            setTimeout(() => iframe.remove(), 500);
+          const MAX_CONTENT_H = 746;
+          const pages = [];
+
+          const createPage = (includeHeader) => {
+            const page = document.createElement("div");
+            page.className = "pdf-page";
+
+            const content = document.createElement("div");
+            content.className = "pdf-page-content";
+
+            if (includeHeader) {
+              const banner = document.createElement("div");
+              banner.className = "pdf-banner";
+              banner.innerHTML = `
+                <div class="pdf-banner-title">${titleText}</div>
+                <div class="pdf-banner-meta">
+                  <div class="pdf-tab-badge">${activeTabText}</div>
+                  <div>Generated: ${timestamp}</div>
+                </div>
+              `;
+              content.appendChild(banner);
+
+              if (summaryHtml) {
+                const sum = document.createElement("div");
+                sum.className = "pdf-summary";
+                sum.innerHTML = summaryHtml;
+                content.appendChild(sum);
+              }
+            }
+
+            const tbl = document.createElement("table");
+            tbl.className = "odm-table";
+            if (theadEl) tbl.appendChild(theadEl.cloneNode(true));
+            const tbody = document.createElement("tbody");
+            tbl.appendChild(tbody);
+            content.appendChild(tbl);
+
+            const footer = document.createElement("div");
+            footer.className = "pdf-page-footer";
+            page.appendChild(content);
+            page.appendChild(footer);
+            staging.appendChild(page);
+
+            const pageObj = { page, content, tbody, footer };
+            pages.push(pageObj);
+            return pageObj;
           };
-          iWin.onafterprint = cleanup;
-          setTimeout(cleanup, 60000);
-          iWin.focus();
-          iWin.print();
-        };
 
-        const fontReady = iDoc.fonts && iDoc.fonts.ready ? iDoc.fonts.ready : Promise.resolve();
-        Promise.race([
-          fontReady,
-          new Promise((resolve) => setTimeout(resolve, 1200))
-        ]).then(() => setTimeout(triggerPrint, 120));
+          let current = createPage(true);
+          for (const tr of clonedRows) {
+            current.tbody.appendChild(tr);
+            if (current.content.scrollHeight > MAX_CONTENT_H && current.tbody.children.length > 1) {
+              current.tbody.removeChild(tr);
+              current = createPage(false);
+              current.tbody.appendChild(tr);
+            }
+          }
+
+          // Stamp page numbers
+          const totalPages = pages.length;
+          pages.forEach((p, idx) => {
+            p.footer.innerHTML = `<span>${titleText} &bull; ${activeTabText}</span><span>Page ${idx + 1} of ${totalPages}</span>`;
+          });
+
+          // Render each page cleanly into A4 Landscape PDF
+          const { jsPDF } = window.jspdf;
+          const pdf = new jsPDF({
+            orientation: "landscape",
+            unit: "mm",
+            format: "a4",
+            compress: true
+          });
+
+          const pdfW = 281;
+          const pdfH = 194;
+
+          for (let i = 0; i < pages.length; i++) {
+            if (triggerBtn) {
+              triggerBtn.textContent = `Generating PDF (${i + 1}/${totalPages})...`;
+            }
+            if (i > 0) pdf.addPage("a4", "landscape");
+
+            const canvas = await window.html2canvas(pages[i].page, {
+              scale: 2,
+              useCORS: true,
+              backgroundColor: "#FFFFFF",
+              logging: false
+            });
+
+            const imgData = canvas.toDataURL("image/jpeg", 0.93);
+            const ratio = Math.min(pdfW / canvas.width, pdfH / canvas.height);
+            const drawW = canvas.width * ratio;
+            const drawH = canvas.height * ratio;
+            const offsetX = 8 + (pdfW - drawW) / 2;
+
+            pdf.addImage(imgData, "JPEG", offsetX, 8, drawW, drawH, undefined, "FAST");
+          }
+
+          pdf.save(`${safeFileName}.pdf`);
+        } catch (err) {
+          console.error("PDF export failed:", err);
+          alert("Could not generate PDF. Please check your internet connection and try again.");
+        } finally {
+          if (staging) staging.remove();
+          if (triggerBtn) {
+            triggerBtn.disabled = false;
+            triggerBtn.textContent = origBtnText;
+          }
+        }
       }
 
-      // Intercept clicks on the CSV/PDF button before any old CSV handler runs
       document.addEventListener(
         "click",
         (e) => {
@@ -6978,13 +7119,12 @@
             e.preventDefault();
             e.stopPropagation();
             e.stopImmediatePropagation();
-            exportModalToFormattedPdf();
+            exportModalToDirectPdf(btn);
           }
         },
         true
       );
 
-      // Watch only the modal overlay so the button label stays updated
       const init = () => {
         relabelCsvButton();
         const overlay = document.querySelector(".odm-overlay");
