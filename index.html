@@ -1406,14 +1406,34 @@
       color: #0F172A;
       letter-spacing: 0.3px;
     }
-    /* All Works Report: Sticky 3-Row Header, (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ), Column Numbers & Hide/Show */
+    /* All Works Report: Sticky 3-Row Header, Crisp Borders, (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ), Column Numbers & Hide/Show */
+    table.aw-abstract-table {
+      border-collapse: separate !important;
+      border-spacing: 0 !important;
+    }
     table.aw-abstract-table thead {
       position: sticky;
       top: 0;
       z-index: 12;
     }
     table.aw-abstract-table thead th {
-      position: static !important;
+      position: relative !important;
+      border: none !important;
+      border-right: 1px solid #475569 !important;
+      border-bottom: 1px solid #475569 !important;
+      padding: 18px 8px 8px 8px !important;
+    }
+    table.aw-abstract-table thead th:first-child,
+    table.aw-abstract-table tbody td:first-child {
+      border-left: 1px solid #475569 !important;
+    }
+    table.aw-abstract-table thead tr:first-child th {
+      border-top: 1px solid #475569 !important;
+    }
+    table.aw-abstract-table tbody td {
+      border: none !important;
+      border-right: 1px solid #94A3B8 !important;
+      border-bottom: 1px solid #94A3B8 !important;
     }
     table.aw-abstract-table thead tr.aw-unit-row th {
       background: #F8FAFC !important;
@@ -1421,8 +1441,7 @@
       text-align: right !important;
       font-size: 0.82rem;
       font-weight: 800;
-      padding: 5px 10px;
-      border: 1px solid #475569;
+      padding: 5px 10px !important;
     }
     table.aw-abstract-table thead tr.aw-colnum-row th {
       background: #EAD1DC !important;
@@ -1430,29 +1449,27 @@
       text-align: center !important;
       font-size: 0.78rem;
       font-weight: 800;
-      padding: 4px 6px;
-      border: 1px solid #475569;
+      padding: 5px 6px !important;
     }
     .aw-th-inner {
-      position: relative;
+      position: static;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 6px 14px 2px 4px;
-      min-height: 24px;
+      width: 100%;
     }
     .aw-col-hide-btn {
       position: absolute;
-      top: -4px;
-      right: -3px;
-      width: 16px;
-      height: 16px;
+      top: 3px;
+      right: 3px;
+      width: 15px;
+      height: 15px;
       padding: 0;
       border: 1px solid #94A3B8;
-      border-radius: 4px;
-      background: rgba(255, 255, 255, 0.85);
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.9);
       color: #475569;
-      font-size: 0.62rem;
+      font-size: 0.60rem;
       font-weight: 800;
       line-height: 1;
       cursor: pointer;
