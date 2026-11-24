@@ -3096,11 +3096,11 @@
         if (u.includes("NAPB") || s.includes("ಅಣೆಕಟ್ಟು") || s.includes("ಬಂದಾರು") || u.includes("A&P")) return "NAPB";
         if (u.includes("NLIS") || s.includes("ಏತ") || u.includes("LIS")) return "NLIS";
         if (u.includes("NNT") || s.includes("ಹೊಸಕೆರೆ") || u.includes("NEW TANK")) return "NNT";
-        if (s.includes("ಪ್ರವಾಹ") || u.includes("FLOOD")) return "NOFC";
+        if (s.includes("ಪ್ರವಾಹ") || u.includes("FLOOD") || u.includes("FMP") || u.includes("FPW") || u.includes("4711")) return "NOFC";
       }
       if (u === "NMOT" || u.endsWith("-NMOT")) return "NMOT";
       if (u === "NAPB" || u.endsWith("-NAPB")) return "NAPB";
-      if (u.includes("FPW") || u === "FMP" || s.includes("ಪ್ರವಾಹ ನಿಯಂತ್ರಣ") || u.includes("4711")) return "FMP";
+      if (u === "FMP" || u.includes("FPW") || (u.includes("4711") && u.includes("140-P"))) return "FMP";
       if (s.includes("ಹೊಸಕೆರೆ") || u.endsWith("-NT") || u === "NT" || u.includes("NEW TANK")) return "NT";
       if (s.includes("ಕೆರೆಗಳ ಆಧುನೀಕರಣ") || u.endsWith("-MOT") || u.endsWith(" MOT") || u === "MOT" || u === "4702_MOT") return "MOT";
       if (s.includes("ಅಣೆಕಟ್ಟು") || s.includes("ಬಂದಾರು") || u.endsWith("-APB") || u === "APB" || u.includes("A&P")) return "APB";
@@ -3153,7 +3153,7 @@
         if (!hoaKey) continue;
 
         if (!grantMap[divName]) grantMap[divName] = {};
-        grantMap[divName][hoaKey] = grantVal;
+        grantMap[divName][hoaKey] = (grantMap[divName][hoaKey] || 0) + grantVal;
       }
       return grantMap;
     }
@@ -5897,8 +5897,8 @@
       const titleEl = document.getElementById("p4-section-title");
       if (titleEl) {
         titleEl.textContent = STATE.allWorksOverdueOnly
-          ? "All Works Report — Overdue Works Abstract (Zone & Division Wise)"
-          : "All Works Report — Zone & Division Wise Abstract";
+          ? "All Works Report - Overdue Works Abstract (Zone & Division Wise)"
+          : "All Works Report - Zone & Division Wise Abstract";
       }
 
       const fmtBadge = (arr) => (arr.length === 0 ? "ALL" : arr.length <= 2 ? arr.join(", ") : `${arr.length} Selected`);
