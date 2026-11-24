@@ -6688,6 +6688,322 @@
       new MutationObserver(clean).observe(document.body || document.documentElement, { childList: true, subtree: true, characterData: true });
       clean();
     })();
+  // Replace "Download CSV (.csv)" with formatted A4 Landscape PDF export
+    (function upgradeModalCsvToPdf() {
+      function relabelCsvButton() {
+        const dlg = document.querySelector(".odm-dialog");
+        if (!dlg) return;
+        dlg.querySelectorAll("button").forEach((btn) => {
+          const txt = (btn.textContent || "").trim();
+          if (/download\s*csv/i.test(txt)) {
+            btn.textContent = "Download PDF (.pdf)";
+            btn.dataset.odmPdfBtn = "1";
+          }
+        });
+      }
+
+      function exportModalToFormattedPdf() {
+        const dlg = document.querySelector(".odm-dialog");
+        if (!dlg) return;
+
+        const tableEl = dlg.querySelector("table.odm-table");
+        if (!tableEl || !tableEl.querySelector("tbody tr")) {
+          alert("No rows available to export to PDF.");
+          return;
+        }
+
+        // Grab modal title (excluding the Close button)
+        const headerEl = dlg.querySelector(".odm-header, .odm-title, h2, h3");
+        let titleText = "Overdue Works Report";
+        if (headerEl) {
+          const hClone = headerEl.cloneNode(true);
+          hClone.querySelectorAll("button").forEach((b) => b.remove());
+          const cleaned = (hClone.textContent || "").trim();
+          if (cleaned) titleText = cleaned;
+        }
+
+        // Grab active tab label (e.g., Overdue Works (41))
+        const activeTabEl = dlg.querySelector(".odm-tab.active, button.active");
+        const activeTabText = activeTabEl ? (activeTabEl.textContent || "").trim() : "Works List";
+
+        // Grab summary bar HTML
+        const summaryHtml = dlg.querySelector("#odm-summary-bar")?.innerHTML || "";
+
+        // Clone table cleanly
+        const tableHtml = tableEl.outerHTML;
+
+        // Build clean filename & timestamp
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, "0");
+        const dateTag = `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}`;
+        const timestamp = now.toLocaleString("en-IN", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true
+        });
+        const safeFileName = `${titleText} - ${activeTabText} (${dateTag})`
+          .replace(/[\\/:*?"<>|]+/g, "_")
+          .replace(/\s+/g, " ")
+          .trim();
+
+        const printDocHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>${safeFileName}</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Kannada:wght@500;700;800&display=swap">
+  <style>
+    @page {
+      size: A4 landscape;
+      margin: 7mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: "Inter", "Segoe UI", "Noto Sans Kannada", "Nirmala UI", sans-serif;
+      color: #0F172A;
+      background: #FFFFFF;
+    }
+    .pdf-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      background: linear-gradient(90deg, #1E3A8A 0%, #1D4ED8 100%);
+      color: #FFFFFF;
+      padding: 9px 14px;
+      border-radius: 6px 6px 0 0;
+    }
+    .pdf-banner-title {
+      font-size: 13pt;
+      font-weight: 800;
+      line-height: 1.25;
+    }
+    .pdf-banner-meta {
+      text-align: right;
+      font-size: 8.5pt;
+      font-weight: 700;
+      line-height: 1.35;
+      white-space: nowrap;
+    }
+    .pdf-tab-badge {
+      display: inline-block;
+      background: #DC2626;
+      color: #FFFFFF;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 8pt;
+      font-weight: 800;
+      margin-bottom: 2px;
+    }
+    .pdf-summary {
+      background: #F8FAFC;
+      border: 1px solid #94A3B8;
+      border-top: none;
+      padding: 7px 12px;
+      margin-bottom: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .odm-chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px 10px;
+    }
+    .odm-chip {
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 4px;
+      font-size: 8.5pt;
+      font-weight: 800;
+      color: #DC2626;
+      padding-right: 10px;
+      border-right: 1px solid #CBD5E1;
+    }
+    .odm-chip:last-child {
+      border-right: none;
+      padding-right: 0;
+    }
+    .odm-chip-label {
+      color: #1E3A8A;
+      font-weight: 800;
+    }
+    table.odm-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 7.8pt;
+      color: #0F172A;
+    }
+    table.odm-table thead {
+      display: table-header-group;
+    }
+    table.odm-table tr {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    table.odm-table thead th {
+      background: #DCE8F7 !important;
+      color: #0F172A !important;
+      font-weight: 800;
+      text-align: center;
+      padding: 6px 5px;
+      border: 1px solid #64748B;
+      line-height: 1.25;
+      position: static !important;
+    }
+    table.odm-table td {
+      padding: 5px 5px;
+      border: 1px solid #94A3B8;
+      text-align: center;
+      vertical-align: middle;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+    table.odm-table tbody tr:nth-child(even) {
+      background: #F8FAFC;
+    }
+    table.odm-table td.odm-work-col {
+      text-align: left;
+      min-width: 180px;
+      max-width: 280px;
+      white-space: normal;
+      line-height: 1.35;
+    }
+    .pkg-cell-box {
+      background: #EFF6FF;
+      border-left: 3px solid #2563EB;
+      padding: 4px 6px;
+      border-radius: 4px;
+    }
+    .pkg-header-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-bottom: 4px;
+    }
+    .pkg-count-pill,
+    .pkg-code-pill {
+      display: inline-block;
+      background: #2563EB;
+      color: #FFFFFF;
+      font-size: 6.8pt;
+      font-weight: 800;
+      padding: 1.5px 6px;
+      border-radius: 999px;
+    }
+    .pkg-works-list {
+      margin: 0;
+      padding-left: 16px;
+      font-size: 7.5pt;
+      line-height: 1.35;
+    }
+    .pkg-works-list li {
+      margin-bottom: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="pdf-banner">
+    <div class="pdf-banner-title">${titleText}</div>
+    <div class="pdf-banner-meta">
+      <div class="pdf-tab-badge">${activeTabText}</div>
+      <div>Generated: ${timestamp}</div>
+    </div>
+  </div>
+  <div class="pdf-summary">${summaryHtml}</div>
+  ${tableHtml}
+</body>
+</html>`;
+
+        // Create hidden iframe to trigger native A4 Landscape PDF print
+        const oldFrame = document.getElementById("odm-pdf-print-frame");
+        if (oldFrame) oldFrame.remove();
+
+        const iframe = document.createElement("iframe");
+        iframe.id = "odm-pdf-print-frame";
+        iframe.style.position = "fixed";
+        iframe.style.right = "0";
+        iframe.style.bottom = "0";
+        iframe.style.width = "0";
+        iframe.style.height = "0";
+        iframe.style.border = "0";
+        iframe.style.visibility = "hidden";
+        document.body.appendChild(iframe);
+
+        const iWin = iframe.contentWindow;
+        const iDoc = iWin.document;
+        iDoc.open();
+        iDoc.write(printDocHtml);
+        iDoc.close();
+
+        const prevTitle = document.title;
+        const triggerPrint = () => {
+          document.title = safeFileName;
+          const cleanup = () => {
+            document.title = prevTitle;
+            setTimeout(() => iframe.remove(), 500);
+          };
+          iWin.onafterprint = cleanup;
+          setTimeout(cleanup, 60000);
+          iWin.focus();
+          iWin.print();
+        };
+
+        const fontReady = iDoc.fonts && iDoc.fonts.ready ? iDoc.fonts.ready : Promise.resolve();
+        Promise.race([
+          fontReady,
+          new Promise((resolve) => setTimeout(resolve, 1200))
+        ]).then(() => setTimeout(triggerPrint, 120));
+      }
+
+      // Intercept clicks on the CSV/PDF button before any old CSV handler runs
+      document.addEventListener(
+        "click",
+        (e) => {
+          const btn = e.target && e.target.closest ? e.target.closest("button") : null;
+          if (!btn || !btn.closest(".odm-dialog")) return;
+          const txt = (btn.textContent || "").trim();
+          if (btn.dataset.odmPdfBtn === "1" || /download\s*csv/i.test(txt)) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            exportModalToFormattedPdf();
+          }
+        },
+        true
+      );
+
+      // Watch only the modal overlay so the button label stays updated
+      const init = () => {
+        relabelCsvButton();
+        const overlay = document.querySelector(".odm-overlay");
+        if (overlay) {
+          new MutationObserver(relabelCsvButton).observe(overlay, {
+            attributes: true,
+            childList: true,
+            subtree: true
+          });
+        }
+      };
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+      } else {
+        init();
+      }
+      window.addEventListener("load", init);
+    })();
   </script>
 </body>
 </html>
