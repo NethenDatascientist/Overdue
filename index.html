@@ -1406,6 +1406,110 @@
       color: #0F172A;
       letter-spacing: 0.3px;
     }
+    /* All Works Report: Sticky 3-Row Header, (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ), Column Numbers & Hide/Show */
+    table.aw-abstract-table thead {
+      position: sticky;
+      top: 0;
+      z-index: 12;
+    }
+    table.aw-abstract-table thead th {
+      position: static !important;
+    }
+    table.aw-abstract-table thead tr.aw-unit-row th {
+      background: #F8FAFC !important;
+      color: #DC2626 !important;
+      text-align: right !important;
+      font-size: 0.82rem;
+      font-weight: 800;
+      padding: 5px 10px;
+      border: 1px solid #475569;
+    }
+    table.aw-abstract-table thead tr.aw-colnum-row th {
+      background: #EAD1DC !important;
+      color: #000000 !important;
+      text-align: center !important;
+      font-size: 0.78rem;
+      font-weight: 800;
+      padding: 4px 6px;
+      border: 1px solid #475569;
+    }
+    .aw-th-inner {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 14px 2px 4px;
+      min-height: 24px;
+    }
+    .aw-col-hide-btn {
+      position: absolute;
+      top: -4px;
+      right: -3px;
+      width: 16px;
+      height: 16px;
+      padding: 0;
+      border: 1px solid #94A3B8;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.85);
+      color: #475569;
+      font-size: 0.62rem;
+      font-weight: 800;
+      line-height: 1;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.14s ease;
+    }
+    .aw-col-hide-btn:hover {
+      background: #DC2626;
+      border-color: #991B1B;
+      color: #FFFFFF;
+    }
+    .aw-hidden-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 11px;
+      margin-bottom: 8px;
+      background: #FFF7ED;
+      border: 1px solid #FDBA74;
+      border-radius: 9px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: #9A3412;
+    }
+    .aw-hidden-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1px solid #FB923C;
+      background: #FFFFFF;
+      color: #9A3412;
+      font-size: 0.73rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .aw-hidden-chip:hover {
+      background: #FFEDD5;
+    }
+    .aw-show-all-btn {
+      margin-left: auto;
+      padding: 3px 10px;
+      border-radius: 999px;
+      border: 1px solid #1D4ED8;
+      background: #1D4ED8;
+      color: #FFFFFF;
+      font-size: 0.73rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .aw-show-all-btn:hover {
+      background: #1E40AF;
+    }
   /* =========================================================================
        OFFICER BAR CLICK POP-UP MODAL
        ========================================================================= */
@@ -2298,10 +2402,11 @@
 
         <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;">
           <div id="p4-meta-info" style="font-size:0.84rem;font-weight:700;color:#0F172A;"></div>
-          <div style="display:flex;gap:10px;width:260px;max-width:100%;">
-            <button type="button" id="p4-dl-xlsx-btn" class="btn-primary">Download Formatted Excel (.xlsx)</button>
-          </div>
-        </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+         <button type="button" id="p4-dl-xlsx-btn" class="btn-primary" style="width:auto;padding:0.5rem 1rem;">Download Formatted Excel (.xlsx)</button>
+         <button type="button" id="p4-dl-pdf-btn" class="btn-primary" style="width:auto;padding:0.5rem 1rem;">Download PDF (.pdf)</button>
+       </div>
+      </div>
 
         <div id="p4-allworks-table-wrap"></div>
       </section>
@@ -5911,134 +6016,236 @@
       if (metaEl) {
         metaEl.innerHTML = `<b>Mode:</b> ${modeTag} &nbsp;|&nbsp; <b>Total Matching Works:</b> ${filteredRows.length.toLocaleString()} &nbsp;|&nbsp; <b>Divisions Shown:</b> ${activeDivs.length}`;
       }
+      renderAllWorksTableOnly();
+    }
 
+    function getAwVisibleColIndices() {
+      if (!Array.isArray(STATE.awHiddenCols)) STATE.awHiddenCols = [];
+      const hiddenSet = new Set(STATE.awHiddenCols);
+      const vis = [];
+      for (let i = 0; i < AW_HEADERS.length; i++) {
+        if (!hiddenSet.has(i)) vis.push(i);
+      }
+      return vis.length ? vis : [0];
+    }
+
+    function getAwColWidth(cIdx) {
+      const widths = [7, 16, 24, 14, 16, 13, 15, 14, 16, 16, 17, 20, 16, 15, 16, 15, 18];
+      return cIdx < widths.length ? widths[cIdx] : 8;
+    }
+
+    function isAwNum2Col(cIdx) {
+      return [4, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16].includes(cIdx);
+    }
+
+    function getAwThClass(cIdx) {
+      if (cIdx === 1) return "aw-col-div";
+      if (cIdx === 2) return "aw-col-hoa";
+      if (cIdx === 11) return "aw-col-grant";
+      if (cIdx >= 17) return "aw-col-stat";
+      return "";
+    }
+
+    function getAwCellHtml(row, cIdx) {
+      const fmt2 = (v) => Number(v || 0).toFixed(2);
+      switch (cIdx) {
+        case 0: return `<td>${escapeHtml(row.slNo)}</td>`;
+        case 1: return `<td class="aw-wrap-td">${escapeHtml(row.divLabel)}</td>`;
+        case 2: return `<td class="aw-wrap-td">${escapeHtml(row.hoaLabel)}</td>`;
+        case 3: return `<td>${row.cont_cnt}</td>`;
+        case 4: return `<td>${fmt2(row.cont_est)}</td>`;
+        case 5: return `<td>${row.new_cnt}</td>`;
+        case 6: return `<td>${fmt2(row.new_est)}</td>`;
+        case 7: return `<td>${row.tot_cnt}</td>`;
+        case 8: return `<td>${fmt2(row.tot_est)}</td>`;
+        case 9: return `<td>${fmt2(row.contract_amt)}</td>`;
+        case 10: return `<td>${fmt2(row.revised_est)}</td>`;
+        case 11: return `<td class="aw-wrap-td">${row.grantHtml}</td>`;
+        case 12: return `<td>${fmt2(row.exp_mar26)}</td>`;
+        case 13: return `<td>${fmt2(row.exp_2627)}</td>`;
+        case 14: return `<td>${fmt2(row.total_exp)}</td>`;
+        case 15: return `<td>${fmt2(row.pending_bill)}</td>`;
+        case 16: return `<td>${fmt2(row.bal_to_complete)}</td>`;
+        default: {
+          const stKey = AW_STATUS_COLS[cIdx - 17];
+          return `<td>${row.status[stKey] || 0}</td>`;
+        }
+      }
+    }
+
+    function getAwCellExcel(row, cIdx) {
+      switch (cIdx) {
+        case 0: return row.slNo;
+        case 1: return row.divLabel;
+        case 2: return row.hoaLabel;
+        case 3: return row.cont_cnt;
+        case 4: return row.cont_est;
+        case 5: return row.new_cnt;
+        case 6: return row.new_est;
+        case 7: return row.tot_cnt;
+        case 8: return row.tot_est;
+        case 9: return row.contract_amt;
+        case 10: return row.revised_est;
+        case 11: return row.grantExcel;
+        case 12: return row.exp_mar26;
+        case 13: return row.exp_2627;
+        case 14: return row.total_exp;
+        case 15: return row.pending_bill;
+        case 16: return row.bal_to_complete;
+        default: {
+          const stKey = AW_STATUS_COLS[cIdx - 17];
+          return row.status[stKey] || 0;
+        }
+      }
+    }
+
+    function renderAllWorksTableOnly() {
       const wrapEl = document.getElementById("p4-allworks-table-wrap");
       if (!wrapEl) return;
 
+      const tableRows = STATE.currentAllWorksTableData || [];
       if (!tableRows.length) {
         wrapEl.innerHTML = `<div class="filter-card" style="padding:12px;font-weight:700;">No matching works in the selected scope.</div>`;
         return;
       }
 
-      const theadHtml = AW_HEADERS.map((h, i) => {
-        let cls = "";
-        if (i === 1) cls = "aw-col-div";
-        else if (i === 2) cls = "aw-col-hoa";
-        else if (i === 11) cls = "aw-col-grant";
-        else if (i >= 17) cls = "aw-col-stat";
-        return `<th class="${cls}">${escapeHtml(h)}</th>`;
-      }).join("");
+      if (!Array.isArray(STATE.awHiddenCols)) STATE.awHiddenCols = [];
+      const visCols = getAwVisibleColIndices();
 
-      const fmt2 = (v) => Number(v || 0).toFixed(2);
+      let hiddenBarHtml = "";
+      if (STATE.awHiddenCols.length > 0) {
+        const sortedHidden = [...STATE.awHiddenCols].sort((a, b) => a - b);
+        const chipsHtml = sortedHidden
+          .map((cIdx) => `<button type="button" class="aw-hidden-chip" data-aw-show-col="${cIdx}" title="Click to show column">+ ${escapeHtml(AW_HEADERS[cIdx])}</button>`)
+          .join("");
+        hiddenBarHtml = `
+          <div class="aw-hidden-bar">
+            <span>Hidden Columns (${sortedHidden.length}):</span>
+            ${chipsHtml}
+            <button type="button" class="aw-show-all-btn" data-aw-show-all="1">Show All Columns</button>
+          </div>
+        `;
+      }
+
+      const unitRowHtml = `<tr class="aw-unit-row"><th colspan="${visCols.length}">(ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)</th></tr>`;
+
+      const headerRowHtml = `<tr>${visCols.map((cIdx) => `
+        <th class="${getAwThClass(cIdx)}">
+          <div class="aw-th-inner">
+            <span>${escapeHtml(AW_HEADERS[cIdx])}</span>
+            <button type="button" class="aw-col-hide-btn" data-aw-hide-col="${cIdx}" title="Hide this column">✕</button>
+          </div>
+        </th>
+      `).join("")}</tr>`;
+
+      const colNumRowHtml = `<tr class="aw-colnum-row">${visCols.map((_, idx) => `<th>${idx + 1}</th>`).join("")}</tr>`;
 
       const tbodyHtml = tableRows.map((row) => {
         if (row.rowType === "divider") {
-          return `<tr class="aw-section-divider"><td colspan="${AW_HEADERS.length}">${escapeHtml(row.label)}</td></tr>`;
+          return `<tr class="aw-section-divider"><td colspan="${visCols.length}">${escapeHtml(row.label)}</td></tr>`;
         }
         const trCls = row.rowType === "zone-total" ? "aw-zone-total-row" : (row.rowType === "div-total" ? "aw-div-total-row" : "");
-        const statTds = AW_STATUS_COLS.map((c) => `<td>${row.status[c] || 0}</td>`).join("");
-        return `
-          <tr class="${trCls}">
-            <td>${escapeHtml(row.slNo)}</td>
-            <td class="aw-wrap-td">${escapeHtml(row.divLabel)}</td>
-            <td class="aw-wrap-td">${escapeHtml(row.hoaLabel)}</td>
-            <td>${row.cont_cnt}</td>
-            <td>${fmt2(row.cont_est)}</td>
-            <td>${row.new_cnt}</td>
-            <td>${fmt2(row.new_est)}</td>
-            <td>${row.tot_cnt}</td>
-            <td>${fmt2(row.tot_est)}</td>
-            <td>${fmt2(row.contract_amt)}</td>
-            <td>${fmt2(row.revised_est)}</td>
-            <td class="aw-wrap-td">${row.grantHtml}</td>
-            <td>${fmt2(row.exp_mar26)}</td>
-            <td>${fmt2(row.exp_2627)}</td>
-            <td>${fmt2(row.total_exp)}</td>
-            <td>${fmt2(row.pending_bill)}</td>
-            <td>${fmt2(row.bal_to_complete)}</td>
-            ${statTds}
-          </tr>
-        `;
+        const cellsHtml = visCols.map((cIdx) => getAwCellHtml(row, cIdx)).join("");
+        return `<tr class="${trCls}">${cellsHtml}</tr>`;
       }).join("");
 
       wrapEl.innerHTML = `
+        ${hiddenBarHtml}
         <div class="ce-table-wrapper" style="max-height:660px;">
           <table class="aw-abstract-table">
-            <thead><tr>${theadHtml}</tr></thead>
+            <thead>
+              ${unitRowHtml}
+              ${headerRowHtml}
+              ${colNumRowHtml}
+            </thead>
             <tbody>${tbodyHtml}</tbody>
           </table>
         </div>
       `;
+
+      if (!wrapEl.dataset.awColEventsBound) {
+        wrapEl.dataset.awColEventsBound = "1";
+        wrapEl.addEventListener("click", (e) => {
+          const hideBtn = e.target.closest("[data-aw-hide-col]");
+          if (hideBtn) {
+            const cIdx = parseInt(hideBtn.getAttribute("data-aw-hide-col"), 10);
+            const curVis = getAwVisibleColIndices();
+            if (curVis.length <= 1) {
+              alert("At least 1 column must remain visible.");
+              return;
+            }
+            if (!STATE.awHiddenCols.includes(cIdx)) {
+              STATE.awHiddenCols.push(cIdx);
+              renderAllWorksTableOnly();
+            }
+            return;
+          }
+
+          const showBtn = e.target.closest("[data-aw-show-col]");
+          if (showBtn) {
+            const cIdx = parseInt(showBtn.getAttribute("data-aw-show-col"), 10);
+            STATE.awHiddenCols = STATE.awHiddenCols.filter((x) => x !== cIdx);
+            renderAllWorksTableOnly();
+            return;
+          }
+
+          if (e.target.closest("[data-aw-show-all]")) {
+            STATE.awHiddenCols = [];
+            renderAllWorksTableOnly();
+          }
+        });
+      }
     }
 
     function exportAllWorksFormattedExcel() {
       const rows = STATE.currentAllWorksTableData;
       if (!rows || !rows.length) return;
 
-      const aoa = [AW_HEADERS];
-      const rowMeta = ["header"];
+      const visCols = getAwVisibleColIndices();
+      const unitRow = new Array(visCols.length).fill("");
+      unitRow[0] = "(ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)";
+
+      const aoa = [
+        unitRow,
+        visCols.map((cIdx) => AW_HEADERS[cIdx]),
+        visCols.map((_, idx) => idx + 1)
+      ];
+      const rowMeta = ["unit", "header", "colnum"];
+      const merges = [];
+
+      if (visCols.length > 1) {
+        merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: visCols.length - 1 } });
+      }
 
       rows.forEach((row) => {
         if (row.rowType === "divider") {
-          const divArr = new Array(AW_HEADERS.length).fill("");
-          divArr[1] = row.label;
+          const divArr = new Array(visCols.length).fill("");
+          divArr[0] = row.label;
+          const rIdx = aoa.length;
           aoa.push(divArr);
           rowMeta.push("divider");
+          if (visCols.length > 1) {
+            merges.push({ s: { r: rIdx, c: 0 }, e: { r: rIdx, c: visCols.length - 1 } });
+          }
           return;
         }
-        aoa.push([
-          row.slNo,
-          row.divLabel,
-          row.hoaLabel,
-          row.cont_cnt,
-          row.cont_est,
-          row.new_cnt,
-          row.new_est,
-          row.tot_cnt,
-          row.tot_est,
-          row.contract_amt,
-          row.revised_est,
-          row.grantExcel,
-          row.exp_mar26,
-          row.exp_2627,
-          row.total_exp,
-          row.pending_bill,
-          row.bal_to_complete,
-          ...AW_STATUS_COLS.map((c) => row.status[c] || 0)
-        ]);
+        aoa.push(visCols.map((cIdx) => getAwCellExcel(row, cIdx)));
         rowMeta.push(row.rowType);
       });
 
       const ws = XLSX.utils.aoa_to_sheet(aoa);
+      if (merges.length) ws["!merges"] = merges;
 
-      // Clean, readable column widths so nothing is squished or cut off
-      ws["!cols"] = [
-        { wch: 7 },   // ಕ್ರ.ಸಂ
-        { wch: 16 },  // ವಲಯ / ವಿಭಾಗ
-        { wch: 24 },  // ಲೆಕ್ಕಶೀರ್ಷಿಕೆ
-        { wch: 14 },  // ಮುಂದುವರೆದ ಸಂಖ್ಯೆ
-        { wch: 16 },  // ಮುಂದುವರೆದ ಅಂದಾಜು
-        { wch: 13 },  // ಹೊಸ ಸಂಖ್ಯೆ
-        { wch: 15 },  // ಹೊಸ ಅಂದಾಜು
-        { wch: 14 },  // ಒಟ್ಟು ಸಂಖ್ಯೆ
-        { wch: 16 },  // ಒಟ್ಟು ಅಂದಾಜು
-        { wch: 16 },  // ಗುತ್ತಿಗೆ ಮೊತ್ತ
-        { wch: 17 },  // ಪರಿಷ್ಕೃತ ಅಂದಾಜು
-        { wch: 20 },  // 2026-27 ಅನುದಾನ
-        { wch: 16 },  // ಮಾರ್ಚ್ 2026 ವೆಚ್ಚ
-        { wch: 15 },  // 2026-27 ವೆಚ್ಚ
-        { wch: 16 },  // ಒಟ್ಟಾರೆ ವೆಚ್ಚ
-        { wch: 15 },  // ಬಾಕಿ ಬಿಲ್
-        { wch: 18 },  // ಪೂರ್ಣಗೊಳಿಸಲು ಬಾಕಿ
-        ...AW_STATUS_COLS.map(() => ({ wch: 8 }))
-      ];
+      ws["!cols"] = visCols.map((cIdx) => ({ wch: getAwColWidth(cIdx) }));
 
-      // Proper row heights (header taller for wrapped Kannada text, combined grant rows taller)
+      const grantPos = visCols.indexOf(11);
       ws["!rows"] = rowMeta.map((type, idx) => {
+        if (type === "unit") return { hpt: 22 };
         if (type === "header") return { hpt: 46 };
+        if (type === "colnum") return { hpt: 21 };
         if (type === "zone-total" || type === "div-total") return { hpt: 26 };
         if (type === "divider") return { hpt: 24 };
-        const grantVal = String(aoa[idx][11] || "");
+        const grantVal = grantPos !== -1 ? String(aoa[idx][grantPos] || "") : "";
         return { hpt: grantVal.includes("\n") ? 32 : 22 };
       });
 
@@ -6049,7 +6256,6 @@
         right: { style: "thin", color: { rgb: "475569" } }
       };
 
-      const num2Cols = new Set([4, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
       const range = XLSX.utils.decode_range(ws["!ref"]);
 
       for (let R = range.s.r; R <= range.e.r; R++) {
@@ -6059,20 +6265,48 @@
           if (!ws[addr]) ws[addr] = { t: "s", v: "" };
 
           let fillRgb = "FFFFFF";
+          let fontRgb = "000000";
           let isBold = false;
-          if (mType === "header") { fillRgb = "CFE2F3"; isBold = true; }
-          else if (mType === "zone-total") { fillRgb = "FCE4D6"; isBold = true; }
-          else if (mType === "div-total") { fillRgb = "FFF2CC"; isBold = true; }
-          else if (mType === "divider") { fillRgb = "E2E8F0"; isBold = true; }
+          let hAlign = "center";
+
+          if (mType === "unit") {
+            fillRgb = "F8FAFC";
+            fontRgb = "DC2626";
+            isBold = true;
+            hAlign = "right";
+          } else if (mType === "header") {
+            fillRgb = "CFE2F3";
+            isBold = true;
+          } else if (mType === "colnum") {
+            fillRgb = "EAD1DC";
+            isBold = true;
+          } else if (mType === "zone-total") {
+            fillRgb = "FCE4D6";
+            isBold = true;
+          } else if (mType === "div-total") {
+            fillRgb = "FFF2CC";
+            isBold = true;
+          } else if (mType === "divider") {
+            fillRgb = "E2E8F0";
+            isBold = true;
+            hAlign = "left";
+          }
 
           ws[addr].s = {
-            font: { name: "Calibri", sz: mType === "header" ? 10 : 10, bold: isBold, color: { rgb: "000000" } },
+            font: { name: "Calibri", sz: 10, bold: isBold, color: { rgb: fontRgb } },
             fill: { fgColor: { rgb: fillRgb } },
             border: thinBorder,
-            alignment: { horizontal: "center", vertical: "center", wrapText: true }
+            alignment: { horizontal: hAlign, vertical: "center", wrapText: true }
           };
 
-          if (mType !== "header" && mType !== "divider" && num2Cols.has(C) && typeof ws[addr].v === "number") {
+          if (
+            mType !== "unit" &&
+            mType !== "header" &&
+            mType !== "colnum" &&
+            mType !== "divider" &&
+            isAwNum2Col(visCols[C]) &&
+            typeof ws[addr].v === "number"
+          ) {
             ws[addr].z = "0.00";
           }
         }
@@ -6083,6 +6317,234 @@
       XLSX.utils.book_append_sheet(wb, ws, sheetTabName);
       const filePrefix = STATE.allWorksOverdueOnly ? "All_Works_Report_Overdue_Only" : "All_Works_Report";
       XLSX.writeFile(wb, `${filePrefix}_${STATE.todayStr}.xlsx`);
+    }
+
+    function exportAllWorksFormattedPdf() {
+      const rows = STATE.currentAllWorksTableData;
+      if (!rows || !rows.length) {
+        alert("No rows available to export to PDF.");
+        return;
+      }
+
+      const visCols = getAwVisibleColIndices();
+      const titleText = document.getElementById("p4-section-title")?.textContent?.trim() || "All Works Report";
+      const scopeText = document.getElementById("p4-scope-badge")?.textContent?.trim() || "";
+      const metaText = document.getElementById("p4-meta-info")?.textContent?.trim() || "";
+      const modeBadge = STATE.allWorksOverdueOnly ? "OVERDUE WORKS ONLY" : "ALL WORKS";
+
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      const dateTag = STATE.todayStr || `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}`;
+      const timestamp = now.toLocaleString("en-IN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true
+      });
+      const filePrefix = STATE.allWorksOverdueOnly ? "All_Works_Report_Overdue_Only" : "All_Works_Report";
+      const safeFileName = `${filePrefix}_${dateTag}`;
+
+      const fontSize = visCols.length > 22 ? "5.6pt" : (visCols.length > 16 ? "6.6pt" : "7.6pt");
+      const cellPad = visCols.length > 22 ? "2.5px 2px" : (visCols.length > 16 ? "3.5px 3px" : "4.5px 4px");
+
+      const unitRowHtml = `<tr class="aw-unit-row"><th colspan="${visCols.length}">(ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)</th></tr>`;
+      const headerRowHtml = `<tr>${visCols.map((cIdx) => `<th>${escapeHtml(AW_HEADERS[cIdx])}</th>`).join("")}</tr>`;
+      const colNumRowHtml = `<tr class="aw-colnum-row">${visCols.map((_, idx) => `<th>${idx + 1}</th>`).join("")}</tr>`;
+
+      const tbodyHtml = rows.map((row) => {
+        if (row.rowType === "divider") {
+          return `<tr class="aw-section-divider"><td colspan="${visCols.length}">${escapeHtml(row.label)}</td></tr>`;
+        }
+        const trCls = row.rowType === "zone-total" ? "aw-zone-total-row" : (row.rowType === "div-total" ? "aw-div-total-row" : "");
+        const cellsHtml = visCols.map((cIdx) => getAwCellHtml(row, cIdx)).join("");
+        return `<tr class="${trCls}">${cellsHtml}</tr>`;
+      }).join("");
+
+      const printDocHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>${safeFileName}</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Kannada:wght@400&display=swap">
+  <style>
+    @page {
+      size: A4 landscape;
+      margin: 6mm;
+    }
+    * {
+      box-sizing: border-box;
+      font-weight: 400 !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: "Inter", "Segoe UI", "Noto Sans Kannada", "Nirmala UI", sans-serif;
+      color: #0F172A;
+      background: #FFFFFF;
+    }
+    .pdf-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(90deg, #1E3A8A 0%, #1D4ED8 100%);
+      color: #FFFFFF;
+      padding: 8px 12px;
+      border-radius: 5px 5px 0 0;
+    }
+    .pdf-banner-title {
+      font-size: 11.5pt;
+      line-height: 1.25;
+    }
+    .pdf-banner-meta {
+      text-align: right;
+      font-size: 7.5pt;
+      line-height: 1.35;
+      white-space: nowrap;
+    }
+    .pdf-tab-badge {
+      display: inline-block;
+      background: #DC2626;
+      color: #FFFFFF;
+      padding: 1.5px 8px;
+      border-radius: 999px;
+      font-size: 7.2pt;
+      margin-bottom: 2px;
+    }
+    .pdf-summary {
+      background: #F8FAFC;
+      border: 1px solid #94A3B8;
+      border-top: none;
+      padding: 5px 10px;
+      margin-bottom: 6px;
+      font-size: 7.4pt;
+      line-height: 1.4;
+      color: #1E293B;
+    }
+    table.aw-pdf-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: ${fontSize};
+      color: #000000;
+    }
+    table.aw-pdf-table thead {
+      display: table-header-group;
+    }
+    table.aw-pdf-table tr {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    table.aw-pdf-table thead th {
+      background: #CFE2F3;
+      color: #000000;
+      text-align: center;
+      vertical-align: middle;
+      padding: ${cellPad};
+      border: 0.8px solid #475569;
+      line-height: 1.2;
+      white-space: normal;
+    }
+    table.aw-pdf-table thead tr.aw-unit-row th {
+      background: #F8FAFC;
+      color: #DC2626;
+      text-align: right;
+      font-size: 7.5pt;
+      padding: 3px 6px;
+    }
+    table.aw-pdf-table thead tr.aw-colnum-row th {
+      background: #EAD1DC;
+      color: #000000;
+      padding: 2.5px 2px;
+    }
+    table.aw-pdf-table td {
+      padding: ${cellPad};
+      border: 0.8px solid #64748B;
+      text-align: center;
+      vertical-align: middle;
+      line-height: 1.25;
+      white-space: nowrap;
+    }
+    table.aw-pdf-table td.aw-wrap-td {
+      white-space: normal;
+    }
+    table.aw-pdf-table tr.aw-zone-total-row td {
+      background: #FCE4D6;
+    }
+    table.aw-pdf-table tr.aw-div-total-row td {
+      background: #FFF2CC;
+    }
+    table.aw-pdf-table tr.aw-section-divider td {
+      background: #E2E8F0;
+      text-align: left;
+      padding-left: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="pdf-banner">
+    <div class="pdf-banner-title">${escapeHtml(titleText)}</div>
+    <div class="pdf-banner-meta">
+      <div class="pdf-tab-badge">${escapeHtml(modeBadge)}</div>
+      <div>Generated: ${escapeHtml(timestamp)}</div>
+    </div>
+  </div>
+  <div class="pdf-summary">
+    <div>${escapeHtml(metaText)}</div>
+    <div>${escapeHtml(scopeText)}</div>
+  </div>
+  <table class="aw-pdf-table">
+    <thead>
+      ${unitRowHtml}
+      ${headerRowHtml}
+      ${colNumRowHtml}
+    </thead>
+    <tbody>${tbodyHtml}</tbody>
+  </table>
+</body>
+</html>`;
+
+      const oldFrame = document.getElementById("aw-pdf-print-frame");
+      if (oldFrame) oldFrame.remove();
+
+      const iframe = document.createElement("iframe");
+      iframe.id = "aw-pdf-print-frame";
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      iframe.style.visibility = "hidden";
+      document.body.appendChild(iframe);
+
+      const iWin = iframe.contentWindow;
+      const iDoc = iWin.document;
+      iDoc.open();
+      iDoc.write(printDocHtml);
+      iDoc.close();
+
+      const prevTitle = document.title;
+      const triggerPrint = () => {
+        document.title = safeFileName;
+        const cleanup = () => {
+          document.title = prevTitle;
+          setTimeout(() => iframe.remove(), 500);
+        };
+        iWin.onafterprint = cleanup;
+        setTimeout(cleanup, 60000);
+        iWin.focus();
+        iWin.print();
+      };
+
+      const fontReady = iDoc.fonts && iDoc.fonts.ready ? iDoc.fonts.ready : Promise.resolve();
+      Promise.race([
+        fontReady,
+        new Promise((resolve) => setTimeout(resolve, 1000))
+      ]).then(() => setTimeout(triggerPrint, 100));
     }
 
     function renderActivePage() {
@@ -6247,7 +6709,7 @@
       renderAllWorksPage();
     });
 
-    document.getElementById("p4-dl-xlsx-btn")?.addEventListener("click", exportAllWorksFormattedExcel);
+    document.getElementById("p4-dl-pdf-btn")?.addEventListener("click", exportAllWorksFormattedPdf);
 
     document.getElementById("sync-btn")?.addEventListener("click", () => syncFromGoogleSheets(false));
 
