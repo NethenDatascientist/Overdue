@@ -2291,7 +2291,7 @@
       <div class="top-header-row">
         <div class="header-left-actions">
           <button type="button" id="abstract-switch-btn" class="btn-primary" style="width:auto;white-space:nowrap;padding:0.48rem 0.85rem;">Division Wise Abstract</button>
-          <button type="button" id="allworks-switch-btn" class="btn-primary" style="width:auto;white-space:nowrap;padding:0.48rem 0.85rem;">All Works Report</button>
+          <button type="button" id="allworks-switch-btn" class="btn-primary" style="width:auto;white-space:nowrap;padding:0.48rem 0.85rem;">MMR Complete Abstract</button>
         </div>
         <h1 class="main-title" id="page-main-title">Minor Irrigation - Overdue Works Dashboard</h1>
         <div class="header-right-actions">
@@ -6867,21 +6867,21 @@
         if (titleEl) titleEl.textContent = "Minor Irrigation - Overdue Works Dashboard";
         if (switchBtn) switchBtn.textContent = "Analytics View →";
         if (absBtn) absBtn.textContent = "Division Wise Abstract";
-        if (awBtn) awBtn.textContent = "All Works Report";
+        if (awBtn) awBtn.textContent = "MMR Complete Abstract";
         renderDashboardPage();
       } else if (STATE.activePage === "analytics") {
         if (anSec) anSec.style.display = "block";
         if (titleEl) titleEl.textContent = "AE/AEE/TA/AS Wise Ranks";
         if (switchBtn) switchBtn.textContent = "← Main Dashboard";
         if (absBtn) absBtn.textContent = "Division Wise Abstract";
-        if (awBtn) awBtn.textContent = "All Works Report";
+        if (awBtn) awBtn.textContent = "MMR Complete Abstract";
         renderAnalyticsPage();
       } else if (STATE.activePage === "abstract") {
         if (absSec) absSec.style.display = "block";
         if (titleEl) titleEl.textContent = "Division Wise Overdue Works";
         if (switchBtn) switchBtn.textContent = "Analytics View →";
         if (absBtn) absBtn.textContent = "← Main Dashboard";
-        if (awBtn) awBtn.textContent = "All Works Report";
+        if (awBtn) awBtn.textContent = "MMR Complete Abstract";
         renderAbstractPage();
       } else if (STATE.activePage === "allworks") {
         if (awSec) awSec.style.display = "block";
