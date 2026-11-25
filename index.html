@@ -2373,7 +2373,7 @@
       <!-- Top Header with Left Abstract Button, Centered Title, and Right Actions -->
       <div class="top-header-row">
         <div class="header-left-actions">
-          <button type="button" id="abstract-switch-btn" class="btn-primary" style="width:auto;white-space:nowrap;padding:0.48rem 0.85rem;">Division Wise List</button>
+          <button type="button" id="abstract-switch-btn" class="btn-primary" style="width:auto;white-space:nowrap;padding:0.48rem 0.85rem;">Division Wise OD ABS</button>
           <button type="button" id="allworks-switch-btn" class="btn-primary" style="width:auto;white-space:nowrap;padding:0.48rem 0.85rem;">MMR Complete Abstract</button>
         </div>
         <h1 class="main-title" id="page-main-title">Minor Irrigation - Overdue Works Dashboard</h1>
@@ -7012,19 +7012,19 @@
         if (dashSec) dashSec.style.display = "block";
         if (titleEl) titleEl.textContent = "Minor Irrigation - Overdue Works Dashboard";
         if (switchBtn) switchBtn.textContent = "Analytics View →";
-        if (absBtn) absBtn.textContent = "Division Wise List";
+        if (absBtn) absBtn.textContent = "Division Wise OD ABS";
         if (awBtn) awBtn.textContent = "MMR Complete Abstract";
         renderDashboardPage();
       } else if (STATE.activePage === "analytics") {
         if (anSec) anSec.style.display = "block";
         if (titleEl) titleEl.textContent = "AE/AEE/TA/AS Wise Ranks";
         if (switchBtn) switchBtn.textContent = "← Main Dashboard";
-        if (absBtn) absBtn.textContent = "Division Wise List";
+        if (absBtn) absBtn.textContent = "Division Wise OD ABS";
         if (awBtn) awBtn.textContent = "MMR Complete Abstract";
         renderAnalyticsPage();
       } else if (STATE.activePage === "abstract") {
         if (absSec) absSec.style.display = "block";
-        if (titleEl) titleEl.textContent = "Division Wise List";
+        if (titleEl) titleEl.textContent = "Division Wise Overdue Abstract";
         if (switchBtn) switchBtn.textContent = "Analytics View →";
         if (absBtn) absBtn.textContent = "← Main Dashboard";
         if (awBtn) awBtn.textContent = "MMR Complete Abstract";
@@ -7033,7 +7033,7 @@
         if (awSec) awSec.style.display = "block";
         if (titleEl) titleEl.textContent = "Division Wise Abstract (All Works)";
         if (switchBtn) switchBtn.textContent = "Analytics View →";
-        if (absBtn) absBtn.textContent = "Division Wise Abstract";
+        if (absBtn) absBtn.textContent = "Division Wise OD ABS";
         if (awBtn) awBtn.textContent = "← Main Dashboard";
         renderAllWorksPage();
       }
