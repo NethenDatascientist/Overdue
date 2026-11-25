@@ -1948,6 +1948,87 @@
       opacity: 0.65;
       cursor: wait;
     }
+  /* =========================================================================
+       BESCOM REGISTRATION PENDING SECTION (SCP & TSP BOREWELL)
+       ========================================================================= */
+    .bescom-section-wrap {
+      margin-top: 1.25rem;
+    }
+    .bescom-kpi-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    @media (max-width: 768px) {
+      .bescom-kpi-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    .bescom-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .bescom-search-input {
+      width: 300px;
+      max-width: 100%;
+      padding: 7px 12px;
+      border-radius: 9px;
+      border: 1.5px solid #94A3B8;
+      background: #FFFFFF;
+      color: #0F172A;
+      font-size: 0.84rem;
+      font-weight: 600;
+    }
+    .bescom-search-input:focus {
+      outline: none;
+      border-color: #2563EB;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+    }
+    .bescom-ae-btn {
+      background: #EFF6FF;
+      border: 1px solid #93C5FD;
+      color: #1E3A8A;
+      font-family: "Inter", "Noto Sans Kannada", sans-serif;
+      font-size: 0.84rem;
+      font-weight: 800;
+      padding: 5px 11px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+    .bescom-ae-btn:hover {
+      background: #1D4ED8;
+      border-color: #1E40AF;
+      color: #FFFFFF;
+    }
+    .bescom-badge-cf {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 999px;
+      background: #FEF3C7;
+      border: 1px solid #F59E0B;
+      color: #92400E;
+      font-weight: 800;
+      font-size: 0.78rem;
+    }
+    .bescom-badge-cp {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 999px;
+      background: #DBEAFE;
+      border: 1px solid #3B82F6;
+      color: #1E40AF;
+      font-weight: 800;
+      font-size: 0.78rem;
+    }
   </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Kannada:wght@600;700;800&display=swap">
 </head>
@@ -2171,6 +2252,22 @@
           <summary>Inspect Unassigned / Missing Officer Fields Across Worksheets</summary>
           <div id="p1-debug-table-wrap" style="margin-top:8px;"></div>
         </details>
+      <!-- BESCOM REGISTRATION PENDING SECTION (SCP & TSP BOREWELL) -->
+        <div class="bescom-section-wrap" id="bescom-pending-section">
+          <div class="exec-section-banner" style="border-left-color:#D97706;">
+            <div class="exec-section-title">⚡ BESCOM Registration Number Pending — SCP &amp; TSP (Borewell)</div>
+            <div class="exec-scope-badge" id="bescom-scope-badge">CF &amp; CP Works (Non-Overdue) • Click AE Name to View Works</div>
+          </div>
+
+          <div class="bescom-kpi-strip" id="bescom-kpi-strip"></div>
+
+          <div class="bescom-toolbar">
+            <input type="text" id="bescom-ae-search" class="bescom-search-input" placeholder="🔍 Search AE Name..." />
+            <div id="bescom-meta-text" style="font-size:0.80rem;font-weight:700;color:#334155;"></div>
+          </div>
+
+          <div id="bescom-ae-table-wrap"></div>
+        </div>
       </section>
 
       <!-- =====================================================================
@@ -2450,6 +2547,30 @@
   </div>
   </div>
 
+  <!-- =========================================================================
+       BESCOM PENDING AE DETAILS POP-UP MODAL
+       ========================================================================= -->
+  <div id="bescom-detail-modal" class="odm-overlay" aria-hidden="true">
+    <div class="odm-dialog" role="dialog" aria-modal="true" aria-labelledby="bdm-title">
+      <div class="odm-header" style="background:linear-gradient(135deg, #B45309 0%, #D97706 100%);">
+        <h2 id="bdm-title" class="odm-title">BESCOM Registration Pending Works</h2>
+        <button type="button" id="bdm-close-btn" class="odm-close-btn">✕ Close</button>
+      </div>
+      <div id="bdm-summary-bar" class="odm-summary-bar"></div>
+      <div class="odm-toolbar">
+        <div class="odm-tabs">
+          <button type="button" id="bdm-tab-all" class="odm-tab-btn active">All Pending</button>
+          <button type="button" id="bdm-tab-cf" class="odm-tab-btn">CF Works</button>
+          <button type="button" id="bdm-tab-cp" class="odm-tab-btn">CP Works</button>
+        </div>
+        <div class="odm-actions">
+          <button type="button" id="bdm-dl-xlsx-btn" class="btn-primary">Download Excel (.xlsx)</button>
+          <button type="button" id="bdm-dl-pdf-btn" class="btn-primary">Download PDF (.pdf)</button>
+        </div>
+      </div>
+      <div id="bdm-body" class="odm-body"></div>
+    </div>
+  </div>
   <!-- =========================================================================
        90% SCREEN CHRONIC OVERDUE WORKS POPUP MODAL (2+ / 3+ / 4+ YEARS)
        ========================================================================= -->
@@ -2956,6 +3077,7 @@
         else if ((norm.includes("ಒಟ್ಟಾರೆ ವೆಚ್ಚ") || norm.includes("ಒಟ್ಟು ವೆಚ್ಚ") || upper.includes("TOTAL EXP")) && map.total_exp === undefined) map.total_exp = idx;
         else if ((norm.includes("ಬಾಕಿ ಬಿಲ್") || upper.includes("PENDING BILL")) && map.pending_bill === undefined) map.pending_bill = idx;
         else if ((norm.includes("ಪೂರ್ಣಗೊಳಿಸಲು") || norm.includes("ಬೇಕಾಗುವ ಬಾಕಿ") || upper.includes("BALANCE TO COMPLETE")) && map.bal_to_complete === undefined) map.bal_to_complete = idx;
+        else if ((upper.includes("BESCOM") || norm.includes("ಬೆಸ್ಕಾಂ") || (upper.includes("REGISTRATION") && (upper.includes("NO") || upper.includes("NUMBER")))) && map.bescom_reg === undefined) map.bescom_reg = idx;
         else if (((norm.includes("ಮುಂದುವರೆದ") && norm.includes("ಹೊಸ")) || norm.includes("ಕಾಮಗಾರಿಯ ವಿಧ") || upper.includes("WORK TYPE") || upper.includes("SPILLOVER")) && map.work_type === undefined) map.work_type = idx;
       });
 
@@ -3079,6 +3201,7 @@
           const startDateStr = colMap.start_date !== undefined ? (formatDateObj(parseIndianDate(r[colMap.start_date])) || normalizeText(r[colMap.start_date])) : "";
           const hoaRaw = colMap.hoa !== undefined ? normalizeText(r[colMap.hoa]) : "";
           const hoa = hoaRaw || target;
+          const bescomReg = colMap.bescom_reg !== undefined ? normalizeText(r[colMap.bescom_reg]) : "";
 
           const goFy = colMap.go_date !== undefined ? extractFinancialYear(r[colMap.go_date]) : "";
           const woSourceCell = colMap.wo_date !== undefined ? r[colMap.wo_date] : (colMap.start_date !== undefined ? r[colMap.start_date] : "");
@@ -3174,7 +3297,8 @@
             is_new_work: isNewWork,
             is_status_p: isStatusP ? 1 : 0,
             is_status_ets: isStatusEts ? 1 : 0,
-            is_overdue: isOverdue ? 1 : 0
+            is_overdue: isOverdue ? 1 : 0,
+            bescom_reg: bescomReg
           });
         }
 
@@ -3383,7 +3507,8 @@
         row.is_new_work ? 1 : 0,
         getStrId(row.district_name),
         getStrId(row.taluk_name),
-        getStrId(row.constituency_name)
+        getStrId(row.constituency_name),
+        getStrId(row.bescom_reg)
       ]);
 
       const rawJson = JSON.stringify({
@@ -3448,7 +3573,8 @@
           is_new_work: arr[30] ? 1 : 0,
           district_name: arr[31] !== undefined ? (s[arr[31]] || UNSPECIFIED_LABEL) : UNSPECIFIED_LABEL,
           taluk_name: arr[32] !== undefined ? (s[arr[32]] || UNSPECIFIED_LABEL) : UNSPECIFIED_LABEL,
-          constituency_name: arr[33] !== undefined ? (s[arr[33]] || UNSPECIFIED_LABEL) : UNSPECIFIED_LABEL
+          constituency_name: arr[33] !== undefined ? (s[arr[33]] || UNSPECIFIED_LABEL) : UNSPECIFIED_LABEL,
+          bescom_reg: arr[34] !== undefined ? (s[arr[34]] || "") : ""
         };
         if (!rowObj.od_period && rowObj.is_overdue) {
           rowObj.od_period = deriveOverduePeriodFromRow(rowObj, todayDt);
@@ -5227,6 +5353,7 @@
         };
       });
       document.getElementById("p1-debug-table-wrap").innerHTML = buildHtmlTable(dbgCols, dbgData, 420);
+      if (typeof renderBescomPendingSection === "function") renderBescomPendingSection();
     }
 
     function buildHtmlTable(columns, rows, maxHeight = 540) {
@@ -7673,6 +7800,333 @@
       }
       window.addEventListener("load", init);
     })();
+  // =========================================================================
+    // BESCOM REGISTRATION PENDING (SCP & TSP BOREWELL — CF & CP, NON-OVERDUE)
+    // =========================================================================
+    let BESCOM_MODAL_STATE = {
+      aeName: "",
+      activeTab: "all", // "all" | "CF" | "CP"
+      rows: []
+    };
+
+    function isBescomRegMissing(val) {
+      const s = String(val ?? "").replace(/\s+/g, " ").trim().toUpperCase();
+      return !s || ["-", "--", "---", "NIL", "NA", "N/A", "NONE", "NULL", "NAN", "0", "ಇಲ್ಲ", "ಖಾಲಿ"].includes(s);
+    }
+
+    function getBescomPendingRows() {
+      const d = document.getElementById("f-div")?.value || ALL_OPTION;
+      const s = document.getElementById("f-subdiv")?.value || ALL_OPTION;
+      const ee = document.getElementById("f-ee")?.value || ALL_OPTION;
+      const ta = document.getElementById("f-ta")?.value || ALL_OPTION;
+      const asOff = document.getElementById("f-as")?.value || ALL_OPTION;
+
+      return (STATE.masterRows || []).filter((r) => {
+        const sheetLow = String(r.sheet_name || "").toLowerCase().trim();
+        const isTargetSheet = sheetLow === "scp (borewell)" || sheetLow === "tsp (borewell)";
+        if (!isTargetSheet) return false;
+
+        if (d !== ALL_OPTION && r.division_name !== d) return false;
+        if (s !== ALL_OPTION && r.subdivision_name !== s) return false;
+        if (ee !== ALL_OPTION && r.ee_name !== ee) return false;
+        if (ta !== ALL_OPTION && r.ta_name !== ta) return false;
+        if (asOff !== ALL_OPTION && r.as_name !== asOff) return false;
+
+        if (r.is_overdue) return false;
+        const st = String(r.status_raw || "").toUpperCase().trim();
+        if (st !== "CF" && st !== "CP") return false;
+
+        return isBescomRegMissing(r.bescom_reg);
+      });
+    }
+
+    function renderBescomPendingSection() {
+      const kpiEl = document.getElementById("bescom-kpi-strip");
+      const wrapEl = document.getElementById("bescom-ae-table-wrap");
+      const metaEl = document.getElementById("bescom-meta-text");
+      if (!kpiEl || !wrapEl) return;
+
+      const allPending = getBescomPendingRows();
+      const totalCf = allPending.filter((r) => String(r.status_raw || "").toUpperCase().trim() === "CF").length;
+      const totalCp = allPending.filter((r) => String(r.status_raw || "").toUpperCase().trim() === "CP").length;
+
+      // Group by AE
+      const aeMap = new Map();
+      allPending.forEach((r) => {
+        const ae = r.so_name || UNASSIGNED_LABEL;
+        if (!aeMap.has(ae)) {
+          aeMap.set(ae, { ae, cf: 0, cp: 0, total: 0, divs: new Set(), aees: new Set(), rows: [] });
+        }
+        const g = aeMap.get(ae);
+        const st = String(r.status_raw || "").toUpperCase().trim();
+        if (st === "CF") g.cf += 1;
+        if (st === "CP") g.cp += 1;
+        g.total += 1;
+        if (r.division_name) g.divs.add(r.division_name);
+        if (r.aee_name && r.aee_name !== UNASSIGNED_LABEL) g.aees.add(r.aee_name);
+        g.rows.push(r);
+      });
+
+      const aeList = Array.from(aeMap.values()).sort(
+        (a, b) => (b.total - a.total) || (b.cf - a.cf) || (b.cp - a.cp) || a.ae.localeCompare(b.ae)
+      );
+
+      kpiEl.innerHTML = `
+        <div class="kpi-card kpi-amber">
+          <div class="kpi-label">AEs with Pending BESCOM Reg.</div>
+          <div class="kpi-val">${aeList.length.toLocaleString()}</div>
+        </div>
+        <div class="kpi-card kpi-teal">
+          <div class="kpi-label">Total Pending Borewell Works</div>
+          <div class="kpi-val">${allPending.length.toLocaleString()}</div>
+        </div>
+        <div class="kpi-card kpi-rose">
+          <div class="kpi-label">CF Works (No BESCOM Reg.)</div>
+          <div class="kpi-val">${totalCf.toLocaleString()}</div>
+        </div>
+        <div class="kpi-card kpi-sky">
+          <div class="kpi-label">CP Works (No BESCOM Reg.)</div>
+          <div class="kpi-val">${totalCp.toLocaleString()}</div>
+        </div>
+      `;
+
+      const searchVal = (document.getElementById("bescom-ae-search")?.value || "").trim().toLowerCase();
+      const filteredAEs = searchVal
+        ? aeList.filter((g) => g.ae.toLowerCase().includes(searchVal) || Array.from(g.divs).some((x) => x.toLowerCase().includes(searchVal)))
+        : aeList;
+
+      if (metaEl) {
+        metaEl.textContent = `Showing ${filteredAEs.length} of ${aeList.length} AEs • Sheets: SCP (Borewell) & TSP (Borewell)`;
+      }
+
+      if (!filteredAEs.length) {
+        wrapEl.innerHTML = `<div class="filter-card" style="padding:14px;font-weight:700;text-align:center;">No pending CF / CP borewell works without BESCOM Registration Number found in the current scope.</div>`;
+        return;
+      }
+
+      const tbodyHtml = filteredAEs.map((g, idx) => `
+        <tr>
+          <td class="ce-sl-cell">${idx + 1}</td>
+          <td style="text-align:left;">
+            <button type="button" class="bescom-ae-btn" data-bescom-ae="${escapeHtml(g.ae)}">
+              <span>${escapeHtml(g.ae)}</span>
+              <span style="font-size:0.70rem;opacity:0.8;">View →</span>
+            </button>
+          </td>
+          <td class="ce-wrap-cell">${escapeHtml(Array.from(g.divs).join(", ") || "-")}</td>
+          <td class="ce-wrap-cell">${escapeHtml(Array.from(g.aees).join(", ") || "-")}</td>
+          <td><span class="bescom-badge-cf">${g.cf}</span></td>
+          <td><span class="bescom-badge-cp">${g.cp}</span></td>
+          <td style="font-weight:800;color:#991B1B;">${g.total}</td>
+        </tr>
+      `).join("");
+
+      wrapEl.innerHTML = `
+        <div class="ce-table-wrapper" style="max-height:480px;">
+          <table class="ce-overdue-table">
+            <thead>
+              <tr>
+                <th>Sl. No.</th>
+                <th style="text-align:left;">Assistant Engineer (Click Name)</th>
+                <th>Division</th>
+                <th>Assistant Executive Engineer (AEE)</th>
+                <th>CF (No BESCOM Reg.)</th>
+                <th>CP (No BESCOM Reg.)</th>
+                <th>Total Pending</th>
+              </tr>
+            </thead>
+            <tbody>${tbodyHtml}</tbody>
+          </table>
+        </div>
+      `;
+
+      // Bind click & search once
+      if (!wrapEl.dataset.bescomBound) {
+        wrapEl.dataset.bescomBound = "1";
+        wrapEl.addEventListener("click", (e) => {
+          const btn = e.target.closest("[data-bescom-ae]");
+          if (!btn) return;
+          openBescomAeModal(btn.getAttribute("data-bescom-ae"));
+        });
+      }
+      const searchEl = document.getElementById("bescom-ae-search");
+      if (searchEl && !searchEl.dataset.bescomBound) {
+        searchEl.dataset.bescomBound = "1";
+        searchEl.addEventListener("input", renderBescomPendingSection);
+      }
+    }
+
+    function openBescomAeModal(aeName) {
+      const rows = getBescomPendingRows().filter((r) => (r.so_name || UNASSIGNED_LABEL) === aeName);
+      BESCOM_MODAL_STATE = { aeName, activeTab: "all", rows };
+      renderBescomAeModal();
+      const modal = document.getElementById("bescom-detail-modal");
+      if (modal) {
+        modal.classList.add("open");
+        modal.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+      }
+    }
+
+    function closeBescomAeModal() {
+      const modal = document.getElementById("bescom-detail-modal");
+      if (modal) {
+        modal.classList.remove("open");
+        modal.setAttribute("aria-hidden", "true");
+        document.body.style.overflow = "";
+      }
+    }
+
+    function getBescomModalActiveRows() {
+      if (BESCOM_MODAL_STATE.activeTab === "CF") {
+        return BESCOM_MODAL_STATE.rows.filter((r) => String(r.status_raw || "").toUpperCase().trim() === "CF");
+      }
+      if (BESCOM_MODAL_STATE.activeTab === "CP") {
+        return BESCOM_MODAL_STATE.rows.filter((r) => String(r.status_raw || "").toUpperCase().trim() === "CP");
+      }
+      return BESCOM_MODAL_STATE.rows;
+    }
+
+    function renderBescomAeModal() {
+      const { aeName, activeTab, rows } = BESCOM_MODAL_STATE;
+      const cfCnt = rows.filter((r) => String(r.status_raw || "").toUpperCase().trim() === "CF").length;
+      const cpCnt = rows.filter((r) => String(r.status_raw || "").toUpperCase().trim() === "CP").length;
+      const divs = Array.from(new Set(rows.map((r) => r.division_name).filter(Boolean))).join(", ") || "-";
+      const aees = Array.from(new Set(rows.map((r) => r.aee_name).filter((x) => x && x !== UNASSIGNED_LABEL))).join(", ") || "-";
+
+      document.getElementById("bdm-title").textContent = `BESCOM Registration Pending — AE: ${aeName}`;
+      document.getElementById("bdm-summary-bar").innerHTML = `
+        <div class="odm-chip-row">
+          <span class="odm-chip"><span class="odm-chip-label">Assistant Engineer:</span> ${escapeHtml(aeName)}</span>
+          <span class="odm-chip"><span class="odm-chip-label">Division:</span> ${escapeHtml(divs)}</span>
+          <span class="odm-chip"><span class="odm-chip-label">AEE:</span> ${escapeHtml(aees)}</span>
+        </div>
+        <div class="odm-chip-row">
+          <span class="odm-chip"><span class="odm-chip-label">CF Works (No BESCOM Reg.):</span> ${cfCnt}</span>
+          <span class="odm-chip"><span class="odm-chip-label">CP Works (No BESCOM Reg.):</span> ${cpCnt}</span>
+          <span class="odm-chip"><span class="odm-chip-label">Total Pending:</span> ${rows.length}</span>
+          <span class="odm-chip"><span class="odm-chip-label">Sheets:</span> SCP (Borewell), TSP (Borewell)</span>
+        </div>
+      `;
+
+      const tAll = document.getElementById("bdm-tab-all");
+      const tCf = document.getElementById("bdm-tab-cf");
+      const tCp = document.getElementById("bdm-tab-cp");
+      if (tAll) { tAll.textContent = `All Pending (${rows.length})`; tAll.className = "odm-tab-btn" + (activeTab === "all" ? " active" : ""); }
+      if (tCf) { tCf.textContent = `CF Works (${cfCnt})`; tCf.className = "odm-tab-btn" + (activeTab === "CF" ? " active-od" : ""); }
+      if (tCp) { tCp.textContent = `CP Works (${cpCnt})`; tCp.className = "odm-tab-btn" + (activeTab === "CP" ? " active" : ""); }
+
+      const activeRows = getBescomModalActiveRows();
+      const bodyEl = document.getElementById("bdm-body");
+      if (!activeRows.length) {
+        bodyEl.innerHTML = `<div style="padding:24px;text-align:center;font-weight:700;color:#475569;">No works in this tab.</div>`;
+        return;
+      }
+
+      const tbodyHtml = activeRows.map((r, idx) => {
+        const st = String(r.status_raw || "").toUpperCase().trim();
+        const badgeCls = st === "CF" ? "bescom-badge-cf" : "bescom-badge-cp";
+        return `
+          <tr>
+            <td>${idx + 1}</td>
+            <td class="odm-work-col">${escapeHtml(r.work_name || "-")}</td>
+            <td><span class="${badgeCls}">${escapeHtml(st)}</span></td>
+            <td>${escapeHtml(r.aee_name || "-")}</td>
+            <td>${escapeHtml(r.sheet_name || "-")}</td>
+            <td>${escapeHtml(r.division_name || "-")}</td>
+            <td>${escapeHtml(r.subdivision_name || "-")}</td>
+          </tr>
+        `;
+      }).join("");
+
+      bodyEl.innerHTML = `
+        <table class="odm-table">
+          <thead>
+            <tr>
+              <th>Sl. No.</th>
+              <th>ಕಾಮಗಾರಿ ಹೆಸರು (Work Name)</th>
+              <th>Progress Status</th>
+              <th>AEE Name</th>
+              <th>Scheme Sheet</th>
+              <th>Division</th>
+              <th>Sub-division</th>
+            </tr>
+          </thead>
+          <tbody>${tbodyHtml}</tbody>
+        </table>
+      `;
+      bodyEl.scrollTop = 0;
+    }
+
+    function exportBescomModalExcel() {
+      const rows = getBescomModalActiveRows();
+      if (!rows.length) return;
+      const aoa = [
+        ["Sl. No.", "Work Name", "Progress Status", "AEE Name", "Scheme Sheet", "Division", "Sub-division"]
+      ];
+      rows.forEach((r, i) => aoa.push([
+        i + 1, r.work_name || "-", r.status_raw || "-", r.aee_name || "-", r.sheet_name || "-", r.division_name || "-", r.subdivision_name || "-"
+      ]));
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      ws["!cols"] = [{ wch: 8 }, { wch: 52 }, { wch: 15 }, { wch: 24 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "BESCOM_Pending");
+      const safeAe = BESCOM_MODAL_STATE.aeName.replace(/[\\/:*?"<>|]/g, "_").slice(0, 35) || "AE";
+      XLSX.writeFile(wb, `${safeAe}_BESCOM_Pending_${BESCOM_MODAL_STATE.activeTab}_${STATE.todayStr}.xlsx`);
+    }
+
+    function exportBescomModalPdf() {
+      const dlg = document.querySelector("#bescom-detail-modal .odm-dialog");
+      const tableEl = dlg?.querySelector("table.odm-table");
+      if (!tableEl) return;
+
+      const titleText = document.getElementById("bdm-title")?.textContent || "BESCOM Pending Works";
+      const summaryHtml = document.getElementById("bdm-summary-bar")?.innerHTML || "";
+      const safeName = titleText.replace(/[\\/:*?"<>|]+/g, "_").trim();
+      const timestamp = new Date().toLocaleString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true });
+
+      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${safeName}</title>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Kannada:wght@400&display=swap">
+        <style>
+          @page { size: A4 landscape; margin: 7mm; }
+          * { box-sizing: border-box; font-weight: 400 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          body { margin: 0; font-family: "Inter", "Segoe UI", "Noto Sans Kannada", sans-serif; color: #0F172A; }
+          .pdf-banner { display:flex; justify-content:space-between; align-items:center; background:#B45309; color:#FFF; padding:8px 14px; border-radius:6px 6px 0 0; font-size:12pt; }
+          .pdf-summary { background:#F8FAFC; border:1px solid #94A3B8; border-top:none; padding:6px 12px; margin-bottom:8px; font-size:8.5pt; }
+          .odm-chip-row { display:flex; flex-wrap:wrap; gap:4px 12px; margin-bottom:3px; }
+          .odm-chip { color:#DC2626; } .odm-chip-label { color:#1E3A8A; }
+          table { width:100%; border-collapse:collapse; font-size:8pt; }
+          thead { display:table-header-group; }
+          th { background:#DCE8F7; border:1px solid #64748B; padding:6px 5px; text-align:center; }
+          td { border:1px solid #94A3B8; padding:5px; text-align:center; vertical-align:middle; }
+          td.odm-work-col { text-align:left; min-width:220px; }
+        </style></head><body>
+        <div class="pdf-banner"><div>${escapeHtml(titleText)}</div><div style="font-size:8pt;">Generated: ${timestamp}</div></div>
+        <div class="pdf-summary">${summaryHtml}</div>
+        ${tableEl.outerHTML}
+      </body></html>`;
+
+      const old = document.getElementById("bdm-pdf-frame");
+      if (old) old.remove();
+      const iframe = document.createElement("iframe");
+      iframe.id = "bdm-pdf-frame";
+      iframe.style.cssText = "position:fixed;width:0;height:0;border:0;visibility:hidden;";
+      document.body.appendChild(iframe);
+      iframe.contentWindow.document.open();
+      iframe.contentWindow.document.write(html);
+      iframe.contentWindow.document.close();
+      setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); }, 300);
+    }
+
+    document.getElementById("bdm-close-btn")?.addEventListener("click", closeBescomAeModal);
+    document.getElementById("bescom-detail-modal")?.addEventListener("click", (e) => {
+      if (e.target.id === "bescom-detail-modal") closeBescomAeModal();
+    });
+    document.getElementById("bdm-tab-all")?.addEventListener("click", () => { BESCOM_MODAL_STATE.activeTab = "all"; renderBescomAeModal(); });
+    document.getElementById("bdm-tab-cf")?.addEventListener("click", () => { BESCOM_MODAL_STATE.activeTab = "CF"; renderBescomAeModal(); });
+    document.getElementById("bdm-tab-cp")?.addEventListener("click", () => { BESCOM_MODAL_STATE.activeTab = "CP"; renderBescomAeModal(); });
+    document.getElementById("bdm-dl-xlsx-btn")?.addEventListener("click", exportBescomModalExcel);
+    document.getElementById("bdm-dl-pdf-btn")?.addEventListener("click", exportBescomModalPdf);
   </script>
 </body>
 </html>
