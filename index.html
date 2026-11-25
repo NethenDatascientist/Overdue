@@ -1263,33 +1263,57 @@
       cursor: pointer;
     }
 
+    .main-container {
+      padding-right: 2.7rem;
+    }
     #scroll-hud-root {
       position: fixed;
       top: 0;
-      right: 0;
-      width: 14px;
+      right: 4px;
+      width: 34px;
       height: 100vh;
       z-index: 9990;
       pointer-events: none;
       font-family: monospace;
     }
+    /* Larger, clearly visible grey ruler lines along the scroll path */
+    #scroll-hud-root::before {
+      content: "";
+      position: absolute;
+      top: 20%;
+      bottom: 20%;
+      right: 0;
+      width: 16px;
+      background-image: repeating-linear-gradient(
+        to bottom,
+        rgba(71, 85, 105, 0.55) 0px,
+        rgba(71, 85, 105, 0.55) 2px,
+        transparent 2px,
+        transparent 26px
+      );
+      pointer-events: none;
+    }
     #scroll-hud-indicator {
       position: absolute;
       right: 0;
-      width: 14px;
-      top: 25%;
+      width: 34px;
+      top: 20%;
     }
+    /* Bigger, thicker blue indicator line */
     #scroll-hud-line {
-      width: 14px;
-      height: 2px;
-      background: #1E3A8A;
+      width: 34px;
+      height: 3.5px;
+      background: #1D4ED8;
+      border-radius: 2px 0 0 2px;
     }
     #scroll-hud-pct {
-      font-size: 7.5px;
+      font-size: 11px;
       font-weight: 800;
       color: #1E3A8A;
       text-align: right;
-      padding-right: 1px;
+      padding-right: 2px;
+      margin-top: 2px;
+      white-space: nowrap;
     }
 
     /* =========================================================================
