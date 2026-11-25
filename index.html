@@ -5239,15 +5239,15 @@
           <div class="kpi-val">${escapeHtml(STATE.todayStr)}</div>
         </div>
         <div class="kpi-card kpi-lavender">
-          <div class="kpi-label"> ${escapeHtml(viewChoice)}s</div>
+          <div class="kpi-label"> ${escapeHtml(viewChoice)}s (With OD)</div>
           <div class="kpi-val">${namedOfficersCount.toLocaleString()}</div>
         </div>
           <div class="kpi-card kpi-teal">
-  <div class="kpi-label">Total Works (Inc.Other Dept Funds)</div>
+  <div class="kpi-label">Total Works (Inc.HOA:ODF)</div>
   <div class="kpi-val">${totalAssignedAll.toLocaleString()}</div>
 </div>
         <div class="kpi-card kpi-rose">
-          <div class="kpi-label">Overdue Works ('P')</div>
+          <div class="kpi-label">Overdue Works (Status: Progress)</div>
           <div class="kpi-val">${totalOverdueAll.toLocaleString()} (${overallOdPct}%)</div>
         </div>
         <div class="kpi-card kpi-amber">
@@ -5255,7 +5255,7 @@
           <div class="kpi-val">${chronicCount.toLocaleString()}</div>
         </div>
         <div class="kpi-card kpi-sage">
-          <div class="kpi-label">'ETS' Works</div>
+          <div class="kpi-label">Estimation To be Sanctioned Works</div>
           <div class="kpi-val">${totalEtsAll.toLocaleString()}</div>
         </div>
       `;
