@@ -253,6 +253,27 @@
       box-shadow: 0 12px 30px rgba(15, 23, 42, 0.22);
       z-index: 10;
     }
+    @media (pointer: coarse) and (orientation: portrait) {
+      #intro-overlay,
+      .intro-overlay {
+        position: fixed !important;
+        inset: 0 !important;
+        width: 100% !important;
+        height: 100dvh !important;
+        min-height: -webkit-fill-available !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        align-items: center !important;
+        padding: 40px 28px !important;
+        box-sizing: border-box !important;
+      }
+      #intro-overlay > *,
+      .intro-overlay > * {
+        transform: scale(1.25);
+        transform-origin: center center;
+      }
+    }
     .intro-load-status {
       font-size: 0.80rem;
       font-weight: 700;
@@ -1429,62 +1450,52 @@
     }
 
     /* Touch / Phone Scaling for Right-Edge Moving Scroll HUD (PC stays unchanged) */
+   /* Phone / Tablet High-Performance Mode (PC stays 100% untouched) */
     @media (pointer: coarse) {
+      /* Keep native mobile scrollbar & completely hide custom HUD */
+      html,
+      body {
+        scrollbar-width: auto !important;
+        -webkit-text-size-adjust: 100% !important;
+        text-size-adjust: 100% !important;
+        min-height: 100dvh;
+        min-height: -webkit-fill-available;
+      }
+      html::-webkit-scrollbar,
+      body::-webkit-scrollbar {
+        display: initial !important;
+        width: auto !important;
+      }
       #scroll-hud-root {
-        width: 150px;
+        display: none !important;
       }
-      #scroll-hud-drag-zone {
-        width: 96px;
-        cursor: pointer;
+
+      /* CRITICAL: Release Plotly's touch lock so swiping & pinch-zoom work everywhere on charts */
+      .js-plotly-plot,
+      .js-plotly-plot .plot-container,
+      .js-plotly-plot .svg-container,
+      .js-plotly-plot .main-svg,
+      .js-plotly-plot .draglayer,
+      .js-plotly-plot .draglayer * {
+        touch-action: pan-x pan-y pinch-zoom !important;
       }
-      .scroll-tick {
-        width: 22px;
-        height: 2.5px;
+      .js-plotly-plot .draglayer {
+        pointer-events: none !important;
       }
-      .scroll-tick.major {
-        width: 44px;
-        height: 3px;
+
+      /* Android GPU Speedup: remove heavy blur filters & expensive shadows on mobile */
+      * {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
       }
-      .scroll-tick-num {
-        right: 54px;
-        font-size: 24px;
-      }
-      #scroll-hud-indicator {
-        width: 120px;
-        display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-      }
-      #scroll-hud-line {
-        width: 120px;
-        height: 6px;
-        border-radius: 4px 0 0 4px;
-      }
-      #scroll-hud-root.is-dragging #scroll-hud-line {
-        height: 8px;
-      }
-      #scroll-hud-pct {
-        font-size: 28px;
-        margin-top: 8px;
-        padding-right: 8px;
-        letter-spacing: 1px;
-        transition: transform 0.12s ease, background 0.12s ease;
-      }
-      /* Shift the % readout left of your thumb while dragging on a phone */
-      #scroll-hud-root.is-dragging #scroll-hud-pct {
-        transform: translateX(-42px) scale(1.1);
-        background: rgba(255, 255, 255, 0.94);
-        padding: 4px 12px;
-        border-radius: 999px;
-        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.22);
-      }
-      /* Slightly taller tap target for the top-left sidebar toggle button */
+
+      /* Bigger top-left sidebar toggle button for fingers */
       #sidebar-toggle-btn {
-        width: 46px;
-        height: 46px;
-        font-size: 1.25rem;
+        width: 48px;
+        height: 48px;
+        font-size: 1.3rem;
       }
-    }
+    } 
 
     /* =========================================================================
        PAGE 4: ALL WORKS REPORT (ABSTRACT TABLE & OVERDUE TOGGLE)
@@ -5505,6 +5516,8 @@
 
       Plotly.newPlot(chartEl, traces, {
         barmode: "overlay",
+        dragmode: false,
+     hovermode: document.documentElement.classList.contains("is-mobile-device") ? false : "closest",
         height: chartHeight,
         bargap: 0.22,
         paper_bgcolor: "#E8EEF5",
@@ -5529,7 +5542,65 @@
        font: { size: 15, color: "#475569" }
      }],
         margin: { l: 245, r: 20, t: 36, b: 40 }
-      }, { responsive: true, displayModeBar: false });
+      }, {
+     responsive: true,
+     scrollZoom: false,
+     displayModeBar: !document.documentElement.classList.contains("is-mobile-device")
+   });
+      // Mobile Tap Bridge: native 60fps scroll & pinch-zoom + tap any bar/name to open popup
+      if (document.documentElement.classList.contains("is-mobile-device") && !chartEl._mobileTapReady) {
+        chartEl._mobileTapReady = true;
+        let tX = 0, tY = 0, tStart = 0, tMoved = false;
+
+        chartEl.addEventListener("touchstart", (e) => {
+          if (e.touches.length !== 1) { tMoved = true; return; }
+          tX = e.touches[0].clientX;
+          tY = e.touches[0].clientY;
+          tStart = Date.now();
+          tMoved = false;
+        }, { passive: true });
+
+        chartEl.addEventListener("touchmove", (e) => {
+          if (tMoved || e.touches.length !== 1) { tMoved = true; return; }
+          if (Math.abs(e.touches[0].clientX - tX) > 10 || Math.abs(e.touches[0].clientY - tY) > 10) {
+            tMoved = true;
+          }
+        }, { passive: true });
+
+        chartEl.addEventListener("touchend", () => {
+          if (tMoved || Date.now() - tStart > 450) return;
+          const fl = chartEl._fullLayout;
+          const ya = fl && fl.yaxis;
+          if (!ya || !ya._length) return;
+
+          const rect = chartEl.getBoundingClientRect();
+          const scaleY = (fl.height || rect.height) / (rect.height || 1);
+          const plotY = (tY - rect.top) * scaleY - ya._offset;
+          if (plotY < 0 || plotY > ya._length) return;
+
+          const tr = (chartEl.data && chartEl.data[0]) || {};
+          const cats = (ya._categories && ya._categories.length) ? ya._categories : (tr.y || []);
+          const rawIdx = typeof ya.p2l === "function"
+            ? Math.round(ya.p2l(plotY))
+            : Math.floor((1 - plotY / ya._length) * cats.length);
+          const idx = Math.max(0, Math.min(cats.length - 1, rawIdx));
+          const officerName = cats[idx];
+
+          if (officerName !== undefined && typeof chartEl.emit === "function") {
+            chartEl.emit("plotly_click", {
+              points: [{
+                y: officerName,
+                label: officerName,
+                pointIndex: idx,
+                pointNumber: idx,
+                customdata: tr.customdata ? tr.customdata[idx] : undefined,
+                data: tr,
+                fullData: (chartEl._fullData && chartEl._fullData[0]) || tr
+              }]
+            });
+          }
+        }, { passive: true });
+      }
 
       const sumCols = ["Sl. No.", viewChoice, "Total Works Assigned", "Overdue Works ('P')", "ETS Works ('ETS')", "Rest of Works", "Ongoing Works ('P')", "Overdue %"];
       const sumRows = summaryList.map((r, i) => ({
@@ -7214,21 +7285,39 @@
 
     (function initScrollHudRuler() {
       const root = document.getElementById("scroll-hud-root");
+
+      // Detects phones/tablets accurately even when Chrome "Desktop site" is enabled
+      const isPhone = Boolean(
+        (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+        ("ontouchstart" in window && navigator.maxTouchPoints > 0 && !(window.matchMedia && window.matchMedia("(hover: hover)").matches))
+      );
+
+      if (isPhone) {
+        document.documentElement.classList.add("is-mobile-device");
+        document.getElementById("app-sidebar")?.classList.add("collapsed");
+
+        if (root) root.style.display = "none";
+
+        // Automatically uncheck & hide the Scroll HUD toggle in the sidebar on phones
+        document.querySelectorAll('#app-sidebar input[type="checkbox"]').forEach((cb) => {
+          const text = (cb.closest("label")?.textContent || cb.parentElement?.textContent || "").toLowerCase();
+          if (text.includes("scroll") || text.includes("hud") || text.includes("ruler")) {
+            cb.checked = false;
+            const row = cb.closest("label") || cb.parentElement;
+            if (row) row.style.display = "none";
+          }
+        });
+        return;
+      }
+
       const ind = document.getElementById("scroll-hud-indicator");
       const lbl = document.getElementById("scroll-hud-pct");
       if (!root || !ind || !lbl) return;
 
-      const isTouchUI = Boolean(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
-
-      // Start sidebar collapsed on phones so the full PC layout fills portrait screen immediately
-      if (isTouchUI) {
-        document.getElementById("app-sidebar")?.classList.add("collapsed");
-      }
-
       root.style.contain = "layout style";
 
-      const TICK_PX = isTouchUI ? 180 : 90; // Wider spacing on zoomed-out phone viewport
-      const SMOOTH_SPEED = 10;              // Smooth liquid glide
+      const TICK_PX = 90;
+      const SMOOTH_SPEED = 10;
 
       let ticksWrap = document.getElementById("scroll-hud-ticks");
       if (!ticksWrap) {
@@ -7241,7 +7330,7 @@
       if (!dragZone) {
         dragZone = document.createElement("div");
         dragZone.id = "scroll-hud-drag-zone";
-        dragZone.title = "Touch, click, or drag to scroll";
+        dragZone.title = "Click or drag to scroll";
         root.appendChild(dragZone);
       }
 
@@ -7302,13 +7391,11 @@
           lastPctStr = pctStr;
         }
 
-        const labelCenterY = blueY + (isTouchUI ? 22 : 8);
-        const fadeStart = isTouchUI ? 34 : 10;
-        const fadeSpan = isTouchUI ? 36 : 14;
+        const labelCenterY = blueY + 8;
         for (let i = 0; i < majorNums.length; i++) {
           const item = majorNums[i];
           const dist = Math.abs((tapeY + item.yPx) - labelCenterY);
-          const alpha = Math.round(Math.min(1, Math.max(0, (dist - fadeStart) / fadeSpan)) * 20) / 20;
+          const alpha = Math.round(Math.min(1, Math.max(0, (dist - 10) / 14)) * 20) / 20;
           if (alpha !== item.lastAlpha) {
             item.el.style.opacity = String(alpha);
             item.lastAlpha = alpha;
@@ -7347,10 +7434,9 @@
       }
 
       function scrollFromPointer(clientY) {
-        const vh = window.innerHeight || cachedVh;
-        const topPad = vh * 0.05;
-        const botPad = vh * 0.07;
-        const ratio = Math.min(1, Math.max(0, (clientY - topPad) / Math.max(1, vh - topPad - botPad)));
+        const topPad = cachedVh * 0.05;
+        const botPad = cachedVh * 0.07;
+        const ratio = Math.min(1, Math.max(0, (clientY - topPad) / Math.max(1, cachedVh - topPad - botPad)));
         window.scrollTo({ top: ratio * cachedMaxS, behavior: "auto" });
         targetPct = ratio * 100;
         displayPct = targetPct;
@@ -7359,20 +7445,16 @@
 
       dragZone.addEventListener("pointerdown", (e) => {
         if (e.pointerType === "mouse" && e.button !== 0) return;
-        e.preventDefault();
         refreshMetrics();
         isDragging = true;
         root.classList.add("is-dragging");
         dragZone.classList.add("is-dragging");
-        if (dragZone.setPointerCapture) {
-          try { dragZone.setPointerCapture(e.pointerId); } catch (_) {}
-        }
+        dragZone.setPointerCapture(e.pointerId);
         scrollFromPointer(e.clientY);
       });
 
       dragZone.addEventListener("pointermove", (e) => {
         if (!isDragging) return;
-        e.preventDefault();
         scrollFromPointer(e.clientY);
       });
 
@@ -7381,38 +7463,19 @@
         isDragging = false;
         root.classList.remove("is-dragging");
         dragZone.classList.remove("is-dragging");
-        if (dragZone.hasPointerCapture && dragZone.hasPointerCapture(e.pointerId)) {
-          try { dragZone.releasePointerCapture(e.pointerId); } catch (_) {}
+        if (dragZone.hasPointerCapture(e.pointerId)) {
+          dragZone.releasePointerCapture(e.pointerId);
         }
       };
 
       dragZone.addEventListener("pointerup", stopDrag);
       dragZone.addEventListener("pointercancel", stopDrag);
 
-      // Guard for iOS Safari / Android Chrome so 1-finger rail dragging never rubber-bands,
-      // while 2-finger pinch-to-zoom still works normally everywhere
-      dragZone.addEventListener("touchstart", (e) => {
-        if (e.touches.length === 1) e.preventDefault();
-      }, { passive: false });
-
-      dragZone.addEventListener("touchmove", (e) => {
-        if (isDragging && e.touches.length === 1) {
-          e.preventDefault();
-          scrollFromPointer(e.touches[0].clientY);
-        }
-      }, { passive: false });
-
       window.addEventListener("scroll", kickHud, { passive: true });
       window.addEventListener("resize", () => {
         refreshMetrics();
         kickHud();
       }, { passive: true });
-      window.addEventListener("orientationchange", () => {
-        setTimeout(() => {
-          refreshMetrics();
-          kickHud();
-        }, 250);
-      });
 
       if (typeof ResizeObserver !== "undefined") {
         new ResizeObserver(() => {
