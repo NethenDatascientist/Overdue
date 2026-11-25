@@ -2032,14 +2032,24 @@
       flex-shrink: 0;
       display: inline-block;
     }
-    .odm-shrink-note {
-      margin-left: auto;
-      font-size: 0.76rem;
-      font-weight: 500;
-      color: #000000;
-      line-height: 1.3;
-      white-space: nowrap;
-    }
+    .odm-chart-search {
+   margin-left: auto;
+   width: 250px;
+   max-width: 100%;
+   padding: 6px 12px;
+   border-radius: 9px;
+   border: 1.5px solid #94A3B8;
+   background: #FFFFFF;
+   color: #0F172A;
+   font-family: "Inter", "Noto Sans Kannada", sans-serif;
+   font-size: 0.84rem;
+   font-weight: 600;
+ }
+ .odm-chart-search:focus {
+   outline: none;
+   border-color: #2563EB;
+   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+ }
   /* Bold Kannada & English officer names on chart Y-axis */
     .js-plotly-plot .ytick text {
       font-family: "Inter", "Segoe UI", "Noto Sans Kannada", "Nirmala UI", sans-serif !important;
@@ -4790,12 +4800,22 @@
               legend.appendChild(item);
             });
 
-            const shrinkNote = document.createElement("span");
-         shrinkNote.className = "odm-shrink-note";
-         shrinkNote.textContent = "Bars with >250 works are shrunk for better view";
+            const searchInput = document.createElement("input");
+         searchInput.type = "search";
+         searchInput.id = "p1-officer-search";
+         searchInput.className = "odm-chart-search";
+         searchInput.placeholder = "🔍 Search name...";
+
+         let searchTimer = null;
+         searchInput.addEventListener("input", () => {
+           clearTimeout(searchTimer);
+           searchTimer = setTimeout(() => {
+             if (typeof renderDashboardPage === "function") renderDashboardPage();
+           }, 120);
+         });
 
          topBar.appendChild(hint);
-         topBar.appendChild(shrinkNote);
+         topBar.appendChild(searchInput);
          topBar.appendChild(legend);
             gd.parentElement.insertBefore(topBar, gd);
           } else {
@@ -5300,9 +5320,14 @@
       document.getElementById("p1-scope-badge-1").textContent = scopeLabel;
       document.getElementById("p1-scope-badge-3").textContent = scopeLabel;
 
-      const chartSource = hideZero
-        ? summaryList.filter((r) => r.overdue_works > 0 || r.is_unassigned)
-        : summaryList;
+      const rawChartSource = hideZero
+     ? summaryList.filter((r) => r.overdue_works > 0 || r.is_unassigned)
+     : summaryList;
+
+   const searchQuery = (document.getElementById("p1-officer-search")?.value || "").trim().toLowerCase();
+   const chartSource = searchQuery
+     ? rawChartSource.filter((r) => String(r.name || "").toLowerCase().includes(searchQuery))
+     : rawChartSource;
 
       const plotArr = [...chartSource].reverse();
       const yNames = plotArr.map((r) => r.name);
@@ -5424,7 +5449,13 @@
           tickcolor: "#E8EEF5",
           tickfont: { size: 12, color: "#0F172A" }
         },
-        legend: { orientation: "h", y: 1.02, x: 0, traceorder: "reversed" },
+        showlegend: false,
+     annotations: plotArr.length ? [] : [{
+       text: "No matching officer found",
+       xref: "paper", yref: "paper", x: 0.5, y: 0.5,
+       showarrow: false,
+       font: { size: 15, color: "#475569" }
+     }],
         margin: { l: 245, r: 20, t: 36, b: 40 }
       }, { responsive: true, displayModeBar: false });
 
