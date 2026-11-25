@@ -5560,7 +5560,7 @@
 
       Plotly.newPlot("p2-donut-chart", [{
         type: "pie",
-        labels: ["Overdue ('P')", "Claimed 'ETS'", "On-Track ('P')", "Completed / Rest"],
+        labels: ["Overdue", "ETS", "In Progress", "Completed"],
         values: [offRow.overdue_works, offRow.ets_works, offRow.on_track_p, offRow.rest_works],
         hole: 0.56,
         marker: { colors: ["#DC2626", "#059669", "#2563EB", "#64748B"], line: { color: "#E2E8F0", width: 3 } },
