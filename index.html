@@ -1263,6 +1263,20 @@
       cursor: pointer;
     }
 
+    /* Hide Chrome / Edge / Firefox main page scrollbar (tables & dropdowns keep theirs) */
+    html,
+    body {
+      scrollbar-width: none !important;
+      -ms-overflow-style: none !important;
+    }
+    html::-webkit-scrollbar,
+    body::-webkit-scrollbar {
+      display: none !important;
+      width: 0 !important;
+      height: 0 !important;
+    }
+
+    /* Floating Right-Edge Moving Ruler HUD (Zero Side Space Consumed) */
     #scroll-hud-root {
       position: fixed;
       top: 0;
@@ -1273,6 +1287,22 @@
       pointer-events: none;
       overflow: hidden;
       font-family: "Consolas", "SFMono-Regular", "Courier New", monospace;
+    }
+    /* Slim invisible grab strip along the very right edge (replaces Chrome's scrollbar) */
+    #scroll-hud-drag-zone {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 22px;
+      height: 100%;
+      pointer-events: auto;
+      cursor: grab;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+    #scroll-hud-drag-zone.is-dragging {
+      cursor: grabbing;
     }
     #scroll-hud-ticks {
       position: absolute;
@@ -1302,7 +1332,6 @@
       color: #64748B;
       line-height: 1;
       transform: translateY(-50%);
-      transition: opacity 0.12s ease;
       text-shadow: 0 0 4px rgba(255, 255, 255, 0.9);
     }
     #scroll-hud-indicator {
@@ -1310,14 +1339,20 @@
       top: 0;
       right: 0;
       width: 42px;
+      pointer-events: none;
       will-change: transform;
     }
     #scroll-hud-line {
       width: 42px;
       height: 2px;
       background: #1D72F3;
-      box-shadow: 0 0 6px 1px rgba(29, 114, 243, 0.5);
+      box-shadow: 0 0 6px 1px rgba(29, 114, 243, 0.55);
       border-radius: 2px 0 0 2px;
+      transition: height 0.15s ease, box-shadow 0.15s ease;
+    }
+    #scroll-hud-root.is-dragging #scroll-hud-line {
+      height: 3px;
+      box-shadow: 0 0 10px 2px rgba(29, 114, 243, 0.7);
     }
     #scroll-hud-pct {
       font-size: 10px;
