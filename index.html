@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=1360, maximum-scale=5.0, user-scalable=yes" />
   <title>Minor Irrigation - Overdue Works Dashboard</title>
 
   <!-- Google Fonts -->
@@ -1412,6 +1412,78 @@
       line-height: 1;
       white-space: nowrap;
       text-shadow: 0 0 4px rgba(255, 255, 255, 0.95);
+    }
+    /* Prevent iOS Safari from auto-inflating random fonts in desktop-zoomed mobile view */
+    html,
+    body {
+      -webkit-text-size-adjust: 100% !important;
+      text-size-adjust: 100% !important;
+    }
+
+    /* Smooth momentum scrolling inside tables & popups on phones */
+    .ce-table-wrapper,
+    .odm-body,
+    .custom-select-options {
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+    }
+
+    /* Touch / Phone Scaling for Right-Edge Moving Scroll HUD (PC stays unchanged) */
+    @media (pointer: coarse) {
+      #scroll-hud-root {
+        width: 150px;
+      }
+      #scroll-hud-drag-zone {
+        width: 96px;
+        cursor: pointer;
+      }
+      .scroll-tick {
+        width: 22px;
+        height: 2.5px;
+      }
+      .scroll-tick.major {
+        width: 44px;
+        height: 3px;
+      }
+      .scroll-tick-num {
+        right: 54px;
+        font-size: 24px;
+      }
+      #scroll-hud-indicator {
+        width: 120px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+      }
+      #scroll-hud-line {
+        width: 120px;
+        height: 6px;
+        border-radius: 4px 0 0 4px;
+      }
+      #scroll-hud-root.is-dragging #scroll-hud-line {
+        height: 8px;
+      }
+      #scroll-hud-pct {
+        font-size: 28px;
+        margin-top: 8px;
+        padding-right: 8px;
+        letter-spacing: 1px;
+        transition: transform 0.12s ease, background 0.12s ease;
+      }
+      /* Shift the % readout left of your thumb while dragging on a phone */
+      #scroll-hud-root.is-dragging #scroll-hud-pct {
+        transform: translateX(-42px) scale(1.1);
+        background: rgba(255, 255, 255, 0.94);
+        padding: 4px 12px;
+        border-radius: 999px;
+        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.22);
+      }
+      /* Slightly taller tap target for the top-left sidebar toggle button */
+      #sidebar-toggle-btn {
+        width: 46px;
+        height: 46px;
+        font-size: 1.25rem;
+      }
     }
 
     /* =========================================================================
@@ -5438,7 +5510,10 @@
         paper_bgcolor: "#E8EEF5",
         plot_bgcolor: "#EDF2F7",
         font: { color: "#0F172A", family: "Inter, sans-serif" },
-        xaxis: { title: xTitle, range: [0, maxX], gridcolor: "#CBD5E1" },
+        xaxis: { title: xTitle, range: [0, maxX], gridcolor: "#CBD5E1", fixedrange: true },
+     yaxis: {
+       fixedrange: true,
+       tickmode: "array",
         yaxis: {
           tickmode: "array",
           tickvals: yNames,
@@ -7145,11 +7220,17 @@
       const lbl = document.getElementById("scroll-hud-pct");
       if (!root || !ind || !lbl) return;
 
-      // Isolate HUD repaints so they never trigger main-page layout reflows
+      const isTouchUI = Boolean(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+
+      // Start sidebar collapsed on phones so the full PC layout fills portrait screen immediately
+      if (isTouchUI) {
+        document.getElementById("app-sidebar")?.classList.add("collapsed");
+      }
+
       root.style.contain = "layout style";
 
-      const TICK_PX = 90;      // Spacing between 1% ticks (major numbered tick every 5%)
-      const SMOOTH_SPEED = 14; // Higher = snappier, lower = floatier glide
+      const TICK_PX = isTouchUI ? 180 : 90; // Wider spacing on zoomed-out phone viewport
+      const SMOOTH_SPEED = 10;              // Smooth liquid glide
 
       let ticksWrap = document.getElementById("scroll-hud-ticks");
       if (!ticksWrap) {
@@ -7162,7 +7243,7 @@
       if (!dragZone) {
         dragZone = document.createElement("div");
         dragZone.id = "scroll-hud-drag-zone";
-        dragZone.title = "Click or drag to scroll";
+        dragZone.title = "Touch, click, or drag to scroll";
         root.appendChild(dragZone);
       }
 
@@ -7189,7 +7270,6 @@
       ticksWrap.innerHTML = "";
       ticksWrap.appendChild(frag);
 
-      // Cached layout metrics (avoids forcing layout reflows during scrolling)
       let cachedVh = window.innerHeight || 800;
       let cachedMaxS = 0;
       let targetPct = 0;
@@ -7224,11 +7304,13 @@
           lastPctStr = pctStr;
         }
 
-        const labelCenterY = blueY + 8;
+        const labelCenterY = blueY + (isTouchUI ? 22 : 8);
+        const fadeStart = isTouchUI ? 34 : 10;
+        const fadeSpan = isTouchUI ? 36 : 14;
         for (let i = 0; i < majorNums.length; i++) {
           const item = majorNums[i];
           const dist = Math.abs((tapeY + item.yPx) - labelCenterY);
-          const alpha = Math.round(Math.min(1, Math.max(0, (dist - 10) / 14)) * 20) / 20;
+          const alpha = Math.round(Math.min(1, Math.max(0, (dist - fadeStart) / fadeSpan)) * 20) / 20;
           if (alpha !== item.lastAlpha) {
             item.el.style.opacity = String(alpha);
             item.lastAlpha = alpha;
@@ -7267,9 +7349,10 @@
       }
 
       function scrollFromPointer(clientY) {
-        const topPad = cachedVh * 0.05;
-        const botPad = cachedVh * 0.07;
-        const ratio = Math.min(1, Math.max(0, (clientY - topPad) / Math.max(1, cachedVh - topPad - botPad)));
+        const vh = window.innerHeight || cachedVh;
+        const topPad = vh * 0.05;
+        const botPad = vh * 0.07;
+        const ratio = Math.min(1, Math.max(0, (clientY - topPad) / Math.max(1, vh - topPad - botPad)));
         window.scrollTo({ top: ratio * cachedMaxS, behavior: "auto" });
         targetPct = ratio * 100;
         displayPct = targetPct;
@@ -7277,17 +7360,21 @@
       }
 
       dragZone.addEventListener("pointerdown", (e) => {
-        if (e.button !== 0) return;
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        e.preventDefault();
         refreshMetrics();
         isDragging = true;
         root.classList.add("is-dragging");
         dragZone.classList.add("is-dragging");
-        dragZone.setPointerCapture(e.pointerId);
+        if (dragZone.setPointerCapture) {
+          try { dragZone.setPointerCapture(e.pointerId); } catch (_) {}
+        }
         scrollFromPointer(e.clientY);
       });
 
       dragZone.addEventListener("pointermove", (e) => {
         if (!isDragging) return;
+        e.preventDefault();
         scrollFromPointer(e.clientY);
       });
 
@@ -7296,19 +7383,38 @@
         isDragging = false;
         root.classList.remove("is-dragging");
         dragZone.classList.remove("is-dragging");
-        if (dragZone.hasPointerCapture(e.pointerId)) {
-          dragZone.releasePointerCapture(e.pointerId);
+        if (dragZone.hasPointerCapture && dragZone.hasPointerCapture(e.pointerId)) {
+          try { dragZone.releasePointerCapture(e.pointerId); } catch (_) {}
         }
       };
 
       dragZone.addEventListener("pointerup", stopDrag);
       dragZone.addEventListener("pointercancel", stopDrag);
 
+      // Guard for iOS Safari / Android Chrome so 1-finger rail dragging never rubber-bands,
+      // while 2-finger pinch-to-zoom still works normally everywhere
+      dragZone.addEventListener("touchstart", (e) => {
+        if (e.touches.length === 1) e.preventDefault();
+      }, { passive: false });
+
+      dragZone.addEventListener("touchmove", (e) => {
+        if (isDragging && e.touches.length === 1) {
+          e.preventDefault();
+          scrollFromPointer(e.touches[0].clientY);
+        }
+      }, { passive: false });
+
       window.addEventListener("scroll", kickHud, { passive: true });
       window.addEventListener("resize", () => {
         refreshMetrics();
         kickHud();
       }, { passive: true });
+      window.addEventListener("orientationchange", () => {
+        setTimeout(() => {
+          refreshMetrics();
+          kickHud();
+        }, 250);
+      });
 
       if (typeof ResizeObserver !== "undefined") {
         new ResizeObserver(() => {
