@@ -6294,8 +6294,8 @@
       const titleEl = document.getElementById("p4-section-title");
       if (titleEl) {
         titleEl.textContent = STATE.allWorksOverdueOnly
-          ? "All Works Report - Overdue Works Abstract (Zone & Division Wise)"
-          : "All Works Report - Zone & Division Wise Abstract";
+          ? "Division Wise Abstract - Overdue Works Abstract (Zone & Division Wise)"
+          : "Division Wise Abstract - Zone & Division Wise Abstract";
       }
 
       const fmtBadge = (arr) => (arr.length === 0 ? "ALL" : arr.length <= 2 ? arr.join(", ") : `${arr.length} Selected`);
@@ -6885,7 +6885,7 @@
         renderAbstractPage();
       } else if (STATE.activePage === "allworks") {
         if (awSec) awSec.style.display = "block";
-        if (titleEl) titleEl.textContent = "All Works Report";
+        if (titleEl) titleEl.textContent = "Division Wise Abstract (All Works)";
         if (switchBtn) switchBtn.textContent = "Analytics View →";
         if (absBtn) absBtn.textContent = "Division Wise Abstract";
         if (awBtn) awBtn.textContent = "← Main Dashboard";
