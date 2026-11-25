@@ -564,18 +564,65 @@
       display: flex;
     }
     .chronic-modal-window {
-      width: 92vw;
-      height: 90vh;
+      width: calc(100vw - 16px);
+      max-width: none;
+      height: 94vh;
       background: #E8EEF5;
       border: 2px solid #94A3B8;
       border-top: 5px solid #DC2626;
-      border-radius: 16px;
+      border-radius: 12px;
       box-shadow: 0 25px 60px rgba(0, 0, 0, 0.55);
       display: flex;
       flex-direction: column;
-      padding: 16px 20px;
+      padding: 12px 14px;
       overflow: hidden;
       animation: modalPopIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    /* Fit all 13 Chronic Overdue columns cleanly without horizontal scroll */
+    #chronic-modal-table-wrap .ce-table-wrapper {
+      overflow-x: auto;
+    }
+    #chronic-modal-table-wrap table.ce-overdue-table {
+      width: 100%;
+      font-size: 0.74rem;
+    }
+    #chronic-modal-table-wrap table.ce-overdue-table thead th {
+      white-space: normal;
+      line-height: 1.2;
+      padding: 7px 5px;
+      font-size: 0.74rem;
+    }
+    #chronic-modal-table-wrap table.ce-overdue-table td {
+      white-space: normal;
+      line-height: 1.28;
+      padding: 6px 5px;
+      word-break: break-word;
+    }
+    #chronic-modal-table-wrap table.ce-overdue-table th:first-child,
+    #chronic-modal-table-wrap table.ce-overdue-table td.ce-sl-cell {
+      width: 36px;
+      white-space: nowrap;
+    }
+    #chronic-modal-table-wrap table.ce-overdue-table td.ce-work-name-cell {
+      width: 21%;
+      min-width: 175px;
+      max-width: 260px;
+      text-align: left;
+    }
+    #chronic-modal-table-wrap table.ce-overdue-table th.ce-wrap-cell,
+    #chronic-modal-table-wrap table.ce-overdue-table td.ce-wrap-cell {
+      min-width: 0;
+      max-width: 125px;
+    }
+    /* Keep Start Date & Target Date on one line; let Overdue By wrap neatly */
+    #chronic-modal-table-wrap table.ce-overdue-table td:nth-child(10),
+    #chronic-modal-table-wrap table.ce-overdue-table td:nth-child(11) {
+      white-space: nowrap;
+    }
+    #chronic-modal-table-wrap table.ce-overdue-table td:nth-child(12).ce-date-overdue {
+      white-space: normal;
+      min-width: 85px;
+      max-width: 115px;
     }
     @keyframes modalPopIn {
       from { opacity: 0; transform: scale(0.95) translateY(10px); }
