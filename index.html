@@ -10218,6 +10218,10 @@
         const ds = getAiDataset();
         if (!ds.rows.length) return "Data not loaded yet.";
 
+        const qRaw = String(rawQuery || "").trim();
+        const qLower = qRaw.toLowerCase();
+        const qFold = phoneticFold(qRaw);
+
         const tot = ds.rows.length;
         const odRows = ds.rows.filter((r) => r.is_overdue);
         const etsCnt = ds.rows.filter((r) => r.is_status_ets).length;
@@ -10225,7 +10229,38 @@
         const y3 = odRows.filter((r) => r._odDays > 1095).length;
         const y4 = odRows.filter((r) => r._odDays > 1460).length;
 
-        // 1. Overall & Division Summary
+        // 1. All unique ಲೆಕ್ಕಶೀರ್ಷಿಕೆ (H.O.A.) values + counts so AI never misses a head
+        const hoaStats = new Map();
+        ds.rows.forEach((r) => {
+          const h = String(r.hoa || "").trim() || "(Blank)";
+          if (!hoaStats.has(h)) {
+            hoaStats.set(h, { hoa: h, total: 0, od: 0, ets: 0, sheets: new Set() });
+          }
+          const st = hoaStats.get(h);
+          st.total += 1;
+          if (r.is_overdue) st.od += 1;
+          if (r.is_status_ets) st.ets += 1;
+          if (r.sheet_name) st.sheets.add(r.sheet_name);
+        });
+
+        const hoaSummaryLines = Array.from(hoaStats.values())
+          .sort((a, b) => b.od - a.od)
+          .map((h) => `${h.hoa} [Sheets: ${Array.from(h.sheets).join(", ")}] => Tot=${h.total}, OD=${h.od}, ETS=${h.ets}`);
+
+        // Match ಲೆಕ್ಕಶೀರ್ಷಿಕೆ directly by substring (Kannada or English) or phonetic match
+        const matchedHoaList = Array.from(hoaStats.values()).filter((h) => {
+          const hLow = h.hoa.toLowerCase();
+          const hFold = phoneticFold(h.hoa);
+          if (h.hoa !== "(Blank)" && (qRaw.includes(h.hoa) || (hLow.length >= 2 && qLower.includes(hLow)))) {
+            return true;
+          }
+          if (hFold && qFold && (qFold.includes(hFold) || hFold.includes(qFold))) {
+            return hFold.length >= 3;
+          }
+          return Array.from(h.sheets).some((sh) => qLower.includes(String(sh).toLowerCase()));
+        });
+
+        // 2. Division Summary
         const divLines = ds.divisions.map((d) => {
           const od = d.rows.filter((r) => r.is_overdue).length;
           const ets = d.rows.filter((r) => r.is_status_ets).length;
@@ -10233,7 +10268,7 @@
           return `${d.raw}: Total=${d.rows.length}, OD=${od}, ETS=${ets}, EstLakhs=${cost}`;
         });
 
-        // 2. Officer Summary (AE & AEE with their Kannada + English transliterated names)
+        // 3. Officer Summary (AE & AEE)
         const offLines = ds.officers
           .filter((o) => o.odRows.length > 0 || o.etsRows.length > 0)
           .sort((a, b) => b.odRows.length - a.odRows.length)
@@ -10245,13 +10280,21 @@
             return `${o.role} ${o.raw} (${en}) [${Array.from(o.divs).join("/")}] => Tot=${o.rows.length}, OD=${o.odRows.length}, ETS=${o.etsRows.length}${worstTxt}`;
           });
 
-        // 3. Detailed Works matching the user's question (officers / divisions / HOAs) + top 10 oldest overall
-        const qTokens = extractQueryTokens(rawQuery);
+        // 4. Relevant works (prioritise matched H.O.A. / Officer / Division) + top 10 oldest overall
+        const qTokens = extractQueryTokens(qRaw);
         const matchedOffs = matchItems(qTokens, ds.officers);
         const matchedDivs = matchItems(qTokens, ds.divisions);
-        const matchedHoas = matchItems(qTokens, ds.hoas);
 
         let detailedWorks = [];
+        if (matchedHoaList.length) {
+          const targetHoas = new Set(matchedHoaList.map((x) => x.hoa));
+          detailedWorks.push(
+            ...ds.rows
+              .filter((r) => targetHoas.has(String(r.hoa || "").trim() || "(Blank)"))
+              .sort((a, b) => b._odDays - a._odDays)
+              .slice(0, 20)
+          );
+        }
         matchedOffs.slice(0, 4).forEach((o) => {
           detailedWorks.push(...[...o.odRows].sort((a, b) => b._odDays - a._odDays).slice(0, 8));
           if (!o.odRows.length) detailedWorks.push(...o.rows.slice(0, 4));
@@ -10261,12 +10304,6 @@
             ...matchedDivs[0].rows.filter((r) => r.is_overdue).sort((a, b) => b._odDays - a._odDays).slice(0, 15)
           );
         }
-        if (!detailedWorks.length && matchedHoas.length) {
-          detailedWorks.push(
-            ...matchedHoas[0].rows.filter((r) => r.is_overdue).sort((a, b) => b._odDays - a._odDays).slice(0, 15)
-          );
-        }
-        // Always include top 10 oldest overdue works across the whole zone
         detailedWorks.push(...[...odRows].sort((a, b) => b._odDays - a._odDays).slice(0, 10));
 
         const seen = new Set();
@@ -10276,23 +10313,22 @@
           if (seen.has(key)) continue;
           seen.add(key);
           uniqueWorkLines.push(
-            `- Work: ${r.work_name || "-"} | Div: ${r.division_name} | AE: ${r.so_name} | AEE: ${r.aee_name} | HOA: ${r.hoa} | Status: ${r.status_raw} | Target: ${r.target_date} | OverdueBy: ${r.overdue_by} | EstLakhs: ${r.est_cost || "-"}`
+            `- Work: ${r.work_name || "-"} | LekkaShirshike(HOA): ${r.hoa || "-"} | Sheet: ${r.sheet_name || "-"} | Div: ${r.division_name} | Taluk: ${r.taluk_name || "-"} | AE: ${r.so_name} | AEE: ${r.aee_name} | Status: ${r.status_raw} | Target: ${r.target_date} | OverdueBy: ${r.overdue_by} | EstLakhs: ${r.est_cost || "-"}`
           );
-          if (uniqueWorkLines.length >= 35) break;
+          if (uniqueWorkLines.length >= 40) break;
         }
 
-        // 4. BESCOM Pending count
         const bescomRows = typeof getBescomPendingRows === "function" ? getBescomPendingRows() : [];
 
         return [
           `TODAY: ${STATE.todayStr || "-"}`,
           `SOUTH ZONE TOTALS: TotalWorks=${tot}, Overdue(P)=${odRows.length}, ETS=${etsCnt}, Chronic2Yr+=${y2}, Chronic3Yr+=${y3}, Chronic4Yr+=${y4}, BESCOM_Pending=${bescomRows.length}`,
+          `\nLEKKASHIRSHIKE (H.O.A.) SUMMARY:\n${hoaSummaryLines.join("\n")}`,
           `\nDIVISIONS:\n${divLines.join("\n")}`,
           `\nOFFICERS (AE & AEE):\n${offLines.join("\n")}`,
           `\nRELEVANT & LONGEST OVERDUE WORKS:\n${uniqueWorkLines.join("\n")}`
         ].join("\n");
       }
-
       async function handleAsk(question) {
         const q = String(question || "").trim();
         if (!q) return;
