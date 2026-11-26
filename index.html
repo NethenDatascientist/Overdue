@@ -8842,7 +8842,12 @@
           div.textContent = sec.label;
           div.dataset.sfnIdx = String(idx);
           div.addEventListener("click", () => {
-            sec.el.scrollIntoView({ behavior: "smooth", block: "start" });
+            if (idx === 0) {
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            } else {
+              const targetTop = Math.max(0, sec.el.getBoundingClientRect().top + window.scrollY - 12);
+              window.scrollTo({ top: targetTop, behavior: "smooth" });
+            }
           });
           if (idx < activeIdx) passedEl.appendChild(div);
           else upcomingEl.appendChild(div);
@@ -9000,11 +9005,14 @@
       }
 
       function computeActiveIndex(items) {
+        if ((window.scrollY || 0) <= 40) {
+          return 0;
+        }
         const docH = document.documentElement.scrollHeight;
         if (window.innerHeight + window.scrollY >= docH - 24) {
           return items.length - 1;
         }
-        const triggerY = window.innerHeight * 0.32;
+        const triggerY = Math.min(120, window.innerHeight * 0.16);
         let idx = 0;
         for (let i = 0; i < items.length; i++) {
           if (items[i].el.getBoundingClientRect().top <= triggerY) idx = i;
