@@ -10205,16 +10205,132 @@
         bodyEl.appendChild(row);
         bodyEl.scrollTop = bodyEl.scrollHeight;
       }
+      const chatHistory = [];
 
-      function handleAsk(question) {
+      function formatAiMarkdown(text) {
+        return esc(text)
+          .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+          .replace(/\*(.+?)\*/g, "<i>$1</i>")
+          .replace(/\n/g, "<br>");
+      }
+
+      function buildLiveContextForGemini(rawQuery) {
+        const ds = getAiDataset();
+        if (!ds.rows.length) return "Data not loaded yet.";
+
+        const tot = ds.rows.length;
+        const odRows = ds.rows.filter((r) => r.is_overdue);
+        const etsCnt = ds.rows.filter((r) => r.is_status_ets).length;
+        const y2 = odRows.filter((r) => r._odDays > 730).length;
+        const y3 = odRows.filter((r) => r._odDays > 1095).length;
+        const y4 = odRows.filter((r) => r._odDays > 1460).length;
+
+        // 1. Overall & Division Summary
+        const divLines = ds.divisions.map((d) => {
+          const od = d.rows.filter((r) => r.is_overdue).length;
+          const ets = d.rows.filter((r) => r.is_status_ets).length;
+          const cost = d.rows.reduce((s, r) => s + r._costNum, 0).toFixed(1);
+          return `${d.raw}: Total=${d.rows.length}, OD=${od}, ETS=${ets}, EstLakhs=${cost}`;
+        });
+
+        // 2. Officer Summary (AE & AEE with their Kannada + English transliterated names)
+        const offLines = ds.officers
+          .filter((o) => o.odRows.length > 0 || o.etsRows.length > 0)
+          .sort((a, b) => b.odRows.length - a.odRows.length)
+          .slice(0, 120)
+          .map((o) => {
+            const en = titleCaseEn(kannadaToEnglish(o.raw));
+            const worst = [...o.odRows].sort((a, b) => b._odDays - a._odDays)[0];
+            const worstTxt = worst ? ` | LongestOD=${worst.overdue_by} (${worst.target_date})` : "";
+            return `${o.role} ${o.raw} (${en}) [${Array.from(o.divs).join("/")}] => Tot=${o.rows.length}, OD=${o.odRows.length}, ETS=${o.etsRows.length}${worstTxt}`;
+          });
+
+        // 3. Detailed Works matching the user's question (officers / divisions / HOAs) + top 10 oldest overall
+        const qTokens = extractQueryTokens(rawQuery);
+        const matchedOffs = matchItems(qTokens, ds.officers);
+        const matchedDivs = matchItems(qTokens, ds.divisions);
+        const matchedHoas = matchItems(qTokens, ds.hoas);
+
+        let detailedWorks = [];
+        matchedOffs.slice(0, 4).forEach((o) => {
+          detailedWorks.push(...[...o.odRows].sort((a, b) => b._odDays - a._odDays).slice(0, 8));
+          if (!o.odRows.length) detailedWorks.push(...o.rows.slice(0, 4));
+        });
+        if (!detailedWorks.length && matchedDivs.length) {
+          detailedWorks.push(
+            ...matchedDivs[0].rows.filter((r) => r.is_overdue).sort((a, b) => b._odDays - a._odDays).slice(0, 15)
+          );
+        }
+        if (!detailedWorks.length && matchedHoas.length) {
+          detailedWorks.push(
+            ...matchedHoas[0].rows.filter((r) => r.is_overdue).sort((a, b) => b._odDays - a._odDays).slice(0, 15)
+          );
+        }
+        // Always include top 10 oldest overdue works across the whole zone
+        detailedWorks.push(...[...odRows].sort((a, b) => b._odDays - a._odDays).slice(0, 10));
+
+        const seen = new Set();
+        const uniqueWorkLines = [];
+        for (const r of detailedWorks) {
+          const key = `${r.division_name}|${r.so_name}|${r.work_name}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          uniqueWorkLines.push(
+            `- Work: ${r.work_name || "-"} | Div: ${r.division_name} | AE: ${r.so_name} | AEE: ${r.aee_name} | HOA: ${r.hoa} | Status: ${r.status_raw} | Target: ${r.target_date} | OverdueBy: ${r.overdue_by} | EstLakhs: ${r.est_cost || "-"}`
+          );
+          if (uniqueWorkLines.length >= 35) break;
+        }
+
+        // 4. BESCOM Pending count
+        const bescomRows = typeof getBescomPendingRows === "function" ? getBescomPendingRows() : [];
+
+        return [
+          `TODAY: ${STATE.todayStr || "-"}`,
+          `SOUTH ZONE TOTALS: TotalWorks=${tot}, Overdue(P)=${odRows.length}, ETS=${etsCnt}, Chronic2Yr+=${y2}, Chronic3Yr+=${y3}, Chronic4Yr+=${y4}, BESCOM_Pending=${bescomRows.length}`,
+          `\nDIVISIONS:\n${divLines.join("\n")}`,
+          `\nOFFICERS (AE & AEE):\n${offLines.join("\n")}`,
+          `\nRELEVANT & LONGEST OVERDUE WORKS:\n${uniqueWorkLines.join("\n")}`
+        ].join("\n");
+      }
+
+      async function handleAsk(question) {
         const q = String(question || "").trim();
         if (!q) return;
         if (sugEl) sugEl.style.display = "none";
         appendMessage("user", q);
-        const replyHtml = answerQuestion(q);
-        setTimeout(() => appendMessage("bot", replyHtml), 120);
-      }
 
+        // Show typing indicator
+        const typingRow = document.createElement("div");
+        typingRow.className = "mi-ai-msg-row bot";
+        typingRow.innerHTML = `
+          <div class="mi-ai-avatar">${BOT_SVG.replace('class="mi-ai-bot-svg"', 'width="16" height="16"')}</div>
+          <div class="mi-ai-bubble" style="color:#64748B;">Thinking with live MI data...</div>
+        `;
+        bodyEl.appendChild(typingRow);
+        bodyEl.scrollTop = bodyEl.scrollHeight;
+
+        try {
+          const context = buildLiveContextForGemini(q);
+          const resp = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question: q, history: chatHistory, context })
+          });
+
+          const data = await resp.json();
+          if (!resp.ok || !data.reply) {
+            throw new Error(data?.error || "API unavailable");
+          }
+
+          typingRow.remove();
+          chatHistory.push({ role: "user", text: q }, { role: "assistant", text: data.reply });
+          appendMessage("bot", formatAiMarkdown(data.reply));
+        } catch (err) {
+          console.warn("Gemini API fallback to local engine:", err);
+          typingRow.remove();
+          appendMessage("bot", answerQuestion(q));
+        }
+      }
       launcher.addEventListener("click", () => togglePanel());
       document.getElementById("mi-ai-close")?.addEventListener("click", () => togglePanel(false));
 
