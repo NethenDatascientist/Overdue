@@ -10697,7 +10697,7 @@
         return [
           `TODAY: ${STATE.todayStr || "-"}`,
           `SOUTH ZONE TOTALS: TotalWorks=${tot}, Overdue(P)=${odRows.length}, ETS=${etsCnt}, Chronic2Yr+=${y2}, Chronic3Yr+=${y3}, Chronic4Yr+=${y4}, BESCOM_Pending=${ds.bescomRows.length} (CF=${bescomCf}, CP=${bescomCp})`,
-          `\nBESCOM PENDING BY AE (ALL ${bescomAeLines.length} AEs):\n${bescomAeLines.join("\n") || "None"}`,
+          `\nBESCOM RR NO. PENDING BY AE — ONLY SCP (Borewell) & TSP (Borewell), Non-Overdue CF & CP (ALL ${bescomAeLines.length} AEs):\n${bescomAeLines.join("\n") || "None"}`,
           `\nLEKKASHIRSHIKE (H.O.A.) SUMMARY:\n${hoaSummaryLines.join("\n")}`,
           `\nDIVISIONS:\n${divLines.join("\n")}`,
           `\nOFFICERS (AE, AEE, TA, AS):\n${offLines.join("\n")}`,
