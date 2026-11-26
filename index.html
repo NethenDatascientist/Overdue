@@ -9546,7 +9546,7 @@
       setTimeout(() => updateOnScroll(false), 1400);
     })();
     // =========================================================================
-    // MI DASHBOARD AI ASSISTANT (AE/AEE/TA/AS + BESCOM + POPUP + PDF/EXCEL)
+    // MI DASHBOARD AI ASSISTANT (PROPER INITIALS + NON-BLOCKING PDF + POPUPS)
     // =========================================================================
     (function initMiDashboardAi() {
       const esc = (s) =>
@@ -9557,7 +9557,9 @@
           .replace(/"/g, "&quot;");
 
       const chatHistory = [];
-      let lastAiExportPack = { title: "MI_AI_Report", rows: [] };
+      const aiExportPacks = new Map();
+      let aiPackSeq = 0;
+      let lastContextOfficer = null;
 
       function formatAiMarkdown(text) {
         return esc(text)
@@ -9566,7 +9568,7 @@
           .replace(/\n/g, "<br>");
       }
 
-      // 1. KANNADA -> ENGLISH PHONETIC TRANSLITERATION ENGINE
+      // 1. KANNADA -> ENGLISH CONVERTER WITH PROPER ENGLISH INITIALS
       const KN_VOWELS = {
         "ಅ": "a", "ಆ": "aa", "ಇ": "i", "ಈ": "ee", "ಉ": "u", "ಊ": "oo",
         "ಋ": "ru", "ಎ": "e", "ಏ": "e", "ಐ": "ai", "ಒ": "o", "ಓ": "o", "ಔ": "au"
@@ -9586,9 +9588,46 @@
         "ೊ": "o", "ೋ": "o", "ೌ": "au"
       };
 
-      function kannadaToEnglish(input) {
-        if (!input) return "";
-        const str = String(input)
+      // Standard Kannada spellings of A-Z English initials
+      const KN_INITIALS = {
+        "ಎ": "A", "ಏ": "A",
+        "ಬಿ": "B", "ಬೀ": "B",
+        "ಸಿ": "C", "ಸೀ": "C",
+        "ಡಿ": "D", "ಡೀ": "D",
+        "ಇ": "E", "ಈ": "E",
+        "ಎಫ್": "F", "ಯಫ್": "F", "ಎಫ": "F",
+        "ಜಿ": "G", "ಜೀ": "G",
+        "ಹೆಚ್": "H", "ಎಚ್": "H", "ಹೆಚ್ಚ್": "H", "ಹೆಚ": "H",
+        "ಐ": "I",
+        "ಜೆ": "J", "ಜೇ": "J",
+        "ಕೆ": "K", "ಕೇ": "K",
+        "ಎಲ್": "L", "ಯಲ್": "L", "ಎಲ": "L",
+        "ಎಂ": "M", "ಎಮ್": "M", "ಯಂ": "M", "ಯಮ್": "M", "ಎಮ": "M",
+        "ಎನ್": "N", "ಯನ್": "N", "ಎನ": "N",
+        "ಒ": "O", "ಓ": "O",
+        "ಪಿ": "P", "ಪೀ": "P",
+        "ಕ್ಯೂ": "Q", "ಕ್ಯು": "Q",
+        "ಆರ್": "R", "ಆರ": "R",
+        "ಎಸ್": "S", "ಯಸ್": "S", "ಎಸ": "S",
+        "ಟಿ": "T", "ಟೀ": "T",
+        "ಯು": "U", "ಯೂ": "U",
+        "ವಿ": "V", "ವೀ": "V",
+        "ಡಬ್ಲ್ಯೂ": "W", "ಡಬ್ಲ್ಯು": "W", "ಡಬಲ್ಯೂ": "W",
+        "ಎಕ್ಸ್": "X",
+        "ವೈ": "Y",
+        "ಝಡ್": "Z", "ಜೆಡ್": "Z"
+      };
+
+      const KN_HONORIFICS = {
+        "ಶ್ರೀ": "Sri",
+        "ಶ್ರೀಮತಿ": "Smt.",
+        "ಕುಮಾರಿ": "Kum.",
+        "ಕು": "Kum.",
+        "ಡಾ": "Dr."
+      };
+
+      function normalizeKnRaw(input) {
+        return String(input || "")
           .normalize("NFC")
           .replace(/[\u200B-\u200D\uFEFF]/g, "")
           .replace(/\u0CC6\u0CD5/g, "\u0CC7")
@@ -9596,12 +9635,14 @@
           .replace(/\u0CCA\u0CD5/g, "\u0CCB")
           .replace(/\u0CC6\u0CD6/g, "\u0CC8")
           .replace(/\u0CCA\u0CD6/g, "\u0CCC");
+      }
 
+      function transliterateKnWord(word) {
         let out = "";
-        for (let i = 0; i < str.length; i++) {
-          const ch = str[i];
+        for (let i = 0; i < word.length; i++) {
+          const ch = word[i];
           if (KN_CONS[ch]) {
-            const next = str[i + 1];
+            const next = word[i + 1];
             if (next === "\u0CCD") {
               out += KN_CONS[ch];
               i++;
@@ -9614,7 +9655,7 @@
           } else if (KN_VOWELS[ch]) {
             out += KN_VOWELS[ch];
           } else if (ch === "\u0C82") {
-            const next = str[i + 1] || "";
+            const next = word[i + 1] || "";
             out += "ಪಫಬಭಮ".includes(next) ? "m" : "n";
           } else if (ch === "\u0C83") {
             out += "h";
@@ -9625,18 +9666,60 @@
         return out;
       }
 
+      // Converts "ಎ.ಹೆಚ್.ಉಮೇಶ್" -> "A.H. Umesh", "ಮಣಿಕಂಠ ಹೆಚ್ ಜೆ" -> "Manikantha H.J."
+      function kannadaToEnglish(input) {
+        if (!input) return "";
+        const norm = normalizeKnRaw(input).trim();
+        if (!norm) return "";
+        if (!/[\u0C80-\u0CFF]/.test(norm)) return norm;
+
+        const rawTokens = norm.split(/[\s.,/()\-]+/).filter(Boolean);
+        const parts = [];
+
+        rawTokens.forEach((tok) => {
+          if (KN_HONORIFICS[tok]) {
+            parts.push({ type: "word", text: KN_HONORIFICS[tok] });
+          } else if (KN_INITIALS[tok]) {
+            parts.push({ type: "init", text: KN_INITIALS[tok] });
+          } else if (/^[a-zA-Z]$/.test(tok)) {
+            parts.push({ type: "init", text: tok.toUpperCase() });
+          } else if (/[\u0C80-\u0CFF]/.test(tok)) {
+            const en = transliterateKnWord(tok);
+            parts.push({
+              type: "word",
+              text: en.charAt(0).toUpperCase() + en.slice(1)
+            });
+          } else {
+            parts.push({ type: "word", text: tok });
+          }
+        });
+
+        // Group adjacent initials cleanly: ["A","H","Umesh"] -> "A.H. Umesh"
+        const out = [];
+        for (let i = 0; i < parts.length; i++) {
+          if (parts[i].type === "init") {
+            let grp = parts[i].text + ".";
+            while (i + 1 < parts.length && parts[i + 1].type === "init") {
+              i++;
+              grp += parts[i].text + ".";
+            }
+            out.push(grp);
+          } else {
+            out.push(parts[i].text);
+          }
+        }
+        return out.join(" ").trim();
+      }
+
       function titleCaseEn(str) {
-        return String(str || "")
-          .replace(/\s+/g, " ")
-          .trim()
-          .replace(/\b[a-z]/g, (c) => c.toUpperCase());
+        return String(str || "").replace(/\s+/g, " ").trim();
       }
 
       function formatBilingualName(raw) {
         const s = String(raw || "").trim();
         if (!s) return "-";
         if (/[\u0C80-\u0CFF]/.test(s)) {
-          const en = titleCaseEn(kannadaToEnglish(s));
+          const en = kannadaToEnglish(s);
           return `${esc(s)} <span style="color:#475569;font-weight:600;">(${esc(en)})</span>`;
         }
         return esc(s);
@@ -9688,6 +9771,14 @@
           .replace(/\b([a-z]{3,})a\b/g, "$1")
           .replace(/\s+/g, " ")
           .trim();
+      }
+
+      function extractInitialLetters(str) {
+        const en = kannadaToEnglish(str);
+        return en
+          .split(/[\s.,/()\-]+/)
+          .filter((t) => /^[a-zA-Z]$/.test(t))
+          .map((t) => t.toLowerCase());
       }
 
       function editDistance(a, b) {
@@ -9772,12 +9863,14 @@
             const folded = phoneticFold(name);
             officersMap.set(id, {
               raw: name,
+              enName: kannadaToEnglish(name),
               role: meta.role,
               roleKey,
               isAee: meta.isAee,
               rowPred: meta.pred,
               folded,
-              tokens: folded.split(" ").filter((t) => t.length >= 2 && !["sri", "srimati", "smt", "mr", "ms", "dr"].includes(t)),
+              initials: extractInitialLetters(name),
+              tokens: folded.split(" ").filter((t) => t.length >= 2 && !["sri", "srimati", "smt", "mr", "ms", "dr", "kum"].includes(t)),
               rows: [],
               odRows: [],
               etsRows: [],
@@ -9800,7 +9893,7 @@
           if (r.division_name && !skipNames.has(r.division_name)) {
             if (!divsMap.has(r.division_name)) {
               const f = phoneticFold(r.division_name);
-              divsMap.set(r.division_name, { raw: r.division_name, folded: f, tokens: f.split(" ").filter((t) => t.length >= 3), rows: [] });
+              divsMap.set(r.division_name, { raw: r.division_name, folded: f, initials: [], tokens: f.split(" ").filter((t) => t.length >= 3), rows: [] });
             }
             divsMap.get(r.division_name).rows.push(r);
           }
@@ -9808,7 +9901,7 @@
           if (r.hoa && !skipNames.has(r.hoa)) {
             if (!hoasMap.has(r.hoa)) {
               const f = phoneticFold(r.hoa);
-              hoasMap.set(r.hoa, { raw: r.hoa, folded: f, tokens: f.split(" ").filter((t) => t.length >= 2), rows: [] });
+              hoasMap.set(r.hoa, { raw: r.hoa, folded: f, initials: [], tokens: f.split(" ").filter((t) => t.length >= 2), rows: [] });
             }
             hoasMap.get(r.hoa).rows.push(r);
           }
@@ -9835,13 +9928,14 @@
         "from", "by", "with", "under", "about", "and", "or", "all", "total", "count", "number",
         "many", "much", "highest", "longest", "oldest", "most", "max", "maximum", "top", "worst",
         "least", "lowest", "best", "minimum", "min", "overdue", "od", "period", "duration", "work",
-        "works", "ets", "bescom", "pending", "reg", "registration", "borewell", "chronic", "year",
-        "years", "yr", "yrs", "month", "months", "day", "days", "cost", "amount", "estimate",
+        "works", "ets", "bescom", "pending", "reg", "registration", "rr", "no", "borewell", "chronic",
+        "year", "years", "yr", "yrs", "month", "months", "day", "days", "cost", "amount", "estimate",
         "estimated", "expenditure", "bill", "expensive", "big", "biggest", "largest", "ae", "aee",
         "ta", "as", "officer", "officers", "engineer", "technical", "assistant", "account",
         "superintendent", "division", "divisions", "subdivision", "hoa", "lekkashirshike", "summary",
         "overview", "report", "details", "detail", "status", "pct", "percentage", "percent",
-        "south", "zone", "please", "pls", "pdf", "excel", "popup", "pop", "open", "download"
+        "south", "zone", "please", "pls", "pdf", "excel", "popup", "pop", "open", "download",
+        "his", "her", "him", "their", "this", "that"
       ]);
 
       function extractQueryTokens(rawQuery) {
@@ -9850,8 +9944,9 @@
           .filter((t) => t.length >= 2 && !STOPWORDS.has(t));
       }
 
-      function matchItems(queryTokens, items, roleHint = "") {
+      function matchItems(queryTokens, items, roleHint = "", rawQueryForInitials = "") {
         if (!queryTokens.length) return [];
+        const qInitials = rawQueryForInitials ? extractInitialLetters(rawQueryForInitials) : [];
         const scored = [];
 
         items.forEach((item) => {
@@ -9878,7 +9973,13 @@
           });
 
           if (matchedTokens > 0) {
-            scored.push({ item, score: bestScore + (matchedTokens - 1) * 14 });
+            let initBonus = 0;
+            if (qInitials.length && Array.isArray(item.initials) && item.initials.length) {
+              qInitials.forEach((ini) => {
+                if (item.initials.includes(ini)) initBonus += 18;
+              });
+            }
+            scored.push({ item, score: bestScore + (matchedTokens - 1) * 14 + initBonus });
           }
         });
 
@@ -9889,27 +9990,71 @@
         return scored.filter((s) => s.score >= threshold).map((s) => s.item);
       }
 
-      // 3. EXPORT HELPERS (PDF & EXCEL FROM AI CHAT)
-      function saveExportPack(title, rows) {
-        lastAiExportPack = { title, rows };
-        return rows.length;
+      // Detect exact officer(s) mentioned inside Gemini's own reply text
+      function findOfficersInReply(replyText, officers, preferredRole = "") {
+        const text = String(replyText || "");
+        if (!text) return [];
+        const normText = normalizeKnRaw(text);
+        const lowText = text.toLowerCase();
+
+        const hits = [];
+        officers.forEach((o) => {
+          const rawNorm = normalizeKnRaw(o.raw);
+          const enLow = (o.enName || "").toLowerCase();
+          const matchedRaw = rawNorm.length >= 3 && normText.includes(rawNorm);
+          const matchedEn = enLow.length >= 4 && lowText.includes(enLow);
+          if (matchedRaw || matchedEn) {
+            const roleBoost = preferredRole && o.role === preferredRole ? 100 : (o.role === "AE" ? 20 : 10);
+            hits.push({ o, score: (matchedRaw ? 500 : 300) + rawNorm.length + roleBoost });
+          }
+        });
+
+        hits.sort((a, b) => b.score - a.score);
+        const seen = new Set();
+        return hits.map((h) => h.o).filter((o) => {
+          const k = `${o.role}||${o.raw}`;
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
       }
 
-      function toExportRows(workList) {
+      // 3. NON-BLOCKING EXPORT HELPERS (DEDICATED PRINT TAB + PER-MESSAGE PACKS)
+      function saveExportPack(title, rows, isBescom = false) {
+        const id = `pack_${++aiPackSeq}`;
+        aiExportPacks.set(id, { title, rows, isBescom });
+        // Keep last 15 packs in memory
+        if (aiExportPacks.size > 15) {
+          const firstKey = aiExportPacks.keys().next().value;
+          aiExportPacks.delete(firstKey);
+        }
+        return id;
+      }
+
+      function toExportRows(workList, isBescom = false) {
+        if (isBescom) {
+          return (workList || []).map((r, i) => ({
+            "Sl. No.": i + 1,
+            "Work Name": r.work_name || "-",
+            "Status": String(r.status_raw || "-").toUpperCase().trim(),
+            "AE": r.so_name || "-",
+            "AEE": r.aee_name || "-",
+            "Scheme Sheet": r.sheet_name || "-",
+            "Division": r.division_name || "-"
+          }));
+        }
         return (workList || []).map((r, i) => ({
           "Sl. No.": i + 1,
           "Work Name": r.work_name || "-",
           "H.O.A.": r.hoa || "-",
           "Division": r.division_name || "-",
-          "Sub-division": r.subdivision_name || "-",
           "AE": r.so_name || "-",
           "AEE": r.aee_name || "-",
           "TA": r.ta_name || "-",
-          "AS": r.as_name || "-",
           "Status": r.status_raw || "-",
           "Target Date": r.target_date || "-",
           "Overdue By": r.overdue_by || "-",
-          "Est. Cost (Lakhs)": r.est_cost || "-"
+          "Est. Cost (L)": r.est_cost || "-"
         }));
       }
 
@@ -9926,70 +10071,140 @@
         XLSX.writeFile(wb, `${safeName}_${STATE.todayStr || "Report"}.xlsx`);
       }
 
-      function downloadAiPdf(pack) {
+      function downloadAiPdf(pack, btnEl) {
         const rows = pack?.rows || [];
         if (!rows.length) {
           alert("No rows available to export to PDF.");
           return;
         }
-        const cols = Object.keys(rows[0]);
-        const safeTitle = String(pack.title || "MI AI Report").replace(/[\\/:*?"<>|]/g, "_").trim();
-        const nowStr = new Date().toLocaleString("en-IN", {
-          day: "2-digit", month: "2-digit", year: "numeric",
-          hour: "2-digit", minute: "2-digit", hour12: true
-        });
 
-        const ths = cols.map((c) => `<th>${esc(c)}</th>`).join("");
-        const trs = rows.map((r) => `<tr>${cols.map((c) => {
-          const val = String(r[c] ?? "-");
-          const isOd = c === "Overdue By" || c === "Target Date";
-          return `<td class="${c === "Work Name" ? "wk" : ""}" style="${isOd && val !== "-" ? "color:#DC2626;" : ""}">${esc(val)}</td>`;
-        }).join("")}</tr>`).join("");
+        const origTxt = btnEl ? btnEl.textContent : "";
+        if (btnEl) {
+          btnEl.disabled = true;
+          btnEl.textContent = "Opening PDF...";
+        }
 
-        const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${esc(safeTitle)}</title>
-          <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Kannada:wght@400&display=swap">
-          <style>
-            @page { size: A4 landscape; margin: 7mm; }
-            * { box-sizing: border-box; font-weight: 400 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            body { margin: 0; font-family: "Inter", "Segoe UI", "Noto Sans Kannada", sans-serif; color: #0F172A; }
-            .hdr { background: linear-gradient(90deg, #1E3A8A, #1D4ED8); color: #FFF; padding: 8px 12px; border-radius: 5px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
-            table { width: 100%; border-collapse: collapse; font-size: 7.5pt; }
-            thead { display: table-header-group; }
-            th { background: #DCE8F7; border: 1px solid #64748B; padding: 5px 4px; text-align: center; }
-            td { border: 1px solid #94A3B8; padding: 4px; text-align: center; vertical-align: middle; }
-            td.wk { text-align: left; max-width: 240px; white-space: normal; }
-          </style></head><body>
-          <div class="hdr"><div style="font-size:11pt;">${esc(pack.title)} (${rows.length} Works)</div><div style="font-size:8pt;">${esc(nowStr)}</div></div>
-          <table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>
-        </body></html>`;
+        // Open a dedicated print tab immediately (inside click gesture so popup blocker allows it)
+        const printWin = window.open("", "_blank");
 
-        const old = document.getElementById("mi-ai-pdf-frame");
-        if (old) old.remove();
-        const iframe = document.createElement("iframe");
-        iframe.id = "mi-ai-pdf-frame";
-        iframe.style.cssText = "position:fixed;width:0;height:0;border:0;visibility:hidden;";
-        document.body.appendChild(iframe);
-        iframe.contentWindow.document.open();
-        iframe.contentWindow.document.write(html);
-        iframe.contentWindow.document.close();
         setTimeout(() => {
-          iframe.contentWindow.focus();
-          iframe.contentWindow.print();
-          setTimeout(() => iframe.remove(), 30000);
-        }, 250);
+          try {
+            const cols = Object.keys(rows[0]);
+            const safeTitle = String(pack.title || "MI AI Report").replace(/[\\/:*?"<>|]/g, "_").trim();
+            const nowStr = new Date().toLocaleString("en-IN", {
+              day: "2-digit", month: "2-digit", year: "numeric",
+              hour: "2-digit", minute: "2-digit", hour12: true
+            });
+
+            const ths = cols.map((c) => `<th>${esc(c)}</th>`).join("");
+            const rowChunks = new Array(rows.length);
+            for (let i = 0; i < rows.length; i++) {
+              const r = rows[i];
+              let tds = "";
+              for (let cIdx = 0; cIdx < cols.length; cIdx++) {
+                const c = cols[cIdx];
+                const val = String(r[c] ?? "-");
+                const isOd = c === "Overdue By" || c === "Target Date";
+                const cls = c === "Work Name" ? ' class="wk"' : "";
+                const sty = isOd && val !== "-" ? ' style="color:#DC2626;"' : "";
+                tds += `<td${cls}${sty}>${esc(val)}</td>`;
+              }
+              rowChunks[i] = `<tr>${tds}</tr>`;
+            }
+
+            const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>${esc(safeTitle)}</title>
+  <style>
+    @page { size: A4 landscape; margin: 7mm; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    body { margin: 12px; font-family: "Segoe UI", "Nirmala UI", Arial, sans-serif; color: #0F172A; background: #FFFFFF; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: #1E3A8A; color: #FFFFFF; padding: 10px 14px; border-radius: 6px; margin-bottom: 10px; }
+    .print-controls { display: flex; gap: 8px; }
+    .print-btn { background: #10B981; color: #FFFFFF; border: none; border-radius: 6px; padding: 7px 14px; font-weight: 700; cursor: pointer; font-size: 13px; }
+    .close-btn { background: rgba(255,255,255,0.2); color: #FFFFFF; border: 1px solid rgba(255,255,255,0.4); border-radius: 6px; padding: 7px 12px; font-weight: 700; cursor: pointer; font-size: 13px; }
+    @media print {
+      body { margin: 0; }
+      .print-controls { display: none !important; }
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 8pt; }
+    thead { display: table-header-group; }
+    th { background: #DCE8F7; border: 1px solid #64748B; padding: 5px 4px; text-align: center; font-weight: 700; }
+    td { border: 1px solid #94A3B8; padding: 4px 5px; text-align: center; vertical-align: middle; }
+    td.wk { text-align: left; max-width: 280px; white-space: normal; }
+    tbody tr:nth-child(even) { background: #F8FAFC; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <div style="font-size:12pt;font-weight:700;">${esc(pack.title)} (${rows.length.toLocaleString("en-IN")} Works)</div>
+      <div style="font-size:8.5pt;opacity:0.9;">Generated: ${esc(nowStr)}</div>
+    </div>
+    <div class="print-controls">
+      <button class="print-btn" onclick="window.print()">Save / Print PDF</button>
+      <button class="close-btn" onclick="window.close()">Close</button>
+    </div>
+  </div>
+  <table>
+    <thead><tr>${ths}</tr></thead>
+    <tbody>${rowChunks.join("")}</tbody>
+  </table>
+  <script>
+    window.addEventListener("load", function () {
+      setTimeout(function () { window.print(); }, 250);
+    });
+  <\/script>
+</body>
+</html>`;
+
+            if (printWin && !printWin.closed) {
+              printWin.document.open();
+              printWin.document.write(html);
+              printWin.document.close();
+            } else {
+              // Popup blocked fallback: avoid freezing the main tab on giant tables
+              if (rows.length > 600) {
+                alert(`This report has ${rows.length} rows. Please allow popups for this site to print PDF, or use Download Excel (.xlsx).`);
+                return;
+              }
+              const old = document.getElementById("mi-ai-pdf-frame");
+              if (old) old.remove();
+              const iframe = document.createElement("iframe");
+              iframe.id = "mi-ai-pdf-frame";
+              iframe.style.cssText = "position:fixed;width:0;height:0;border:0;visibility:hidden;";
+              document.body.appendChild(iframe);
+              iframe.contentWindow.document.open();
+              iframe.contentWindow.document.write(html);
+              iframe.contentWindow.document.close();
+              setTimeout(() => {
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+                setTimeout(() => iframe.remove(), 30000);
+              }, 300);
+            }
+          } finally {
+            if (btnEl) {
+              btnEl.disabled = false;
+              btnEl.textContent = origTxt;
+            }
+          }
+        }, 30);
       }
 
       function buildActionButtonsHtml(opts = {}) {
         const btns = [];
+        if (opts.bescomAe) {
+          btns.push(`<button type="button" class="mi-ai-action-btn" data-open-bescom="${esc(opts.bescomAe)}">Open ${esc(opts.bescomAe)} BESCOM Popup →</button>`);
+        }
         if (opts.officerName) {
           btns.push(`<button type="button" class="mi-ai-action-btn" data-open-officer="${esc(opts.officerName)}" data-is-aee="${opts.isAee ? "1" : "0"}">Open Full Works Popup →</button>`);
         }
-        if (opts.bescomAe) {
-          btns.push(`<button type="button" class="mi-ai-action-btn" data-open-bescom="${esc(opts.bescomAe)}">Open BESCOM Popup →</button>`);
-        }
-        if (opts.hasExport) {
-          btns.push(`<button type="button" class="mi-ai-action-btn pdf-btn" data-ai-export="pdf">Download PDF (.pdf)</button>`);
-          btns.push(`<button type="button" class="mi-ai-action-btn xlsx-btn" data-ai-export="xlsx">Download Excel (.xlsx)</button>`);
+        if (opts.packId && opts.packCount > 0) {
+          btns.push(`<button type="button" class="mi-ai-action-btn pdf-btn" data-ai-export="pdf" data-pack-id="${esc(opts.packId)}">Download PDF (${opts.packCount})</button>`);
+          btns.push(`<button type="button" class="mi-ai-action-btn xlsx-btn" data-ai-export="xlsx" data-pack-id="${esc(opts.packId)}">Download Excel (${opts.packCount})</button>`);
         }
         return btns.length ? `<div class="mi-ai-action-row">${btns.join("")}</div>` : "";
       }
@@ -10006,7 +10221,7 @@
         `;
       }
 
-      // 4. QUESTION ANSWERING ENGINE (AE, AEE, TA, AS, BESCOM, DIVISIONS, HOAs)
+      // 4. LOCAL FALLBACK ENGINE (AE, AEE, TA, AS, BESCOM, DIVISIONS, HOAs)
       function answerQuestion(rawQuery) {
         const ds = getAiDataset();
         if (!ds.rows.length) {
@@ -10033,22 +10248,23 @@
         const wantsPeriodWork = /\b(period|duration|oldest|longest|work|which work)\b|ಕಾಮಗಾರಿ/.test(qLower);
         const wantsAllWorksList = /\b(all works|list works|show works|works list)\b/.test(qLower);
 
-        const matchedOfficers = matchItems(tokens, ds.officers, roleHint);
+        const matchedOfficers = matchItems(tokens, ds.officers, roleHint, rawQuery);
         const matchedDivs = matchItems(tokens, ds.divisions);
         const matchedHoas = matchItems(tokens, ds.hoas);
 
-        // --- A. BESCOM PENDING QUERIES (FULL DETAILS + POPUP + PDF/EXCEL) ---
+        // --- A. BESCOM PENDING QUERIES ---
         if (wantsBescom) {
           const allBescom = ds.bescomRows;
 
           if (matchedOfficers.length > 0) {
             const off = matchedOfficers[0];
+            lastContextOfficer = off;
             const offBescom = allBescom.filter((r) => off.rowPred(r, off.raw));
             const cf = offBescom.filter((r) => String(r.status_raw).toUpperCase().trim() === "CF").length;
             const cp = offBescom.filter((r) => String(r.status_raw).toUpperCase().trim() === "CP").length;
-            saveExportPack(`BESCOM_Pending_${off.raw}`, toExportRows(offBescom));
+            const packId = saveExportPack(`BESCOM_Pending_${off.enName || off.raw}`, toExportRows(offBescom, true), true);
 
-            const miniRows = offBescom.slice(0, 8).map((r, i) => `
+            const miniRows = offBescom.slice(0, 6).map((r, i) => `
               <tr>
                 <td>${i + 1}</td>
                 <td>${esc(r.work_name || "-")}</td>
@@ -10065,47 +10281,45 @@
               </div>
               ${offBescom.length ? `<table class="mi-ai-mini-table"><thead><tr><th>#</th><th>Work Name</th><th>Status</th><th>Sheet</th></tr></thead><tbody>${miniRows}</tbody></table>` : ""}
               ${buildActionButtonsHtml({
-                officerName: !off.isAee ? off.raw : "",
-                isAee: false,
-                bescomAe: !off.isAee ? off.raw : "",
-                hasExport: offBescom.length > 0
+                bescomAe: off.role === "AE" ? off.raw : "",
+                officerName: off.role === "AE" || off.role === "AEE" ? off.raw : "",
+                isAee: off.role === "AEE",
+                packId,
+                packCount: offBescom.length
               })}
-            `;
-          }
-
-          if (matchedDivs.length > 0) {
-            const divName = matchedDivs[0].raw;
-            const divBescom = allBescom.filter((r) => r.division_name === divName);
-            const cf = divBescom.filter((r) => String(r.status_raw).toUpperCase().trim() === "CF").length;
-            const cp = divBescom.filter((r) => String(r.status_raw).toUpperCase().trim() === "CP").length;
-            saveExportPack(`BESCOM_Pending_${divName}`, toExportRows(divBescom));
-
-            return `
-              <div><b>BESCOM Registration Pending — ${formatBilingualName(divName)}</b></div>
-              <div class="mi-ai-stat-grid">
-                <div class="mi-ai-stat-box red">Total Pending<b>${divBescom.length}</b></div>
-                <div class="mi-ai-stat-box">CF / CP Split<b>${cf} CF • ${cp} CP</b></div>
-              </div>
-              ${buildActionButtonsHtml({ hasExport: divBescom.length > 0 })}
             `;
           }
 
           const byAe = new Map();
           allBescom.forEach((r) => {
             const k = r.so_name || "Unassigned";
-            if (!byAe.has(k)) byAe.set(k, { ae: k, cf: 0, cp: 0, total: 0, divs: new Set() });
+            if (!byAe.has(k)) byAe.set(k, { ae: k, cf: 0, cp: 0, total: 0, rows: [] });
             const g = byAe.get(k);
             const st = String(r.status_raw || "").toUpperCase().trim();
             if (st === "CF") g.cf++;
             if (st === "CP") g.cp++;
             g.total++;
-            if (r.division_name) g.divs.add(r.division_name);
+            g.rows.push(r);
           });
           const sortedBescomAEs = Array.from(byAe.values()).sort((a, b) => b.total - a.total);
           const totalCf = allBescom.filter((r) => String(r.status_raw).toUpperCase().trim() === "CF").length;
           const totalCp = allBescom.filter((r) => String(r.status_raw).toUpperCase().trim() === "CP").length;
-          saveExportPack("BESCOM_Registration_Pending", toExportRows(allBescom));
 
+          // If asking specifically for the highest BESCOM AE, scope export to that AE!
+          if (wantsHighest && sortedBescomAEs.length > 0) {
+            const top = sortedBescomAEs[0];
+            const packId = saveExportPack(`BESCOM_Pending_${kannadaToEnglish(top.ae) || top.ae}`, toExportRows(top.rows, true), true);
+            return `
+              <div><b>Highest BESCOM RR Pending AE</b></div>
+              <div class="mi-ai-card amber">
+                <div><b>AE:</b> ${formatBilingualName(top.ae)}</div>
+                <div><b>Total Pending:</b> <span style="color:#DC2626;font-weight:800;">${top.total}</span> (${top.cf} CF • ${top.cp} CP)</div>
+              </div>
+              ${buildActionButtonsHtml({ bescomAe: top.ae, packId, packCount: top.rows.length })}
+            `;
+          }
+
+          const packId = saveExportPack("BESCOM_Registration_Pending", toExportRows(allBescom, true), true);
           const topRowsHtml = sortedBescomAEs.slice(0, 6).map((g, i) => `
             <tr>
               <td>${i + 1}</td>
@@ -10130,8 +10344,7 @@
             </table>
             <div class="mi-ai-action-row">
               ${sortedBescomAEs.slice(0, 2).map((g) => `<button type="button" class="mi-ai-action-btn" data-open-bescom="${esc(g.ae)}">Open ${esc(g.ae)} BESCOM Popup →</button>`).join("")}
-              <button type="button" class="mi-ai-action-btn pdf-btn" data-ai-export="pdf">Download PDF (.pdf)</button>
-              <button type="button" class="mi-ai-action-btn xlsx-btn" data-ai-export="xlsx">Download Excel (.xlsx)</button>
+              <button type="button" class="mi-ai-action-btn xlsx-btn" data-ai-export="xlsx" data-pack-id="${esc(packId)}">Download All Excel (${allBescom.length})</button>
             </div>
           `;
         }
@@ -10139,6 +10352,7 @@
         // --- B. SPECIFIC OFFICER MATCH (AE, AEE, TA, AS) ---
         if (matchedOfficers.length > 0) {
           const primary = matchedOfficers[0];
+          lastContextOfficer = primary;
           const others = matchedOfficers.slice(1, 6);
 
           const sortedOd = [...primary.odRows].sort((a, b) => b._odDays - a._odDays);
@@ -10149,7 +10363,7 @@
           const divList = Array.from(primary.divs).slice(0, 3).map(formatBilingualName).join(", ") || "-";
 
           const exportSource = wantsAllWorksList ? primary.rows : (sortedOd.length ? sortedOd : primary.rows);
-          saveExportPack(`${primary.role}_${primary.raw}`, toExportRows(exportSource));
+          const packId = saveExportPack(`${primary.role}_${primary.enName || primary.raw}`, toExportRows(exportSource, false), false);
 
           let bodyHtml = `
             <div><b>${formatBilingualName(primary.raw)}</b> <span style="color:#1E40AF;font-weight:800;">(${primary.role})</span></div>
@@ -10192,7 +10406,8 @@
           bodyHtml += buildActionButtonsHtml({
             officerName: (primary.role === "AE" || primary.role === "AEE") ? primary.raw : "",
             isAee: primary.role === "AEE",
-            hasExport: exportSource.length > 0
+            packId,
+            packCount: exportSource.length
           });
 
           if (others.length > 0) {
@@ -10231,7 +10446,8 @@
           const etsCnt = subset.filter((r) => r.is_status_ets).length;
           const totEst = subset.reduce((s, r) => s + r._costNum, 0);
           const pct = subset.length > 0 ? ((odRows.length / subset.length) * 100).toFixed(1) : "0.0";
-          saveExportPack(labels.join("_"), toExportRows(odRows.length ? odRows : subset));
+          const expRows = odRows.length ? odRows : subset;
+          const packId = saveExportPack(labels.join("_").replace(/<[^>]+>/g, ""), toExportRows(expRows, false), false);
 
           return `
             <div><b>${labels.join(" • ")}</b></div>
@@ -10242,7 +10458,7 @@
               <div class="mi-ai-stat-box">Total Est. Cost<b>₹${totEst.toLocaleString("en-IN", { maximumFractionDigits: 1 })} L</b></div>
             </div>
             ${odRows.length > 0 ? `<div style="margin-top:8px;font-size:0.75rem;font-weight:700;">Longest Overdue Work Here:</div>${renderWorkCard(odRows[0])}` : ""}
-            ${buildActionButtonsHtml({ hasExport: (odRows.length || subset.length) > 0 })}
+            ${buildActionButtonsHtml({ packId, packCount: expRows.length })}
           `;
         }
 
@@ -10271,11 +10487,11 @@
         if ((wantsHighest || wantsPeriodWork) && /\b(work|period|oldest|longest)\b|ಕಾಮಗಾರಿ/.test(qLower) && !/\b(who|officer|officers|ae|aee|ta|as)\b/.test(qLower)) {
           const topOld = ds.rows.filter((r) => r.is_overdue && r._odDays >= 0).sort((a, b) => b._odDays - a._odDays).slice(0, 2);
           if (!topOld.length) return `No overdue works found in the current snapshot.`;
-          saveExportPack("Longest_Overdue_Works", toExportRows(topOld));
+          const packId = saveExportPack("Longest_Overdue_Works", toExportRows(topOld, false), false);
           return `
             <div><b>Longest Overdue Works Across South Zone</b></div>
             ${topOld.map((r) => renderWorkCard(r)).join("")}
-            ${buildActionButtonsHtml({ hasExport: true })}
+            ${buildActionButtonsHtml({ packId, packCount: topOld.length })}
           `;
         }
 
@@ -10362,14 +10578,14 @@
           Try asking things like:
           <ul style="margin:6px 0 0 16px;padding:0;font-size:0.78rem;line-height:1.6;">
             <li><i>"What is the highest overdue period work Sunil has?"</i></li>
-            <li><i>"[TA Name] overdue works &amp; details"</i></li>
-            <li><i>"BESCOM pending works"</i></li>
-            <li><i>"Top 5 divisions by overdue works"</i></li>
+            <li><i>"Who is the AE with highest BESCOM pending?"</i></li>
+            <li><i>"Manikanta H J details"</i></li>
+            <li><i>"Top 5 TAs by overdue works"</i></li>
           </ul>
         `;
       }
 
-      // 5. BUILD CONTEXT FOR GEMINI (/api/chat) INCLUDING AE, AEE, TA, AS & BESCOM
+      // 5. BUILD CONTEXT FOR GEMINI (/api/chat) WITH CLEAN INITIALS & ALL BESCOM AEs
       function buildLiveContextForGemini(rawQuery) {
         const ds = getAiDataset();
         if (!ds.rows.length) return "Data not loaded yet.";
@@ -10411,38 +10627,41 @@
           const od = d.rows.filter((r) => r.is_overdue).length;
           const ets = d.rows.filter((r) => r.is_status_ets).length;
           const cost = d.rows.reduce((s, r) => s + r._costNum, 0).toFixed(1);
-          return `${d.raw}: Total=${d.rows.length}, OD=${od}, ETS=${ets}, EstLakhs=${cost}`;
+          return `${d.raw} (${kannadaToEnglish(d.raw)}): Total=${d.rows.length}, OD=${od}, ETS=${ets}, EstLakhs=${cost}`;
         });
 
         const qTokens = extractQueryTokens(qRaw);
-        const matchedOffs = matchItems(qTokens, ds.officers);
+        const matchedOffs = matchItems(qTokens, ds.officers, "", qRaw);
         const matchedDivs = matchItems(qTokens, ds.divisions);
 
-        // Always put matched officers first, then top officers by OD across AE/AEE/TA/AS
+        // Put matched officers first, then top officers by OD across AE/AEE/TA/AS
         const rankedOffs = [
           ...matchedOffs,
           ...ds.officers.filter((o) => !matchedOffs.includes(o)).sort((a, b) => b.odRows.length - a.odRows.length)
         ].slice(0, 140);
 
         const offLines = rankedOffs.map((o) => {
-          const en = titleCaseEn(kannadaToEnglish(o.raw));
           const worst = [...o.odRows].sort((a, b) => b._odDays - a._odDays)[0];
           const worstTxt = worst ? ` | LongestOD=${worst.overdue_by} (${worst.target_date})` : "";
-          return `${o.role} ${o.raw} (${en}) [${Array.from(o.divs).join("/")}] => Tot=${o.rows.length}, OD=${o.odRows.length}, ETS=${o.etsRows.length}${worstTxt}`;
+          return `${o.role} ${o.raw} (${o.enName}) [${Array.from(o.divs).join("/")}] => Tot=${o.rows.length}, OD=${o.odRows.length}, ETS=${o.etsRows.length}${worstTxt}`;
         });
 
-        // BESCOM summary + rows
+        // Include ALL BESCOM AEs (with CF/CP split) so Gemini never misses anyone
         const bescomCf = ds.bescomRows.filter((r) => String(r.status_raw).toUpperCase().trim() === "CF").length;
         const bescomCp = ds.bescomRows.filter((r) => String(r.status_raw).toUpperCase().trim() === "CP").length;
         const bescomByAe = new Map();
         ds.bescomRows.forEach((r) => {
           const k = r.so_name || "Unassigned";
-          bescomByAe.set(k, (bescomByAe.get(k) || 0) + 1);
+          if (!bescomByAe.has(k)) bescomByAe.set(k, { cf: 0, cp: 0, tot: 0 });
+          const g = bescomByAe.get(k);
+          const st = String(r.status_raw || "").toUpperCase().trim();
+          if (st === "CF") g.cf++;
+          if (st === "CP") g.cp++;
+          g.tot++;
         });
         const bescomAeLines = Array.from(bescomByAe.entries())
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 40)
-          .map(([ae, cnt]) => `- AE ${ae} (${titleCaseEn(kannadaToEnglish(ae))}): ${cnt} BESCOM pending`);
+          .sort((a, b) => b[1].tot - a[1].tot)
+          .map(([ae, g]) => `- AE ${ae} (${kannadaToEnglish(ae)}): Total=${g.tot} (CF=${g.cf}, CP=${g.cp})`);
 
         let detailedWorks = [];
         if (/\bbescom\b|ಬೆಸ್ಕಾಂ/.test(qLower)) {
@@ -10470,7 +10689,7 @@
           if (seen.has(key)) continue;
           seen.add(key);
           uniqueWorkLines.push(
-            `- Work: ${r.work_name || "-"} | HOA: ${r.hoa || "-"} | Sheet: ${r.sheet_name || "-"} | Div: ${r.division_name} | Taluk: ${r.taluk_name || "-"} | AE: ${r.so_name} | AEE: ${r.aee_name} | TA: ${r.ta_name || "-"} | AS: ${r.as_name || "-"} | Status: ${r.status_raw} | Target: ${r.target_date} | OverdueBy: ${r.overdue_by} | EstLakhs: ${r.est_cost || "-"}`
+            `- Work: ${r.work_name || "-"} | HOA: ${r.hoa || "-"} | Sheet: ${r.sheet_name || "-"} | Div: ${r.division_name} | Taluk: ${r.taluk_name || "-"} | AE: ${r.so_name} (${kannadaToEnglish(r.so_name)}) | AEE: ${r.aee_name} | TA: ${r.ta_name || "-"} | AS: ${r.as_name || "-"} | Status: ${r.status_raw} | Target: ${r.target_date} | OverdueBy: ${r.overdue_by} | EstLakhs: ${r.est_cost || "-"}`
           );
           if (uniqueWorkLines.length >= 45) break;
         }
@@ -10478,7 +10697,7 @@
         return [
           `TODAY: ${STATE.todayStr || "-"}`,
           `SOUTH ZONE TOTALS: TotalWorks=${tot}, Overdue(P)=${odRows.length}, ETS=${etsCnt}, Chronic2Yr+=${y2}, Chronic3Yr+=${y3}, Chronic4Yr+=${y4}, BESCOM_Pending=${ds.bescomRows.length} (CF=${bescomCf}, CP=${bescomCp})`,
-          `\nBESCOM PENDING BY AE:\n${bescomAeLines.join("\n") || "None"}`,
+          `\nBESCOM PENDING BY AE (ALL ${bescomAeLines.length} AEs):\n${bescomAeLines.join("\n") || "None"}`,
           `\nLEKKASHIRSHIKE (H.O.A.) SUMMARY:\n${hoaSummaryLines.join("\n")}`,
           `\nDIVISIONS:\n${divLines.join("\n")}`,
           `\nOFFICERS (AE, AEE, TA, AS):\n${offLines.join("\n")}`,
@@ -10486,7 +10705,7 @@
         ].join("\n");
       }
 
-      // 6. UI SETUP + POPUP & PDF/EXCEL BUTTONS ON EVERY RELEVANT ANSWER
+      // 6. UI SETUP + SMART POPUP & EXPORT BUTTONS (CHECKS BOTH QUESTION & REPLY)
       const BOT_SVG = `<svg class="mi-ai-bot-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>`;
       const SEND_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
 
@@ -10523,10 +10742,10 @@
           <div class="mi-ai-sug-title">Suggested Questions:</div>
           <div class="mi-ai-sug-list">
             <button type="button" class="mi-ai-sug-chip">Who has the highest overdue works?</button>
+            <button type="button" class="mi-ai-sug-chip">Who is the AE with highest BESCOM RR pending?</button>
             <button type="button" class="mi-ai-sug-chip">Which work has the longest overdue period?</button>
-            <button type="button" class="mi-ai-sug-chip">Give me overall South Zone summary</button>
             <button type="button" class="mi-ai-sug-chip">Top 5 divisions by overdue works</button>
-            <button type="button" class="mi-ai-sug-chip">How many BESCOM registrations are pending?</button>
+            <button type="button" class="mi-ai-sug-chip">Give me overall South Zone summary</button>
           </div>
         </div>
 
@@ -10571,51 +10790,81 @@
         bodyEl.scrollTop = bodyEl.scrollHeight;
       }
 
-      function attachGeminiActionButtons(rawQuery) {
+      function attachGeminiActionButtons(rawQuery, replyText) {
         const ds = getAiDataset();
         const qLower = String(rawQuery || "").toLowerCase();
-        const qTokens = extractQueryTokens(rawQuery);
-        const matchedOffs = matchItems(qTokens, ds.officers);
-        const matchedDivs = matchItems(qTokens, ds.divisions);
-        const wantsBescom = /\b(bescom|rr\s*no|registration|borewell)\b|ಬೆಸ್ಕಾಂ/.test(qLower);
+        const rLower = String(replyText || "").toLowerCase();
+        const wantsBescom = /\b(bescom|rr\s*no|rr\s*pending|registration|borewell)\b|ಬೆಸ್ಕಾಂ/.test(qLower) ||
+          /\bbescom\b/.test(rLower);
 
+        let roleHint = "";
+        if (/\baee\b|assistant executive/.test(qLower)) roleHint = "AEE";
+        else if (/\bae\b|assistant engineer/.test(qLower) || wantsBescom) roleHint = "AE";
+        else if (/\bta\b|technical assistant/.test(qLower)) roleHint = "TA";
+        else if (/\b(as|account superintendent)\b/.test(qLower)) roleHint = "AS";
+
+        // 1. Check officers mentioned in user's query
+        const qTokens = extractQueryTokens(rawQuery);
+        let targetOfficers = matchItems(qTokens, ds.officers, roleHint, rawQuery);
+
+        // 2. If user asked "who has highest..." (no name in query), detect the exact officer in Gemini's reply!
+        if (!targetOfficers.length && replyText) {
+          targetOfficers = findOfficersInReply(replyText, ds.officers, roleHint);
+        }
+
+        // 3. Follow-up pronoun support ("give me his pdf", "open popup")
+        if (!targetOfficers.length && lastContextOfficer && /\b(him|her|his|their|this|that|pdf|excel|popup)\b/.test(qLower)) {
+          targetOfficers = [lastContextOfficer];
+        }
+
+        const matchedDivs = matchItems(qTokens, ds.divisions);
         let popupOpts = {};
         let exportRows = [];
         let exportTitle = "MI_AI_Report";
 
         if (wantsBescom) {
-          const subset = matchedOffs.length && !matchedOffs[0].isAee
-            ? ds.bescomRows.filter((r) => r.so_name === matchedOffs[0].raw)
-            : ds.bescomRows;
-          if (matchedOffs.length && !matchedOffs[0].isAee) {
-            popupOpts.bescomAe = matchedOffs[0].raw;
-            popupOpts.officerName = matchedOffs[0].raw;
+          const aeOff = targetOfficers.find((o) => o.role === "AE") || targetOfficers[0];
+          if (aeOff) {
+            lastContextOfficer = aeOff;
+            const subset = ds.bescomRows.filter((r) => aeOff.rowPred(r, aeOff.raw));
+            if (aeOff.role === "AE") popupOpts.bescomAe = aeOff.raw;
+            exportTitle = `BESCOM_Pending_${aeOff.enName || aeOff.raw}`;
+            exportRows = toExportRows(subset, true);
+          } else {
+            exportTitle = "BESCOM_Pending_All";
+            exportRows = toExportRows(ds.bescomRows, true);
           }
-          exportTitle = matchedOffs.length ? `BESCOM_${matchedOffs[0].raw}` : "BESCOM_Pending";
-          exportRows = toExportRows(subset);
-        } else if (matchedOffs.length > 0) {
-          const p = matchedOffs[0];
+          if (exportRows.length > 0) {
+            popupOpts.packId = saveExportPack(exportTitle, exportRows, true);
+            popupOpts.packCount = exportRows.length;
+          }
+          return buildActionButtonsHtml(popupOpts);
+        }
+
+        if (targetOfficers.length > 0) {
+          const p = targetOfficers[0];
+          lastContextOfficer = p;
           if (p.role === "AE" || p.role === "AEE") {
             popupOpts.officerName = p.raw;
             popupOpts.isAee = p.role === "AEE";
           }
           const src = p.odRows.length ? [...p.odRows].sort((a, b) => b._odDays - a._odDays) : p.rows;
-          exportTitle = `${p.role}_${p.raw}`;
-          exportRows = toExportRows(src);
+          exportTitle = `${p.role}_${p.enName || p.raw}`;
+          exportRows = toExportRows(src, false);
         } else if (matchedDivs.length > 0) {
           const d = matchedDivs[0];
           const src = d.rows.filter((r) => r.is_overdue).sort((a, b) => b._odDays - a._odDays);
-          exportTitle = `Division_${d.raw}`;
-          exportRows = toExportRows(src.length ? src : d.rows);
+          exportTitle = `Division_${kannadaToEnglish(d.raw) || d.raw}`;
+          exportRows = toExportRows(src.length ? src : d.rows, false);
         } else {
-          const topOd = ds.rows.filter((r) => r.is_overdue).sort((a, b) => b._odDays - a._odDays).slice(0, 20);
-          exportTitle = "South_Zone_Overdue_Works";
-          exportRows = toExportRows(topOd);
+          const topOd = ds.rows.filter((r) => r.is_overdue).sort((a, b) => b._odDays - a._odDays).slice(0, 25);
+          exportTitle = "South_Zone_Top_Overdue_Works";
+          exportRows = toExportRows(topOd, false);
         }
 
         if (exportRows.length > 0) {
-          saveExportPack(exportTitle, exportRows);
-          popupOpts.hasExport = true;
+          popupOpts.packId = saveExportPack(exportTitle, exportRows, false);
+          popupOpts.packCount = exportRows.length;
         }
         return buildActionButtonsHtml(popupOpts);
       }
@@ -10650,7 +10899,7 @@
 
           typingRow.remove();
           chatHistory.push({ role: "user", text: q }, { role: "assistant", text: data.reply });
-          const actionBtns = attachGeminiActionButtons(q);
+          const actionBtns = attachGeminiActionButtons(q, data.reply);
           appendMessage("bot", formatAiMarkdown(data.reply) + actionBtns);
         } catch (err) {
           console.warn("Gemini API fallback to local engine:", err);
@@ -10689,8 +10938,13 @@
         }
         const expBtn = e.target.closest("[data-ai-export]");
         if (expBtn) {
-          if (expBtn.getAttribute("data-ai-export") === "pdf") downloadAiPdf(lastAiExportPack);
-          else downloadAiExcel(lastAiExportPack);
+          const pack = aiExportPacks.get(expBtn.getAttribute("data-pack-id"));
+          if (!pack) {
+            alert("Export data expired—please ask the question again.");
+            return;
+          }
+          if (expBtn.getAttribute("data-ai-export") === "pdf") downloadAiPdf(pack, expBtn);
+          else downloadAiExcel(pack);
           return;
         }
         const askBtn = e.target.closest("[data-ask-query]");
@@ -10705,6 +10959,7 @@
         }
       });
     })();
+    
   </script>
 </body>
 </html>
