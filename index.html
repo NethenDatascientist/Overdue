@@ -8771,10 +8771,9 @@
         const page = typeof STATE !== "undefined" ? STATE.activePage : "dashboard";
         const specsByPage = {
           dashboard: [
-            { label: "Overview", el: () => document.getElementById("p1-kpi-grid") },
-            { label: "Officer Chart", el: () => document.getElementById("p1-chart-title")?.closest(".exec-section-banner") || document.getElementById("p1-bar-chart") },
+            { label: "Overview & Officer Chart", el: () => document.getElementById("p1-kpi-grid") },
             { label: "Summary Table", el: () => document.getElementById("p1-summary-table-wrap")?.previousElementSibling || document.getElementById("p1-summary-table-wrap") },
-            { label: "BESCOM Pending", el: () => document.getElementById("bescom-pending-section") }
+            { label: "BESCOM Pending RR no.", el: () => document.getElementById("bescom-pending-section") }
           ],
           analytics: [
             { label: "KPI Overview", el: () => document.getElementById("p2-kpi-grid") },
