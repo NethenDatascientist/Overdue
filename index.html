@@ -2243,6 +2243,112 @@
       font-weight: 800;
       font-size: 0.78rem;
     }
+    /* =========================================================================
+       SCROLL-FLOW SECTION INDEX (AUTO-HIDES 1s AFTER SCROLL STOPS, PC ONLY)
+       ========================================================================= */
+    #scroll-flow-nav {
+      position: fixed;
+      top: 0;
+      right: 52px; /* Sits cleanly left of your 48px Scroll HUD ruler */
+      bottom: 0;
+      width: 240px;
+      z-index: 9994;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.35s ease, visibility 0.35s ease;
+      font-family: 'Montserrat', 'Inter', sans-serif;
+      user-select: none;
+    }
+    #scroll-flow-nav.is-visible {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .sfn-top-zone {
+      position: absolute;
+      top: 56px;
+      right: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+      padding: 10px 12px 10px 30px;
+      border-radius: 12px;
+      background: linear-gradient(90deg, rgba(220, 228, 238, 0) 0%, rgba(220, 228, 238, 0.88) 26%, rgba(220, 228, 238, 0.96) 100%);
+    }
+    .sfn-bottom-zone {
+      position: absolute;
+      bottom: 28px;
+      right: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+      padding: 10px 12px 10px 30px;
+      border-radius: 12px;
+      background: linear-gradient(90deg, rgba(220, 228, 238, 0) 0%, rgba(220, 228, 238, 0.88) 26%, rgba(220, 228, 238, 0.96) 100%);
+    }
+    .sfn-bottom-zone:empty {
+      display: none;
+    }
+
+    .sfn-item {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: #64748B;
+      text-align: right;
+      white-space: nowrap;
+      line-height: 1.35;
+      cursor: pointer;
+      pointer-events: none;
+      transition: color 0.15s ease, transform 0.15s ease;
+    }
+    #scroll-flow-nav.is-visible .sfn-item {
+      pointer-events: auto;
+    }
+    .sfn-item:hover {
+      color: #1D4ED8;
+      transform: translateX(-3px);
+    }
+
+    .sfn-active-slot {
+      margin-top: 6px;
+      font-size: 1.25rem;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #0F172A;
+      text-align: right;
+      white-space: nowrap;
+      line-height: 1.2;
+      min-height: 1.5rem;
+      text-shadow: 0 2px 10px rgba(255, 255, 255, 0.9);
+    }
+
+    .sfn-fly-char {
+      position: fixed;
+      z-index: 9996;
+      pointer-events: none;
+      font-family: 'Montserrat', 'Inter', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #0F172A;
+      will-change: transform, opacity;
+      transform-origin: center center;
+    }
+
+    /* Keep mobile view completely clean and fast */
+    @media (pointer: coarse) {
+      #scroll-flow-nav,
+      .sfn-fly-char {
+        display: none !important;
+      }
+    }
   </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Kannada:wght@600;700;800&display=swap">
 </head>
@@ -8620,6 +8726,265 @@
     document.getElementById("bdm-tab-cp")?.addEventListener("click", () => { BESCOM_MODAL_STATE.activeTab = "CP"; renderBescomAeModal(); });
     document.getElementById("bdm-dl-xlsx-btn")?.addEventListener("click", exportBescomModalExcel);
     document.getElementById("bdm-dl-pdf-btn")?.addEventListener("click", exportBescomModalPdf);
+  // =========================================================================
+    // SCROLL-FLOW SECTION INDEX (CURVED LETTER FLIGHT + 1s AUTO-FADE)
+    // =========================================================================
+    (function initScrollFlowNav() {
+      const isPhone = Boolean(
+        document.documentElement.classList.contains("is-mobile-device") ||
+        (window.matchMedia && window.matchMedia("(pointer: coarse)").matches)
+      );
+      if (isPhone) return;
+
+      const nav = document.createElement("div");
+      nav.id = "scroll-flow-nav";
+      nav.innerHTML = `
+        <div class="sfn-top-zone">
+          <div id="sfn-passed"></div>
+          <div id="sfn-active" class="sfn-active-slot"></div>
+        </div>
+        <div id="sfn-upcoming" class="sfn-bottom-zone"></div>
+      `;
+      document.body.appendChild(nav);
+
+      const passedEl = document.getElementById("sfn-passed");
+      const activeEl = document.getElementById("sfn-active");
+      const upcomingEl = document.getElementById("sfn-upcoming");
+
+      let currentPageKey = "";
+      let currentIdx = -1;
+      let hideTimer = null;
+      let isHovering = false;
+      let activeFlightNodes = [];
+      let rafPending = false;
+
+      // Maps each page's sections automatically
+      function getPageSections() {
+        const page = typeof STATE !== "undefined" ? STATE.activePage : "dashboard";
+        const specsByPage = {
+          dashboard: [
+            { label: "Overview", el: () => document.getElementById("p1-kpi-grid") },
+            { label: "Officer Chart", el: () => document.getElementById("p1-chart-title")?.closest(".exec-section-banner") || document.getElementById("p1-bar-chart") },
+            { label: "Summary Table", el: () => document.getElementById("p1-summary-table-wrap")?.previousElementSibling || document.getElementById("p1-summary-table-wrap") },
+            { label: "Diagnostics", el: () => document.getElementById("p1-diag-table-wrap")?.closest("details") },
+            { label: "BESCOM Pending", el: () => document.getElementById("bescom-pending-section") }
+          ],
+          analytics: [
+            { label: "KPI Overview", el: () => document.getElementById("p2-kpi-grid") },
+            { label: "ETS Verification", el: () => document.getElementById("p2-truth-verdict-box")?.closest(".filter-card") },
+            { label: "Leaderboards", el: () => document.getElementById("p2-leaderboards-wrap") }
+          ],
+          abstract: [
+            { label: "Filters", el: () => document.querySelector("#page-abstract .filter-grid-5") },
+            { label: "Overdue List", el: () => document.getElementById("p3-abstract-table-wrap") }
+          ],
+          allworks: [
+            { label: "Filters", el: () => document.querySelector("#page-allworks .filter-grid-5") },
+            { label: "MMR Abstract", el: () => document.getElementById("p4-allworks-table-wrap") }
+          ]
+        };
+
+        const specs = specsByPage[page] || [];
+        return {
+          page,
+          items: specs
+            .map((s) => ({ label: s.label, el: s.el() }))
+            .filter((s) => s.el && s.el.offsetParent !== null)
+        };
+      }
+
+      function clearFlights() {
+        activeFlightNodes.forEach((n) => n.remove());
+        activeFlightNodes = [];
+        activeEl.style.visibility = "visible";
+      }
+
+      function scheduleHide() {
+        clearTimeout(hideTimer);
+        if (isHovering) return;
+        hideTimer = setTimeout(() => {
+          if (!isHovering) nav.classList.remove("is-visible");
+        }, 1000); // Disappears 1 second after scrolling stops
+      }
+
+      function showNav() {
+        nav.classList.add("is-visible");
+        scheduleHide();
+      }
+
+      function renderStacks(items, activeIdx) {
+        passedEl.innerHTML = "";
+        upcomingEl.innerHTML = "";
+
+        items.forEach((sec, idx) => {
+          if (idx === activeIdx) return;
+          const div = document.createElement("div");
+          div.className = "sfn-item";
+          div.textContent = sec.label;
+          div.dataset.sfnIdx = String(idx);
+          div.addEventListener("click", () => {
+            sec.el.scrollIntoView({ behavior: "smooth", block: "start" });
+          });
+          if (idx < activeIdx) passedEl.appendChild(div);
+          else upcomingEl.appendChild(div);
+        });
+
+        activeEl.textContent = items[activeIdx]?.label || "";
+      }
+
+      function animateLetterFlow(label, fromRect, goingDown) {
+        clearFlights();
+        activeEl.textContent = label;
+
+        if (!fromRect || typeof Element.prototype.animate !== "function") return;
+
+        // Measure exact final character positions inside activeEl
+        const chars = Array.from(label);
+        activeEl.innerHTML = chars
+          .map((ch) => `<span style="display:inline-block;">${ch === " " ? "&nbsp;" : escapeHtml(ch)}</span>`)
+          .join("");
+
+        const targetSpans = Array.from(activeEl.querySelectorAll("span"));
+        const targetRects = targetSpans.map((sp) => sp.getBoundingClientRect());
+
+        // Hide real text while the letters curve into place
+        activeEl.style.visibility = "hidden";
+
+        const totalChars = chars.length;
+        let finishedCount = 0;
+
+        chars.forEach((ch, i) => {
+          if (ch === " ") {
+            finishedCount++;
+            return;
+          }
+          const tRect = targetRects[i];
+          if (!tRect || tRect.width === 0) {
+            finishedCount++;
+            return;
+          }
+
+          const fly = document.createElement("span");
+          fly.className = "sfn-fly-char";
+          fly.textContent = ch;
+          fly.style.left = `${tRect.left}px`;
+          fly.style.top = `${tRect.top}px`;
+          document.body.appendChild(fly);
+          activeFlightNodes.push(fly);
+
+          // Start near the bottom (or top) stack position and curve along the right rail
+          const startX = (fromRect.left + (i / Math.max(1, totalChars)) * fromRect.width) - tRect.left;
+          const startY = fromRect.top - tRect.top;
+          const midX = startX * 0.3 + 22; // Slight curve toward the right ruler edge
+          const midY = startY * 0.45;
+          const midRot = goingDown ? -55 : 45;
+
+          const delay = i * 20; // Staggered letter-by-letter peel
+
+          const anim = fly.animate(
+            [
+              {
+                transform: `translate3d(${startX.toFixed(1)}px, ${startY.toFixed(1)}px, 0) scale(0.62) rotate(${goingDown ? -12 : 12}deg)`,
+                opacity: 0.45
+              },
+              {
+                transform: `translate3d(${midX.toFixed(1)}px, ${midY.toFixed(1)}px, 0) scale(0.86) rotate(${midRot}deg)`,
+                opacity: 0.92,
+                offset: 0.52
+              },
+              {
+                transform: "translate3d(0px, 0px, 0) scale(1) rotate(0deg)",
+                opacity: 1
+              }
+            ],
+            {
+              duration: 430,
+              delay,
+              easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+              fill: "both"
+            }
+          );
+
+          anim.onfinish = () => {
+            finishedCount++;
+            if (finishedCount >= totalChars) {
+              activeEl.textContent = label;
+              clearFlights();
+            }
+          };
+          anim.oncancel = () => {
+            fly.remove();
+          };
+        });
+      }
+
+      function updateOnScroll(isUserScroll = true) {
+        const { page, items } = getPageSections();
+        if (items.length < 2) {
+          nav.classList.remove("is-visible");
+          return;
+        }
+
+        // Determine active section based on 32% viewport trigger line
+        const triggerY = window.innerHeight * 0.32;
+        let nextIdx = 0;
+        for (let i = 0; i < items.length; i++) {
+          const rect = items[i].el.getBoundingClientRect();
+          if (rect.top <= triggerY) nextIdx = i;
+        }
+
+        if (isUserScroll) showNav();
+
+        const pageChanged = page !== currentPageKey;
+        if (pageChanged) {
+          currentPageKey = page;
+          currentIdx = nextIdx;
+          clearFlights();
+          renderStacks(items, currentIdx);
+          return;
+        }
+
+        if (nextIdx !== currentIdx) {
+          const goingDown = nextIdx > currentIdx;
+          const srcNode = nav.querySelector(`.sfn-item[data-sfn-idx="${nextIdx}"]`);
+          const fromRect = srcNode ? srcNode.getBoundingClientRect() : null;
+
+          currentIdx = nextIdx;
+          renderStacks(items, currentIdx);
+
+          if (isUserScroll && fromRect) {
+            animateLetterFlow(items[currentIdx].label, fromRect, goingDown);
+          }
+        }
+      }
+
+      nav.addEventListener("mouseenter", () => {
+        isHovering = true;
+        clearTimeout(hideTimer);
+      });
+      nav.addEventListener("mouseleave", () => {
+        isHovering = false;
+        scheduleHide();
+      });
+
+      window.addEventListener("scroll", () => {
+        if (rafPending) return;
+        rafPending = true;
+        requestAnimationFrame(() => {
+          rafPending = false;
+          updateOnScroll(true);
+        });
+      }, { passive: true });
+
+      // Refresh section list quietly when switching pages (without flashing the overlay)
+      ["page-switch-btn", "abstract-switch-btn", "allworks-switch-btn"].forEach((id) => {
+        document.getElementById(id)?.addEventListener("click", () => {
+          setTimeout(() => updateOnScroll(false), 120);
+        });
+      });
+
+      setTimeout(() => updateOnScroll(false), 1400);
+    })();
   </script>
 </body>
 </html>
