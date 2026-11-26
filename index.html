@@ -8784,13 +8784,13 @@
         const page = typeof STATE !== "undefined" ? STATE.activePage : "dashboard";
         const specsByPage = {
           dashboard: [
-            { label: "Overview & Officer Chart", el: () => document.getElementById("p1-kpi-grid") },
+            { label: "KPI Overview", el: () => document.getElementById("p1-kpi-grid") },
+            { label: "Officer Chart", el: () => document.getElementById("p1-chart-title")?.closest(".exec-section-banner") || document.getElementById("p1-bar-chart") },
             { label: "Summary Table", el: () => document.getElementById("p1-summary-table-wrap")?.previousElementSibling || document.getElementById("p1-summary-table-wrap") },
-            { label: "BESCOM Pending", el: () => document.getElementById("bescom-pending-section") }
+            { label: "BESCOM Pending RR NO.", el: () => document.getElementById("bescom-pending-section") }
           ],
           analytics: [
-            { label: "KPI Overview", el: () => document.getElementById("p2-kpi-grid") },
-            { label: "ETS Verification", el: () => document.getElementById("p2-truth-verdict-box")?.closest(".filter-card") },
+            { label: "Officer Analytics", el: () => document.getElementById("p2-truth-verdict-box")?.closest(".filter-card") },
             { label: "Leaderboards", el: () => document.getElementById("p2-leaderboards-wrap") }
           ],
           abstract: [
