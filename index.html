@@ -8729,6 +8729,9 @@
   // =========================================================================
     // SCROLL-FLOW SECTION INDEX (CURVED LETTER FLIGHT + 1s AUTO-FADE)
     // =========================================================================
+    // =========================================================================
+    // SCROLL-FLOW SECTION INDEX (BIDIRECTIONAL LETTER FLOW + FAST-SCROLL GUARD)
+    // =========================================================================
     (function initScrollFlowNav() {
       const isPhone = Boolean(
         document.documentElement.classList.contains("is-mobile-device") ||
@@ -8753,12 +8756,17 @@
 
       let currentPageKey = "";
       let currentIdx = -1;
+      let currentLabel = "";
       let hideTimer = null;
+      let settleTimer = null;
       let isHovering = false;
+      let animGen = 0;
+      let activeAnims = [];
       let activeFlightNodes = [];
       let rafPending = false;
+      let lastScrollY = window.scrollY || 0;
+      let lastFlightStart = 0;
 
-      // Maps each page's sections automatically
       function getPageSections() {
         const page = typeof STATE !== "undefined" ? STATE.activePage : "dashboard";
         const specsByPage = {
@@ -8766,7 +8774,6 @@
             { label: "Overview", el: () => document.getElementById("p1-kpi-grid") },
             { label: "Officer Chart", el: () => document.getElementById("p1-chart-title")?.closest(".exec-section-banner") || document.getElementById("p1-bar-chart") },
             { label: "Summary Table", el: () => document.getElementById("p1-summary-table-wrap")?.previousElementSibling || document.getElementById("p1-summary-table-wrap") },
-            { label: "Diagnostics", el: () => document.getElementById("p1-diag-table-wrap")?.closest("details") },
             { label: "BESCOM Pending", el: () => document.getElementById("bescom-pending-section") }
           ],
           analytics: [
@@ -8794,9 +8801,18 @@
       }
 
       function clearFlights() {
+        animGen++;
+        activeAnims.forEach((a) => {
+          try { a.cancel(); } catch (_) {}
+        });
+        activeAnims = [];
         activeFlightNodes.forEach((n) => n.remove());
         activeFlightNodes = [];
-        activeEl.style.visibility = "visible";
+        if (currentLabel) activeEl.textContent = currentLabel;
+        activeEl.style.opacity = "1";
+        nav.querySelectorAll(".sfn-item").forEach((el) => {
+          el.style.opacity = "";
+        });
       }
 
       function scheduleHide() {
@@ -8804,12 +8820,21 @@
         if (isHovering) return;
         hideTimer = setTimeout(() => {
           if (!isHovering) nav.classList.remove("is-visible");
-        }, 1000); // Disappears 1 second after scrolling stops
+        }, 1000);
       }
 
       function showNav() {
         nav.classList.add("is-visible");
         scheduleHide();
+      }
+
+      function measureActiveChars(label) {
+        const chars = Array.from(label);
+        activeEl.innerHTML = chars
+          .map((ch) => `<span style="display:inline-block;">${ch === " " ? "&nbsp;" : escapeHtml(ch)}</span>`)
+          .join("");
+        const rects = Array.from(activeEl.querySelectorAll("span")).map((sp) => sp.getBoundingClientRect());
+        return { chars, rects };
       }
 
       function renderStacks(items, activeIdx) {
@@ -8829,67 +8854,86 @@
           else upcomingEl.appendChild(div);
         });
 
-        activeEl.textContent = items[activeIdx]?.label || "";
+        currentLabel = items[activeIdx]?.label || "";
+        activeEl.textContent = currentLabel;
       }
 
-      function animateLetterFlow(label, fromRect, goingDown) {
+      function launchBidirectionalFlight({
+        inLabel,
+        inFromRect,
+        outLabel,
+        outCharData,
+        outDestNode,
+        goingDown,
+        fastMode
+      }) {
         clearFlights();
-        activeEl.textContent = label;
+        if (typeof Element.prototype.animate !== "function") return;
 
-        if (!fromRect || typeof Element.prototype.animate !== "function") return;
+        const myGen = animGen;
+        const duration = fastMode ? 290 : 390;
+        const stagger = fastMode ? 12 : 17;
 
-        // Measure exact final character positions inside activeEl
-        const chars = Array.from(label);
-        activeEl.innerHTML = chars
-          .map((ch) => `<span style="display:inline-block;">${ch === " " ? "&nbsp;" : escapeHtml(ch)}</span>`)
-          .join("");
+        const inData = measureActiveChars(inLabel);
+        activeEl.style.opacity = "0";
 
-        const targetSpans = Array.from(activeEl.querySelectorAll("span"));
-        const targetRects = targetSpans.map((sp) => sp.getBoundingClientRect());
-
-        // Hide real text while the letters curve into place
-        activeEl.style.visibility = "hidden";
-
-        const totalChars = chars.length;
-        let finishedCount = 0;
-
-        chars.forEach((ch, i) => {
-          if (ch === " ") {
-            finishedCount++;
-            return;
+        let pendingCount = 0;
+        const onOneDone = () => {
+          if (myGen !== animGen) return;
+          pendingCount--;
+          if (pendingCount <= 0) {
+            clearFlights();
           }
-          const tRect = targetRects[i];
-          if (!tRect || tRect.width === 0) {
-            finishedCount++;
-            return;
-          }
+        };
+
+        // 1. INCOMING TITLE: letter-by-letter curved sweep into the active bold slot
+        const inTotal = inData.chars.length;
+        inData.chars.forEach((ch, i) => {
+          if (ch === " ") return;
+          const tRect = inData.rects[i];
+          if (!tRect || tRect.width === 0) return;
 
           const fly = document.createElement("span");
           fly.className = "sfn-fly-char";
           fly.textContent = ch;
           fly.style.left = `${tRect.left}px`;
           fly.style.top = `${tRect.top}px`;
-          document.body.appendChild(fly);
+          nav.appendChild(fly);
           activeFlightNodes.push(fly);
 
-          // Start near the bottom (or top) stack position and curve along the right rail
-          const startX = (fromRect.left + (i / Math.max(1, totalChars)) * fromRect.width) - tRect.left;
-          const startY = fromRect.top - tRect.top;
-          const midX = startX * 0.3 + 22; // Slight curve toward the right ruler edge
-          const midY = startY * 0.45;
-          const midRot = goingDown ? -55 : 45;
+          let startX, startY, midX, midY, startRot, midRot;
+          if (goingDown && inFromRect) {
+            // Sweeps UP from bottom upcoming stack along the right curve
+            startX = (inFromRect.left + (i / Math.max(1, inTotal)) * inFromRect.width) - tRect.left;
+            startY = inFromRect.top - tRect.top;
+            midX = startX * 0.3 + 24;
+            midY = startY * 0.45;
+            startRot = -12;
+            midRot = -52;
+          } else {
+            // Scrolling UP: peels from top passed stack with a matching outward-right curve
+            startX = inFromRect
+              ? (inFromRect.left + (i / Math.max(1, inTotal)) * inFromRect.width) - tRect.left
+              : 18;
+            startY = inFromRect
+              ? Math.min(-42, inFromRect.top - tRect.top - 22)
+              : -58;
+            midX = startX * 0.35 + 28;
+            midY = startY * 0.45;
+            startRot = 14;
+            midRot = 42;
+          }
 
-          const delay = i * 20; // Staggered letter-by-letter peel
-
+          pendingCount++;
           const anim = fly.animate(
             [
               {
-                transform: `translate3d(${startX.toFixed(1)}px, ${startY.toFixed(1)}px, 0) scale(0.62) rotate(${goingDown ? -12 : 12}deg)`,
+                transform: `translate3d(${startX.toFixed(1)}px, ${startY.toFixed(1)}px, 0) scale(0.62) rotate(${startRot}deg)`,
                 opacity: 0.45
               },
               {
                 transform: `translate3d(${midX.toFixed(1)}px, ${midY.toFixed(1)}px, 0) scale(0.86) rotate(${midRot}deg)`,
-                opacity: 0.92,
+                opacity: 0.94,
                 offset: 0.52
               },
               {
@@ -8898,23 +8942,133 @@
               }
             ],
             {
-              duration: 430,
-              delay,
+              duration,
+              delay: i * stagger,
               easing: "cubic-bezier(0.22, 1, 0.36, 1)",
               fill: "both"
             }
           );
 
-          anim.onfinish = () => {
-            finishedCount++;
-            if (finishedCount >= totalChars) {
-              activeEl.textContent = label;
-              clearFlights();
-            }
-          };
-          anim.oncancel = () => {
-            fly.remove();
-          };
+          activeAnims.push(anim);
+          anim.onfinish = onOneDone;
+        });
+
+        // 2. SCROLLING UP OUTGOING TITLE: peels letter-by-letter DOWN the right curve into the bottom stack
+        if (!goingDown && outLabel && outCharData && outDestNode) {
+          const outToRect = outDestNode.getBoundingClientRect();
+          if (outToRect && outToRect.width > 0) {
+            outDestNode.style.opacity = "0";
+            const outTotal = outCharData.chars.length;
+
+            outCharData.chars.forEach((ch, i) => {
+              if (ch === " ") return;
+              const sRect = outCharData.rects[i];
+              if (!sRect || sRect.width === 0) return;
+
+              const fly = document.createElement("span");
+              fly.className = "sfn-fly-char";
+              fly.textContent = ch;
+              fly.style.left = `${sRect.left}px`;
+              fly.style.top = `${sRect.top}px`;
+              nav.appendChild(fly);
+              activeFlightNodes.push(fly);
+
+              const endX = (outToRect.left + (i / Math.max(1, outTotal)) * outToRect.width) - sRect.left;
+              const endY = outToRect.top - sRect.top;
+              const midX = endX * 0.35 + 26;
+              const midY = endY * 0.48;
+
+              pendingCount++;
+              const anim = fly.animate(
+                [
+                  {
+                    transform: "translate3d(0px, 0px, 0) scale(1) rotate(0deg)",
+                    opacity: 0.95
+                  },
+                  {
+                    transform: `translate3d(${midX.toFixed(1)}px, ${midY.toFixed(1)}px, 0) scale(0.82) rotate(48deg)`,
+                    opacity: 0.85,
+                    offset: 0.48
+                  },
+                  {
+                    transform: `translate3d(${endX.toFixed(1)}px, ${endY.toFixed(1)}px, 0) scale(0.60) rotate(12deg)`,
+                    opacity: 0.45
+                  }
+                ],
+                {
+                  duration,
+                  delay: (outTotal - 1 - i) * Math.max(10, stagger - 3),
+                  easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+                  fill: "both"
+                }
+              );
+
+              activeAnims.push(anim);
+              anim.onfinish = onOneDone;
+            });
+          }
+        }
+
+        if (pendingCount === 0) {
+          clearFlights();
+          return;
+        }
+
+        // Hard safety restore in case browser throttles animations
+        setTimeout(() => {
+          if (myGen === animGen) clearFlights();
+        }, duration + (inTotal + 6) * stagger + 120);
+      }
+
+      function computeActiveIndex(items) {
+        const docH = document.documentElement.scrollHeight;
+        if (window.innerHeight + window.scrollY >= docH - 24) {
+          return items.length - 1;
+        }
+        const triggerY = window.innerHeight * 0.32;
+        let idx = 0;
+        for (let i = 0; i < items.length; i++) {
+          if (items[i].el.getBoundingClientRect().top <= triggerY) idx = i;
+        }
+        return idx;
+      }
+
+      function commitSectionChange(items, nextIdx, animate, fastMode) {
+        const oldIdx = currentIdx;
+        const oldLabel = currentLabel;
+        const goingDown = nextIdx > oldIdx;
+
+        // Capture source coordinates BEFORE re-rendering stacks
+        const srcNode = nav.querySelector(`.sfn-item[data-sfn-idx="${nextIdx}"]`);
+        const inFromRect = srcNode ? srcNode.getBoundingClientRect() : null;
+        let outCharData = null;
+
+        if (animate && !goingDown && oldLabel) {
+          clearFlights();
+          outCharData = measureActiveChars(oldLabel);
+        }
+
+        currentIdx = nextIdx;
+        renderStacks(items, currentIdx);
+
+        if (!animate) {
+          clearFlights();
+          return;
+        }
+
+        lastFlightStart = performance.now();
+        const outDestNode = !goingDown
+          ? upcomingEl.querySelector(`.sfn-item[data-sfn-idx="${oldIdx}"]`)
+          : null;
+
+        launchBidirectionalFlight({
+          inLabel: items[currentIdx].label,
+          inFromRect,
+          outLabel: oldLabel,
+          outCharData,
+          outDestNode,
+          goingDown,
+          fastMode
         });
       }
 
@@ -8925,36 +9079,44 @@
           return;
         }
 
-        // Determine active section based on 32% viewport trigger line
-        const triggerY = window.innerHeight * 0.32;
-        let nextIdx = 0;
-        for (let i = 0; i < items.length; i++) {
-          const rect = items[i].el.getBoundingClientRect();
-          if (rect.top <= triggerY) nextIdx = i;
-        }
-
+        const nextIdx = computeActiveIndex(items);
         if (isUserScroll) showNav();
 
-        const pageChanged = page !== currentPageKey;
-        if (pageChanged) {
+        if (page !== currentPageKey) {
+          clearTimeout(settleTimer);
           currentPageKey = page;
           currentIdx = nextIdx;
-          clearFlights();
           renderStacks(items, currentIdx);
+          clearFlights();
           return;
         }
 
-        if (nextIdx !== currentIdx) {
-          const goingDown = nextIdx > currentIdx;
-          const srcNode = nav.querySelector(`.sfn-item[data-sfn-idx="${nextIdx}"]`);
-          const fromRect = srcNode ? srcNode.getBoundingClientRect() : null;
+        const curScrollY = window.scrollY || 0;
+        const stepPx = Math.abs(curScrollY - lastScrollY);
+        lastScrollY = curScrollY;
 
-          currentIdx = nextIdx;
-          renderStacks(items, currentIdx);
+        if (nextIdx === currentIdx) return;
 
-          if (isUserScroll && fromRect) {
-            animateLetterFlow(items[currentIdx].label, fromRect, goingDown);
-          }
+        if (!isUserScroll) {
+          commitSectionChange(items, nextIdx, false, false);
+          return;
+        }
+
+        const isFastScroll = stepPx > 140 || (performance.now() - lastFlightStart) < 110;
+        clearTimeout(settleTimer);
+
+        if (isFastScroll) {
+          // Wait briefly while fast-scrolling so only one clean flight runs at the destination
+          settleTimer = setTimeout(() => {
+            const latest = getPageSections();
+            if (latest.page !== currentPageKey || latest.items.length < 2) return;
+            const settledIdx = computeActiveIndex(latest.items);
+            if (settledIdx !== currentIdx) {
+              commitSectionChange(latest.items, settledIdx, true, true);
+            }
+          }, 65);
+        } else {
+          commitSectionChange(items, nextIdx, true, false);
         }
       }
 
@@ -8976,7 +9138,6 @@
         });
       }, { passive: true });
 
-      // Refresh section list quietly when switching pages (without flashing the overlay)
       ["page-switch-btn", "abstract-switch-btn", "allworks-switch-btn"].forEach((id) => {
         document.getElementById(id)?.addEventListener("click", () => {
           setTimeout(() => updateOnScroll(false), 120);
