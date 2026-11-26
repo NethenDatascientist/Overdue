@@ -11,8 +11,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
 
   <!-- Plotly.js & SheetJS (XLSX) -->
-  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js" defer></script>
 
   <style>
     :root {
@@ -34,13 +34,6 @@
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       min-height: 100vh;
       overflow-x: hidden;
-    }
-
-    .ce-table-wrapper,
-    .chart-box {
-      content-visibility: auto;
-      contain-intrinsic-size: 1px 500px;
-      transform: translateZ(0);
     }
 
     /* =========================================================================
@@ -254,8 +247,7 @@
       z-index: 10;
     }
     @media (pointer: coarse) and (orientation: portrait) {
-      #intro-overlay,
-      .intro-overlay {
+      #intro-video-overlay {
         position: fixed !important;
         inset: 0 !important;
         width: 100% !important;
@@ -268,10 +260,13 @@
         padding: 40px 28px !important;
         box-sizing: border-box !important;
       }
-      #intro-overlay > *,
-      .intro-overlay > * {
-        transform: scale(1.25);
+      #intro-video-overlay .argon-stage {
+        transform: scale(1.22);
         transform-origin: center center;
+      }
+      #intro-video-overlay .intro-hud-bar {
+        transform: translateX(-50%) scale(1.18);
+        bottom: 42px;
       }
     }
     .intro-load-status {
@@ -5021,14 +5016,6 @@
           } else {
             topBar.querySelectorAll(".odm-legend-item").forEach((el) => el.classList.remove("is-off"));
           }
-
-          // Hide Plotly's inner legend and pull the first bar upward
-          if (window.Plotly && gd._fullLayout) {
-            const curTop = gd._fullLayout.margin ? gd._fullLayout.margin.t : 60;
-            if (gd._fullLayout.showlegend !== false || curTop > 12) {
-              window.Plotly.relayout(gd, { showlegend: false, "margin.t": 8 });
-            }
-          }
         }
 
         if (gd.__officerClickHandler && typeof gd.removeListener === "function") {
@@ -5064,7 +5051,7 @@
 
        if (isOfficerChart && layout && typeof layout === "object") {
          const oldMt = Number(layout.margin?.t) || 0;
-         const newMt = Math.max(oldMt, 78);
+         const newMt = 8;
          const oldMb = Number(layout.margin?.b) || 0;
          const newMb = Math.max(oldMb, 58);
          const extraH = (newMt - oldMt) + (newMb - oldMb);
@@ -5105,7 +5092,7 @@
    });
     }
 
-    hookOfficerBarChartClicks();
+    window.addEventListener("DOMContentLoaded", hookOfficerBarChartClicks);
     // =========================================================================
     // PACKAGE GROUPING ENGINE (APPLIES EVERYWHERE EXCEPT "ALL WORKS REPORT")
     // =========================================================================
@@ -5659,7 +5646,7 @@
        showarrow: false,
        font: { size: 15, color: "#475569" }
      }],
-        margin: { l: 245, r: 20, t: 36, b: 40 }
+        margin: { l: 245, r: 20, t: 8, b: 58 }
       }, {
      responsive: true,
      scrollZoom: false,
@@ -7264,6 +7251,7 @@
     });
 
     document.getElementById("p4-dl-pdf-btn")?.addEventListener("click", exportAllWorksFormattedPdf);
+    document.getElementById("p4-dl-xlsx-btn")?.addEventListener("click", exportAllWorksFormattedExcel);
 
     document.getElementById("sync-btn")?.addEventListener("click", () => syncFromGoogleSheets(false));
 
@@ -7354,10 +7342,11 @@
     });
 
     window.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
-        document.getElementById("chronic-modal-backdrop")?.classList.remove("open");
-      }
-    });
+   if (e.key === "Escape") {
+     document.getElementById("chronic-modal-backdrop")?.classList.remove("open");
+     closeBescomAeModal();
+   }
+ });
 
     document.querySelectorAll(".chronic-yr-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -7606,7 +7595,7 @@
       displayPct = readPagePct();
       paintHud(displayPct);
     })();
-    initAppLoad();
+    window.addEventListener("DOMContentLoaded", initAppLoad);
   // =========================================================================
     // VISITOR TELEMETRY LOGGER + PRIVATE VIEWER (?logs=1)
     // =========================================================================
@@ -7954,19 +7943,7 @@
     })();
   
   // Ensure "Row Rule:" text never reappears next to the timestamp
-    (function stripRowRuleText() {
-      const clean = () => {
-        const walker = document.createTreeWalker(document.body || document.documentElement, NodeFilter.SHOW_TEXT);
-        let n;
-        while ((n = walker.nextNode())) {
-          if (n.nodeValue && n.nodeValue.includes("Row Rule:")) {
-            n.nodeValue = n.nodeValue.replace(/Row Rule:[^\n]*/gi, "").trim();
-          }
-        }
-      };
-      new MutationObserver(clean).observe(document.body || document.documentElement, { childList: true, subtree: true, characterData: true });
-      clean();
-    })();
+    
   // Replace "Download CSV (.csv)" with formatted A4 Landscape PDF export
   // Replace "Download CSV (.csv)" with fast A4 Landscape PDF print export (non-bold fonts)
     (function upgradeModalCsvToPdf() {
@@ -8363,9 +8340,9 @@
       }
 
       function injectButtons() {
-        const candidates = document.querySelectorAll("h2, h3, h4, div, span");
-        candidates.forEach((el) => {
-          if (el.children.length > 0) return;
+        const wrap = document.getElementById("p2-leaderboards-wrap");
+        if (!wrap) return;
+        wrap.querySelectorAll(".exec-lb-title").forEach((el) => {
           const txt = (el.textContent || "").trim();
           if (!/^Top\s+\d+\s+.*?(Highest|Least)\s+Overdue/i.test(txt)) return;
 
@@ -8384,7 +8361,6 @@
             downloadCardAsJpg(cardEl, txt, btn);
           });
 
-          // Place right between the title and the "Ranked by..." badge
           if (headerEl.children.length >= 2) {
             headerEl.insertBefore(btn, headerEl.lastElementChild);
           } else {
@@ -8395,11 +8371,13 @@
 
       const init = () => {
         injectButtons();
+        const wrap = document.getElementById("p2-leaderboards-wrap");
+        if (!wrap) return;
         let timer = null;
         new MutationObserver(() => {
           clearTimeout(timer);
           timer = setTimeout(injectButtons, 120);
-        }).observe(document.body, { childList: true, subtree: true });
+        }).observe(wrap, { childList: true, subtree: true });
       };
 
       if (document.readyState === "loading") {
@@ -8561,7 +8539,11 @@
       const searchEl = document.getElementById("bescom-ae-search");
       if (searchEl && !searchEl.dataset.bescomBound) {
         searchEl.dataset.bescomBound = "1";
-        searchEl.addEventListener("input", renderBescomPendingSection);
+        let bescomTimer = null;
+     searchEl.addEventListener("input", () => {
+       clearTimeout(bescomTimer);
+       bescomTimer = setTimeout(renderBescomPendingSection, 120);
+     });
       }
     }
 
