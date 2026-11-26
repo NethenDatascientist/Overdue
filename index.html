@@ -10822,12 +10822,11 @@
         bodyEl.appendChild(row);
         bodyEl.scrollTop = bodyEl.scrollHeight;
       }
-
-      function attachGeminiActionButtons(rawQuery, replyText) {
+        function attachGeminiActionButtons(rawQuery, replyText) {
         const ds = getAiDataset();
         const qLower = String(rawQuery || "").toLowerCase();
         const rLower = String(replyText || "").toLowerCase();
-        const wantsBescom = /\b(bescom|rr\s*no|rr\s*pending|registration|borewell)\b|ಬೆಸ್ಕಾಂ/.test(qLower) ||
+        const wantsBescom = /\b(bescom|rr\s*no|rr\s*number|rr\s*pending|registration|borewell)\b|ಬೆಸ್ಕಾಂ/.test(qLower) ||
           /\bbescom\b/.test(rLower);
 
         let roleHint = "";
@@ -10836,53 +10835,83 @@
         else if (/\bta\b|technical assistant/.test(qLower)) roleHint = "TA";
         else if (/\b(as|account superintendent)\b/.test(qLower)) roleHint = "AS";
 
-        // 1. Check officers mentioned in user's query
         const qTokens = extractQueryTokens(rawQuery);
-        let targetOfficers = matchItems(qTokens, ds.officers, roleHint, rawQuery);
+        const matchedDivs = matchItems(qTokens, ds.divisions);
+        const offTokens = getOfficerQueryTokens(qTokens, matchedDivs);
 
-        // 2. If user asked "who has highest..." (no name in query), detect the exact officer in Gemini's reply!
-        if (!targetOfficers.length && replyText) {
-          targetOfficers = findOfficersInReply(replyText, ds.officers, roleHint);
-        }
+        // 1. Check officers explicitly named in user's query (excluding division names like "Mangalore")
+        let targetOfficers = matchItems(offTokens, ds.officers, roleHint, rawQuery);
+
+        // 2. If user didn't name an officer, check who Gemini named in its reply
+        const replyOfficers = (!targetOfficers.length && replyText)
+          ? findOfficersInReply(replyText, ds.officers, roleHint)
+          : [];
 
         // 3. Follow-up pronoun support ("give me his pdf", "open popup")
-        if (!targetOfficers.length && lastContextOfficer && /\b(him|her|his|their|this|that|pdf|excel|popup)\b/.test(qLower)) {
+        if (!targetOfficers.length && !replyOfficers.length && !matchedDivs.length && lastContextOfficer && /\b(him|her|his|their|this|that|pdf|excel|popup)\b/.test(qLower)) {
           targetOfficers = [lastContextOfficer];
         }
 
-        const matchedDivs = matchItems(qTokens, ds.divisions);
         let popupOpts = {};
         let exportRows = [];
         let exportTitle = "MI_AI_Report";
 
         if (wantsBescom) {
-          const aeOff = targetOfficers.find((o) => o.role === "AE") || targetOfficers[0];
-          if (aeOff) {
-            lastContextOfficer = aeOff;
-            const subset = ds.bescomRows.filter((r) => aeOff.rowPred(r, aeOff.raw));
-            if (aeOff.role === "AE") popupOpts.bescomAe = aeOff.raw;
-            exportTitle = `BESCOM_Pending_${aeOff.enName || aeOff.raw}`;
+          // Scope to division first if user asked about a specific division (e.g., Mangalore)
+          const bescomPool = matchedDivs.length
+            ? ds.bescomRows.filter((r) => r.division_name === matchedDivs[0].raw)
+            : ds.bescomRows;
+
+          const validBescomAEs = new Set(bescomPool.map((r) => r.so_name).filter(Boolean));
+          const namedAe = (targetOfficers.length ? targetOfficers : replyOfficers)
+            .find((o) => o.role === "AE" && validBescomAEs.has(o.raw));
+
+          // If division query returned multiple AEs (e.g. all 5 Mangalore AEs), give division PDF/Excel + AE popup buttons
+          const isMultiDivList = matchedDivs.length > 0 && !targetOfficers.length &&
+            replyOfficers.filter((o) => o.role === "AE" && validBescomAEs.has(o.raw)).length !== 1;
+
+          if (namedAe && !isMultiDivList) {
+            lastContextOfficer = namedAe;
+            const subset = bescomPool.filter((r) => r.so_name === namedAe.raw);
+            popupOpts.bescomAe = namedAe.raw;
+            exportTitle = `BESCOM_Pending_${namedAe.enName || namedAe.raw}`;
             exportRows = toExportRows(subset, true);
-          } else {
-            exportTitle = "BESCOM_Pending_All";
-            exportRows = toExportRows(ds.bescomRows, true);
+            if (exportRows.length > 0) {
+              popupOpts.packId = saveExportPack(exportTitle, exportRows, true);
+              popupOpts.packCount = exportRows.length;
+            }
+            return buildActionButtonsHtml(popupOpts);
           }
-          if (exportRows.length > 0) {
-            popupOpts.packId = saveExportPack(exportTitle, exportRows, true);
-            popupOpts.packCount = exportRows.length;
+
+          exportTitle = matchedDivs.length
+            ? `BESCOM_Pending_${kannadaToEnglish(matchedDivs[0].raw) || matchedDivs[0].raw}`
+            : "BESCOM_Pending_All";
+          exportRows = toExportRows(bescomPool, true);
+          const packId = exportRows.length ? saveExportPack(exportTitle, exportRows, true) : "";
+
+          const aeListInPool = Array.from(validBescomAEs).slice(0, 5);
+          const btns = [];
+          if (matchedDivs.length) {
+            aeListInPool.forEach((ae) => {
+              btns.push(`<button type="button" class="mi-ai-action-btn" data-open-bescom="${esc(ae)}">Open ${esc(ae)} BESCOM Popup →</button>`);
+            });
           }
-          return buildActionButtonsHtml(popupOpts);
+          if (packId && exportRows.length > 0) {
+            btns.push(`<button type="button" class="mi-ai-action-btn pdf-btn" data-ai-export="pdf" data-pack-id="${esc(packId)}">Download PDF (${exportRows.length})</button>`);
+            btns.push(`<button type="button" class="mi-ai-action-btn xlsx-btn" data-ai-export="xlsx" data-pack-id="${esc(packId)}">Download Excel (${exportRows.length})</button>`);
+          }
+          return btns.length ? `<div class="mi-ai-action-row">${btns.join("")}</div>` : "";
         }
 
-        if (targetOfficers.length > 0) {
-          const p = targetOfficers[0];
-          lastContextOfficer = p;
-          if (p.role === "AE" || p.role === "AEE") {
-            popupOpts.officerName = p.raw;
-            popupOpts.isAee = p.role === "AEE";
+        const pickedOff = targetOfficers[0] || (!matchedDivs.length ? replyOfficers[0] : null);
+        if (pickedOff) {
+          lastContextOfficer = pickedOff;
+          if (pickedOff.role === "AE" || pickedOff.role === "AEE") {
+            popupOpts.officerName = pickedOff.raw;
+            popupOpts.isAee = pickedOff.role === "AEE";
           }
-          const src = p.odRows.length ? [...p.odRows].sort((a, b) => b._odDays - a._odDays) : p.rows;
-          exportTitle = `${p.role}_${p.enName || p.raw}`;
+          const src = pickedOff.odRows.length ? [...pickedOff.odRows].sort((a, b) => b._odDays - a._odDays) : pickedOff.rows;
+          exportTitle = `${pickedOff.role}_${pickedOff.enName || pickedOff.raw}`;
           exportRows = toExportRows(src, false);
         } else if (matchedDivs.length > 0) {
           const d = matchedDivs[0];
@@ -10901,7 +10930,6 @@
         }
         return buildActionButtonsHtml(popupOpts);
       }
-
       async function handleAsk(question) {
         const q = String(question || "").trim();
         if (!q) return;
