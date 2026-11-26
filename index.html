@@ -2354,6 +2354,375 @@
         display: none !important;
       }
     }
+    /* =========================================================================
+       MI DASHBOARD AI ASSISTANT (FLOATING LAUNCHER + CHAT WINDOW)
+       ========================================================================= */
+    #mi-ai-launcher {
+      position: fixed;
+      right: 58px; /* Stays cleanly left of your right-edge Scroll HUD */
+      bottom: 20px;
+      z-index: 9997;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 20px 11px 14px;
+      border-radius: 999px;
+      border: 1.5px solid rgba(147, 197, 253, 0.35);
+      background: linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%);
+      color: #FFFFFF;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.90rem;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.32);
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+    #mi-ai-launcher:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 34px rgba(30, 58, 138, 0.42);
+    }
+    .mi-ai-live-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: #10B981;
+      box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.25);
+      flex-shrink: 0;
+    }
+    .mi-ai-bot-svg {
+      width: 20px;
+      height: 20px;
+      color: #93C5FD;
+      flex-shrink: 0;
+    }
+
+    #mi-ai-panel {
+      position: fixed;
+      right: 58px;
+      bottom: 78px;
+      width: 400px;
+      max-width: calc(100vw - 24px);
+      height: 575px;
+      max-height: calc(100vh - 100px);
+      z-index: 9998;
+      background: #F8FAFC;
+      border: 1px solid #CBD5E1;
+      border-radius: 20px;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(14px) scale(0.97);
+      transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s ease;
+      font-family: 'Inter', 'Noto Sans Kannada', sans-serif;
+    }
+    #mi-ai-panel.open {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0) scale(1);
+    }
+
+    .mi-ai-header {
+      background: linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%);
+      color: #FFFFFF;
+      padding: 15px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .mi-ai-header-left {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      min-width: 0;
+    }
+    .mi-ai-header-badge {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: rgba(59, 130, 246, 0.22);
+      border: 1.5px solid rgba(147, 197, 253, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: #93C5FD;
+    }
+    .mi-ai-header-title {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 0.98rem;
+      font-weight: 800;
+      line-height: 1.2;
+      color: #FFFFFF;
+    }
+    .mi-ai-header-sub {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 3px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #6EE7B7;
+    }
+    .mi-ai-header-sub::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10B981;
+      display: inline-block;
+    }
+    .mi-ai-close {
+      background: transparent;
+      border: none;
+      color: #CBD5E1;
+      font-size: 1.15rem;
+      font-weight: 700;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .mi-ai-close:hover {
+      background: rgba(255, 255, 255, 0.14);
+      color: #FFFFFF;
+    }
+
+    .mi-ai-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 14px 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: #F8FAFC;
+    }
+    .mi-ai-msg-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      max-width: 100%;
+    }
+    .mi-ai-msg-row.user {
+      justify-content: flex-end;
+    }
+    .mi-ai-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #DBEAFE;
+      border: 1px solid #93C5FD;
+      color: #1D4ED8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .mi-ai-bubble {
+      padding: 11px 13px;
+      border-radius: 15px;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      color: #0F172A;
+      max-width: 86%;
+      word-wrap: break-word;
+    }
+    .mi-ai-msg-row.bot .mi-ai-bubble {
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-top-left-radius: 4px;
+      box-shadow: 0 3px 10px rgba(15, 23, 42, 0.05);
+    }
+    .mi-ai-msg-row.user .mi-ai-bubble {
+      background: linear-gradient(135deg, #1E40AF 0%, #2563EB 100%);
+      color: #FFFFFF;
+      border-top-right-radius: 4px;
+      font-weight: 600;
+    }
+
+    .mi-ai-card {
+      margin-top: 8px;
+      padding: 9px 11px;
+      border-radius: 10px;
+      background: #F1F5F9;
+      border: 1px solid #CBD5E1;
+      border-left: 3.5px solid #DC2626;
+      font-size: 0.78rem;
+      line-height: 1.45;
+    }
+    .mi-ai-card.info {
+      border-left-color: #1D4ED8;
+    }
+    .mi-ai-card.amber {
+      border-left-color: #D97706;
+    }
+    .mi-ai-stat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .mi-ai-stat-box {
+      background: #F8FAFC;
+      border: 1px solid #CBD5E1;
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 0.74rem;
+    }
+    .mi-ai-stat-box b {
+      display: block;
+      font-size: 0.92rem;
+      color: #0F172A;
+      margin-top: 1px;
+    }
+    .mi-ai-stat-box.red b {
+      color: #DC2626;
+    }
+    .mi-ai-stat-box.green b {
+      color: #059669;
+    }
+
+    .mi-ai-action-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 9px;
+    }
+    .mi-ai-action-btn {
+      padding: 5px 11px;
+      border-radius: 999px;
+      border: 1px solid #93C5FD;
+      background: #EFF6FF;
+      color: #1E40AF;
+      font-size: 0.74rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.14s ease;
+    }
+    .mi-ai-action-btn:hover {
+      background: #1D4ED8;
+      border-color: #1D4ED8;
+      color: #FFFFFF;
+    }
+
+    .mi-ai-suggestions {
+      padding: 4px 14px 10px 14px;
+      background: #F8FAFC;
+      flex-shrink: 0;
+    }
+    .mi-ai-sug-title {
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      color: #64748B;
+      text-transform: uppercase;
+      margin-bottom: 7px;
+    }
+    .mi-ai-sug-list {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+    }
+    .mi-ai-sug-chip {
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid #BFDBFE;
+      background: #EFF6FF;
+      color: #1E3A8A;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.76rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.14s ease, border-color 0.14s ease;
+    }
+    .mi-ai-sug-chip:hover {
+      background: #DBEAFE;
+      border-color: #3B82F6;
+    }
+
+    .mi-ai-footer-wrap {
+      border-top: 1px solid #E2E8F0;
+      background: #FFFFFF;
+      padding: 10px 12px 8px 12px;
+      flex-shrink: 0;
+    }
+    .mi-ai-input-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #mi-ai-input {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1.5px solid #CBD5E1;
+      background: #F8FAFC;
+      color: #0F172A;
+      font-family: 'Inter', 'Noto Sans Kannada', sans-serif;
+      font-size: 0.82rem;
+      font-weight: 500;
+      outline: none;
+    }
+    #mi-ai-input:focus {
+      border-color: #2563EB;
+      background: #FFFFFF;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+    #mi-ai-send {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #1E40AF 0%, #2563EB 100%);
+      color: #FFFFFF;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: transform 0.14s ease, opacity 0.14s ease;
+    }
+    #mi-ai-send:hover {
+      transform: translateY(-1px);
+    }
+    .mi-ai-footnote {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 7px;
+      padding: 0 2px;
+      font-size: 0.66rem;
+      font-weight: 600;
+      color: #94A3B8;
+    }
+
+    /* Mobile sizing so it stays easy to tap on 1360px phone viewport */
+    @media (pointer: coarse) {
+      #mi-ai-launcher {
+        right: 22px;
+        bottom: 24px;
+        transform: scale(1.22);
+        transform-origin: bottom right;
+      }
+      #mi-ai-panel {
+        right: 22px;
+        bottom: 94px;
+        width: 520px;
+        height: 700px;
+      }
+    }
   </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Kannada:wght@600;700;800&display=swap">
 </head>
@@ -9130,6 +9499,755 @@
       });
 
       setTimeout(() => updateOnScroll(false), 1400);
+    })();
+    // =========================================================================
+    // MI DASHBOARD AI ASSISTANT (LIVE DATA + KANNADA <-> ENGLISH MATCHER)
+    // =========================================================================
+    (function initMiDashboardAi() {
+      const esc = (s) =>
+        String(s ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+
+      // 1. KANNADA -> ENGLISH PHONETIC TRANSLITERATION ENGINE
+      const KN_VOWELS = {
+        "ಅ": "a", "ಆ": "aa", "ಇ": "i", "ಈ": "ee", "ಉ": "u", "ಊ": "oo",
+        "ಋ": "ru", "ಎ": "e", "ಏ": "e", "ಐ": "ai", "ಒ": "o", "ಓ": "o", "ಔ": "au"
+      };
+      const KN_CONS = {
+        "ಕ": "k", "ಖ": "kh", "ಗ": "g", "ಘ": "gh", "ಙ": "ng",
+        "ಚ": "ch", "ಛ": "chh", "ಜ": "j", "ಝ": "jh", "ಞ": "ny",
+        "ಟ": "t", "ಠ": "th", "ಡ": "d", "ಢ": "dh", "ಣ": "n",
+        "ತ": "t", "ಥ": "th", "ದ": "d", "ಧ": "dh", "ನ": "n",
+        "ಪ": "p", "ಫ": "ph", "ಬ": "b", "ಭ": "bh", "ಮ": "m",
+        "ಯ": "y", "ರ": "r", "ಱ": "r", "ಲ": "l", "ಳ": "l",
+        "ವ": "v", "ಶ": "sh", "ಷ": "sh", "ಸ": "s", "ಹ": "h"
+      };
+      const KN_MATRAS = {
+        "ಾ": "a", "ಿ": "i", "ೀ": "ee", "ು": "u", "ೂ": "oo",
+        "ೃ": "ru", "ೄ": "roo", "ೆ": "e", "ೇ": "e", "ೈ": "ai",
+        "ೊ": "o", "ೋ": "o", "ೌ": "au"
+      };
+
+      function kannadaToEnglish(input) {
+        if (!input) return "";
+        const str = String(input)
+          .normalize("NFC")
+          .replace(/[\u200B-\u200D\uFEFF]/g, "")
+          .replace(/\u0CC6\u0CD5/g, "\u0CC7")
+          .replace(/\u0CBF\u0CD5/g, "\u0CC0")
+          .replace(/\u0CCA\u0CD5/g, "\u0CCB")
+          .replace(/\u0CC6\u0CD6/g, "\u0CC8")
+          .replace(/\u0CCA\u0CD6/g, "\u0CCC");
+
+        let out = "";
+        for (let i = 0; i < str.length; i++) {
+          const ch = str[i];
+          if (KN_CONS[ch]) {
+            const next = str[i + 1];
+            if (next === "\u0CCD") {
+              out += KN_CONS[ch];
+              i++;
+            } else if (KN_MATRAS[next]) {
+              out += KN_CONS[ch] + KN_MATRAS[next];
+              i++;
+            } else {
+              out += KN_CONS[ch] + "a";
+            }
+          } else if (KN_VOWELS[ch]) {
+            out += KN_VOWELS[ch];
+          } else if (ch === "\u0C82") {
+            const next = str[i + 1] || "";
+            out += "ಪಫಬಭಮ".includes(next) ? "m" : "n";
+          } else if (ch === "\u0C83") {
+            out += "h";
+          } else {
+            out += ch;
+          }
+        }
+        return out;
+      }
+
+      function titleCaseEn(str) {
+        return String(str || "")
+          .replace(/\s+/g, " ")
+          .trim()
+          .replace(/\b[a-z]/g, (c) => c.toUpperCase());
+      }
+
+      function formatBilingualName(raw) {
+        const s = String(raw || "").trim();
+        if (!s) return "-";
+        if (/[\u0C80-\u0CFF]/.test(s)) {
+          const en = titleCaseEn(kannadaToEnglish(s));
+          return `${esc(s)} <span style="color:#475569;font-weight:600;">(${esc(en)})</span>`;
+        }
+        return esc(s);
+      }
+
+      // Normalises English + Kannada names into identical phonetic keys
+      // e.g. "ಸುನಿಲ್", "ಸುನೀಲ್", "Sunil", "Suneel" -> all become "sunil"
+      function phoneticFold(str) {
+        let s = kannadaToEnglish(str).toLowerCase();
+        const placeAliases = [
+          [/\bbangalore\b/g, "bengaluru"],
+          [/\bmysore\b/g, "mysuru"],
+          [/\btumkur\b/g, "tumakuru"],
+          [/\bmangalore\b/g, "mangaluru"],
+          [/\bshimoga\b/g, "shivamogga"],
+          [/\bchikmagalur\b/g, "chikkamagaluru"],
+          [/\bchickballapur\b/g, "chikkaballapura"],
+          [/\bchikkaballapur\b/g, "chikkaballapura"],
+          [/\bramanagar\b/g, "ramanagara"],
+          [/\bchamarajanagar\b/g, "chamarajanagara"],
+          [/\bcoorg\b/g, "kodagu"],
+          [/\bsouth zone\b/g, "dakshina valaya"]
+        ];
+        placeAliases.forEach(([re, rep]) => { s = s.replace(re, rep); });
+
+        return s
+          .replace(/[^a-z0-9]+/g, " ")
+          .replace(/krush/g, "krish")
+          .replace(/mru/g, "mri")
+          .replace(/sru/g, "sri")
+          .replace(/hru/g, "hri")
+          .replace(/ee|ii/g, "i")
+          .replace(/oo|uu/g, "u")
+          .replace(/aa/g, "a")
+          .replace(/ph/g, "f")
+          .replace(/sh/g, "s")
+          .replace(/chh/g, "ch")
+          .replace(/bh/g, "b")
+          .replace(/dh/g, "d")
+          .replace(/th/g, "t")
+          .replace(/kh/g, "k")
+          .replace(/gh/g, "g")
+          .replace(/jh/g, "j")
+          .replace(/w/g, "v")
+          .replace(/z/g, "j")
+          .replace(/c(?=[ei])/g, "s")
+          .replace(/c(?!h)/g, "k")
+          .replace(/q/g, "k")
+          .replace(/jn|gy/g, "gn")
+          .replace(/([a-z])\1+/g, "$1")
+          .replace(/\b([a-z]{3,})a\b/g, "$1")
+          .replace(/\s+/g, " ")
+          .trim();
+      }
+
+      function editDistance(a, b) {
+        if (Math.abs(a.length - b.length) > 2) return 3;
+        const m = a.length, n = b.length;
+        const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+        for (let i = 0; i <= m; i++) dp[i][0] = i;
+        for (let j = 0; j <= n; j++) dp[0][j] = j;
+        for (let i = 1; i <= m; i++) {
+          for (let j = 1; j <= n; j++) {
+            dp[i][j] = a[i - 1] === b[j - 1]
+              ? dp[i - 1][j - 1]
+              : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+          }
+        }
+        return dp[m][n];
+      }
+
+      // 2. INDEX LIVE DASHBOARD DATA (AUTO-REFRESHES AFTER SYNC)
+      let _aiIndexCache = { ref: null, len: 0, data: null };
+
+      function getAiDataset() {
+        const rawRows = (typeof STATE !== "undefined" && Array.isArray(STATE.masterRows)) ? STATE.masterRows : [];
+        if (_aiIndexCache.ref === rawRows && _aiIndexCache.len === rawRows.length && _aiIndexCache.data) {
+          return _aiIndexCache.data;
+        }
+
+        const collapsed = typeof collapsePackageRows === "function" ? collapsePackageRows(rawRows) : rawRows;
+        const todayDt = typeof getTodayIST === "function" ? getTodayIST().dateObj : new Date();
+
+        const enriched = collapsed.map((r) => {
+          let odDays = -1;
+          if (r.is_overdue && typeof parseIndianDate === "function") {
+            const tDt = parseIndianDate(r.target_date);
+            if (tDt) odDays = Math.max(0, Math.floor((todayDt - tDt) / 86400000));
+          }
+          return {
+            ...r,
+            _odDays: odDays,
+            _costNum: parseFloat(r.est_cost) || 0
+          };
+        });
+
+        const officersMap = new Map();
+        const divsMap = new Map();
+        const hoasMap = new Map();
+
+        const skipNames = new Set([
+          "", "-",
+          typeof UNASSIGNED_LABEL !== "undefined" ? UNASSIGNED_LABEL : "Unassigned (Empty)",
+          typeof UNSPECIFIED_LABEL !== "undefined" ? UNSPECIFIED_LABEL : "Not Specified (Empty)"
+        ]);
+
+        function registerOfficer(name, roleKey, row) {
+          if (!name || skipNames.has(name)) return;
+          const id = `${roleKey}||${name}`;
+          if (!officersMap.has(id)) {
+            const folded = phoneticFold(name);
+            officersMap.set(id, {
+              raw: name,
+              role: roleKey === "aee" ? "AEE" : "AE",
+              isAee: roleKey === "aee",
+              folded,
+              tokens: folded.split(" ").filter((t) => t.length >= 2 && !["sri", "srimati", "smt", "mr", "ms", "dr"].includes(t)),
+              rows: [],
+              odRows: [],
+              etsRows: [],
+              divs: new Set()
+            });
+          }
+          const o = officersMap.get(id);
+          o.rows.push(row);
+          if (row.is_overdue) o.odRows.push(row);
+          if (row.is_status_ets) o.etsRows.push(row);
+          if (row.division_name) o.divs.add(row.division_name);
+        }
+
+        enriched.forEach((r) => {
+          registerOfficer(r.so_name, "ae", r);
+          registerOfficer(r.aee_name, "aee", r);
+
+          if (r.division_name && !skipNames.has(r.division_name)) {
+            if (!divsMap.has(r.division_name)) {
+              const f = phoneticFold(r.division_name);
+              divsMap.set(r.division_name, { raw: r.division_name, folded: f, tokens: f.split(" ").filter((t) => t.length >= 3), rows: [] });
+            }
+            divsMap.get(r.division_name).rows.push(r);
+          }
+
+          if (r.hoa && !skipNames.has(r.hoa)) {
+            if (!hoasMap.has(r.hoa)) {
+              const f = phoneticFold(r.hoa);
+              hoasMap.set(r.hoa, { raw: r.hoa, folded: f, tokens: f.split(" ").filter((t) => t.length >= 2), rows: [] });
+            }
+            hoasMap.get(r.hoa).rows.push(r);
+          }
+        });
+
+        const data = {
+          rawRows,
+          rows: enriched,
+          officers: Array.from(officersMap.values()),
+          divisions: Array.from(divsMap.values()),
+          hoas: Array.from(hoasMap.values())
+        };
+        _aiIndexCache = { ref: rawRows, len: rawRows.length, data };
+        return data;
+      }
+
+      const STOPWORDS = new Set([
+        "what", "which", "who", "whose", "where", "when", "how", "is", "are", "was", "were",
+        "do", "does", "did", "has", "have", "had", "can", "could", "tell", "show", "give", "get",
+        "find", "list", "me", "my", "our", "the", "a", "an", "in", "on", "at", "of", "for", "to",
+        "from", "by", "with", "under", "about", "and", "or", "all", "total", "count", "number",
+        "many", "much", "highest", "longest", "oldest", "most", "max", "maximum", "top", "worst",
+        "least", "lowest", "best", "minimum", "min", "overdue", "od", "period", "duration", "work",
+        "works", "ets", "bescom", "pending", "reg", "registration", "chronic", "year", "years",
+        "yr", "yrs", "month", "months", "day", "days", "cost", "amount", "estimate", "estimated",
+        "expensive", "big", "biggest", "largest", "ae", "aee", "officer", "officers", "engineer",
+        "division", "divisions", "subdivision", "hoa", "summary", "overview", "report", "details",
+        "detail", "status", "pct", "percentage", "percent", "south", "zone", "please", "pls",
+        "avara", "yavudu", "estu", "ati", "hechu", "kadime", "kamagari", "baki", "ottu", "torisi", "heli", "vibaga"
+      ]);
+
+      function extractQueryTokens(rawQuery) {
+        return phoneticFold(rawQuery)
+          .split(" ")
+          .filter((t) => t.length >= 2 && !STOPWORDS.has(t));
+      }
+
+      function matchItems(queryTokens, items, roleHint = "") {
+        if (!queryTokens.length) return [];
+        const scored = [];
+
+        items.forEach((item) => {
+          if (roleHint && item.role && item.role !== roleHint) return;
+          let bestScore = 0;
+          let matchedTokens = 0;
+
+          queryTokens.forEach((qt) => {
+            if (item.folded === qt) {
+              bestScore = Math.max(bestScore, 100);
+              matchedTokens++;
+              return;
+            }
+            let tokBest = 0;
+            item.tokens.forEach((it) => {
+              if (it === qt) tokBest = Math.max(tokBest, 92);
+              else if (qt.length >= 4 && (it.startsWith(qt) || qt.startsWith(it))) tokBest = Math.max(tokBest, 76);
+              else if (qt.length >= 5 && it.length >= 5 && editDistance(qt, it) <= 1) tokBest = Math.max(tokBest, 62);
+            });
+            if (tokBest > 0) {
+              matchedTokens++;
+              bestScore = Math.max(bestScore, tokBest);
+            }
+          });
+
+          if (matchedTokens > 0) {
+            scored.push({ item, score: bestScore + (matchedTokens - 1) * 14 });
+          }
+        });
+
+        scored.sort((a, b) => b.score - a.score || b.item.odRows?.length - a.item.odRows?.length);
+        if (!scored.length) return [];
+        const topScore = scored[0].score;
+        const threshold = topScore >= 90 ? 80 : 60;
+        return scored.filter((s) => s.score >= threshold).map((s) => s.item);
+      }
+
+      function renderWorkCard(row, accentClass = "") {
+        const costTxt = row._costNum > 0 ? `₹${row._costNum.toLocaleString("en-IN")} Lakhs` : "-";
+        return `
+          <div class="mi-ai-card ${accentClass}">
+            <div style="font-weight:800;color:#0F172A;margin-bottom:4px;">${esc(row.work_name || "-")}</div>
+            <div><b>Overdue By:</b> <span style="color:#DC2626;font-weight:800;">${esc(row.overdue_by || "-")}</span> &nbsp;|&nbsp; <b>Target:</b> ${esc(row.target_date || "-")}</div>
+            <div><b>Division:</b> ${formatBilingualName(row.division_name)} &nbsp;|&nbsp; <b>H.O.A.:</b> ${esc(row.hoa || "-")}</div>
+            <div><b>AE:</b> ${formatBilingualName(row.so_name)} &nbsp;|&nbsp; <b>Est. Cost:</b> ${costTxt}</div>
+          </div>
+        `;
+      }
+
+      // 3. QUESTION ANSWERING ENGINE
+      function answerQuestion(rawQuery) {
+        const ds = getAiDataset();
+        if (!ds.rows.length) {
+          return `Data is still syncing from the cloud snapshot. Please ask again in a few seconds.`;
+        }
+
+        const qLower = String(rawQuery || "").toLowerCase();
+        const isKn = /[\u0C80-\u0CFF]/.test(rawQuery);
+        const tokens = extractQueryTokens(rawQuery);
+
+        const wantsAeeOnly = /\baee\b|assistant executive/.test(qLower);
+        const wantsAeOnly = !wantsAeeOnly && /\bae\b|assistant engineer/.test(qLower);
+        const roleHint = wantsAeeOnly ? "AEE" : (wantsAeOnly ? "AE" : "");
+
+        const wantsHighest = /\b(highest|longest|oldest|most|max|maximum|worst|top|largest|biggest)\b|ಅತಿ\s*ಹೆಚ್ಚು|ಹೆಚ್ಚು/.test(qLower);
+        const wantsLowest = /\b(lowest|least|best|min|minimum|fewest)\b|ಕಡಿಮೆ/.test(qLower);
+        const wantsCost = /\b(cost|amount|expensive|lakhs|crore|budget|estimate|expenditure)\b|ಮೊತ್ತ|ಅಂದಾಜು|ವೆಚ್ಚ/.test(qLower);
+        const wantsBescom = /\b(bescom|rr\s*no|registration|borewell)\b|ಬೆಸ್ಕಾಂ/.test(qLower);
+        const wantsEts = /\bets\b/.test(qLower);
+        const wantsChronic = /\b(chronic|2\+|3\+|4\+|5\+|more than \d|older than)\b/.test(qLower);
+        const wantsDivRanking = /\bdivisions?\b|ವಿಭಾಗ/.test(qLower) && (wantsHighest || wantsLowest || /\btop\b/.test(qLower));
+        const wantsPeriodWork = /\b(period|duration|oldest|longest|work|which work)\b|ಕಾಮಗಾರಿ/.test(qLower);
+
+        const matchedOfficers = matchItems(tokens, ds.officers, roleHint);
+        const matchedDivs = matchItems(tokens, ds.divisions);
+        const matchedHoas = matchItems(tokens, ds.hoas);
+
+        // --- A. BESCOM PENDING QUERIES ---
+        if (wantsBescom) {
+          const allBescom = ds.rawRows.filter((r) => {
+            const sh = String(r.sheet_name || "").toLowerCase().trim();
+            if (sh !== "scp (borewell)" && sh !== "tsp (borewell)") return false;
+            if (r.is_overdue) return false;
+            const st = String(r.status_raw || "").toUpperCase().trim();
+            if (st !== "CF" && st !== "CP") return false;
+            return typeof isBescomRegMissing === "function" ? isBescomRegMissing(r.bescom_reg) : !String(r.bescom_reg || "").trim();
+          });
+
+          if (matchedOfficers.length > 0) {
+            const off = matchedOfficers[0];
+            const offBescom = allBescom.filter((r) => r.so_name === off.raw || r.aee_name === off.raw);
+            const cf = offBescom.filter((r) => String(r.status_raw).toUpperCase().trim() === "CF").length;
+            const cp = offBescom.filter((r) => String(r.status_raw).toUpperCase().trim() === "CP").length;
+            return `
+              <div><b>BESCOM Registration Pending — ${formatBilingualName(off.raw)} (${off.role})</b></div>
+              <div class="mi-ai-stat-grid">
+                <div class="mi-ai-stat-box red">Total Pending<b>${offBescom.length}</b></div>
+                <div class="mi-ai-stat-box">CF / CP Split<b>${cf} CF • ${cp} CP</b></div>
+              </div>
+              ${!off.isAee && offBescom.length > 0 ? `<div class="mi-ai-action-row"><button type="button" class="mi-ai-action-btn" data-open-bescom="${esc(off.raw)}">Open BESCOM Pending Works →</button></div>` : ""}
+            `;
+          }
+
+          const byAe = new Map();
+          allBescom.forEach((r) => {
+            const k = r.so_name || "Unassigned";
+            byAe.set(k, (byAe.get(k) || 0) + 1);
+          });
+          const topBescom = Array.from(byAe.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+          const totalCf = allBescom.filter((r) => String(r.status_raw).toUpperCase().trim() === "CF").length;
+          const totalCp = allBescom.filter((r) => String(r.status_raw).toUpperCase().trim() === "CP").length;
+
+          return `
+            <div><b>BESCOM Registration Pending (SCP &amp; TSP Borewell)</b></div>
+            <div class="mi-ai-stat-grid">
+              <div class="mi-ai-stat-box red">Total Pending<b>${allBescom.length.toLocaleString("en-IN")}</b></div>
+              <div class="mi-ai-stat-box">AEs with Pending<b>${byAe.size}</b></div>
+              <div class="mi-ai-stat-box">CF Works<b>${totalCf.toLocaleString("en-IN")}</b></div>
+              <div class="mi-ai-stat-box">CP Works<b>${totalCp.toLocaleString("en-IN")}</b></div>
+            </div>
+            <div class="mi-ai-card amber">
+              <div style="font-weight:800;margin-bottom:4px;">Top AEs with Pending BESCOM Reg.:</div>
+              ${topBescom.map(([ae, cnt], i) => `<div>${i + 1}. ${formatBilingualName(ae)} — <b>${cnt}</b></div>`).join("")}
+            </div>
+          `;
+        }
+
+        // --- B. SPECIFIC OFFICER MATCH (e.g., "what is the highest overdue period work sunil has") ---
+        if (matchedOfficers.length > 0) {
+          // Prefer exact/highest overdue officer, and offer quick-pick buttons if multiple officers share the name
+          const primary = matchedOfficers[0];
+          const others = matchedOfficers.slice(1, 5);
+
+          const sortedOd = [...primary.odRows].sort((a, b) => b._odDays - a._odDays);
+          const sortedCost = [...primary.rows].sort((a, b) => b._costNum - a._costNum);
+          const pct = primary.rows.length > 0 ? ((primary.odRows.length / primary.rows.length) * 100).toFixed(1) : "0.0";
+          const divList = Array.from(primary.divs).slice(0, 3).map(formatBilingualName).join(", ") || "-";
+
+          let bodyHtml = `
+            <div><b>${formatBilingualName(primary.raw)}</b> <span style="color:#1E40AF;font-weight:800;">(${primary.role})</span></div>
+            <div style="font-size:0.75rem;color:#475569;margin-top:2px;">Division: ${divList}</div>
+          `;
+
+          if (wantsCost && sortedCost.length > 0) {
+            bodyHtml += `<div style="margin-top:7px;font-weight:700;">Highest Estimated Cost Work:</div>${renderWorkCard(sortedCost[0], "info")}`;
+          } else if (wantsHighest || wantsPeriodWork) {
+            if (sortedOd.length > 0) {
+              bodyHtml += `
+                <div style="margin-top:7px;font-weight:700;">${isKn ? "ಅತಿ ಹೆಚ್ಚು ಬಾಕಿ ಅವಧಿಯ ಕಾಮಗಾರಿ:" : "Highest Overdue Period Work:"}</div>
+                ${renderWorkCard(sortedOd[0])}
+                <div style="margin-top:6px;font-size:0.76rem;color:#334155;">
+                  Total under this officer: <b>${primary.odRows.length} Overdue</b> (${pct}%) • <b>${primary.etsRows.length} ETS</b> • <b>${primary.rows.length} Total</b>
+                </div>
+              `;
+            } else {
+              bodyHtml += `<div class="mi-ai-card info">No overdue works found for this officer (0 Overdue out of ${primary.rows.length} total works).</div>`;
+            }
+          } else {
+            const chronicCnt = primary.odRows.filter((r) => r._odDays > 730).length;
+            bodyHtml += `
+              <div class="mi-ai-stat-grid">
+                <div class="mi-ai-stat-box red">Overdue ('P')<b>${primary.odRows.length} (${pct}%)</b></div>
+                <div class="mi-ai-stat-box green">ETS Works<b>${primary.etsRows.length}</b></div>
+                <div class="mi-ai-stat-box">Total Works<b>${primary.rows.length}</b></div>
+                <div class="mi-ai-stat-box">Chronic (&gt;2 Yrs)<b>${chronicCnt}</b></div>
+              </div>
+              ${sortedOd.length > 0 ? `<div style="margin-top:7px;font-size:0.76rem;font-weight:700;">Longest Overdue Work:</div>${renderWorkCard(sortedOd[0])}` : ""}
+            `;
+          }
+
+          bodyHtml += `
+            <div class="mi-ai-action-row">
+              <button type="button" class="mi-ai-action-btn" data-open-officer="${esc(primary.raw)}" data-is-aee="${primary.isAee ? "1" : "0"}">
+                View All ${primary.rows.length} Works →
+              </button>
+            </div>
+          `;
+
+          if (others.length > 0) {
+            bodyHtml += `
+              <div style="margin-top:9px;padding-top:7px;border-top:1px dashed #CBD5E1;font-size:0.73rem;color:#475569;">
+                <b>Other matching officers:</b>
+                <div class="mi-ai-action-row" style="margin-top:5px;">
+                  ${others.map((o) => `
+                    <button type="button" class="mi-ai-action-btn" data-ask-query="highest overdue work of ${esc(o.raw)} (${o.role})">
+                      ${esc(o.raw)} (${o.role} • ${o.odRows.length} OD)
+                    </button>
+                  `).join("")}
+                </div>
+              </div>
+            `;
+          }
+          return bodyHtml;
+        }
+
+        // --- C. DIVISION / H.O.A. SPECIFIC QUERY ---
+        if ((matchedDivs.length > 0 || matchedHoas.length > 0) && !wantsDivRanking) {
+          let subset = ds.rows;
+          const labels = [];
+          if (matchedDivs.length > 0) {
+            const dName = matchedDivs[0].raw;
+            subset = subset.filter((r) => r.division_name === dName);
+            labels.push(`Division: ${formatBilingualName(dName)}`);
+          }
+          if (matchedHoas.length > 0) {
+            const hName = matchedHoas[0].raw;
+            subset = subset.filter((r) => r.hoa === hName);
+            labels.push(`H.O.A.: ${esc(hName)}`);
+          }
+
+          const odRows = subset.filter((r) => r.is_overdue).sort((a, b) => b._odDays - a._odDays);
+          const etsCnt = subset.filter((r) => r.is_status_ets).length;
+          const totEst = subset.reduce((s, r) => s + r._costNum, 0);
+          const pct = subset.length > 0 ? ((odRows.length / subset.length) * 100).toFixed(1) : "0.0";
+
+          return `
+            <div><b>${labels.join(" • ")}</b></div>
+            <div class="mi-ai-stat-grid">
+              <div class="mi-ai-stat-box">Total Works<b>${subset.length.toLocaleString("en-IN")}</b></div>
+              <div class="mi-ai-stat-box red">Overdue ('P')<b>${odRows.length.toLocaleString("en-IN")} (${pct}%)</b></div>
+              <div class="mi-ai-stat-box green">ETS Works<b>${etsCnt.toLocaleString("en-IN")}</b></div>
+              <div class="mi-ai-stat-box">Total Est. Cost<b>₹${totEst.toLocaleString("en-IN", { maximumFractionDigits: 1 })} L</b></div>
+            </div>
+            ${odRows.length > 0 ? `<div style="margin-top:8px;font-size:0.76rem;font-weight:700;">Longest Overdue Work Here:</div>${renderWorkCard(odRows[0])}` : ""}
+          `;
+        }
+
+        // --- D. TOP DIVISIONS RANKING ---
+        if (wantsDivRanking) {
+          const rankedDivs = ds.divisions.map((d) => {
+            const od = d.rows.filter((r) => r.is_overdue).length;
+            const ets = d.rows.filter((r) => r.is_status_ets).length;
+            const pct = d.rows.length > 0 ? ((od / d.rows.length) * 100).toFixed(1) : "0.0";
+            return { raw: d.raw, total: d.rows.length, od, ets, pct };
+          }).sort((a, b) => wantsLowest ? (a.od - b.od) : (b.od - a.od)).slice(0, 5);
+
+          return `
+            <div><b>Top 5 Divisions — ${wantsLowest ? "Least" : "Highest"} Overdue Works</b></div>
+            <div class="mi-ai-card info">
+              ${rankedDivs.map((d, i) => `
+                <div style="padding:3px 0;border-bottom:1px solid #E2E8F0;">
+                  <b>${i + 1}.</b> ${formatBilingualName(d.raw)} — <span style="color:#DC2626;font-weight:800;">${d.od} OD</span> (${d.pct}%) • ${d.ets} ETS / ${d.total} Total
+                </div>
+              `).join("")}
+            </div>
+          `;
+        }
+
+        // --- E. LONGEST OVERDUE WORK OVERALL ---
+        if ((wantsHighest || wantsPeriodWork) && /\b(work|period|oldest|longest)\b|ಕಾಮಗಾರಿ/.test(qLower) && !/\b(who|officer|officers|ae|aee)\b/.test(qLower)) {
+          const topOld = ds.rows.filter((r) => r.is_overdue && r._odDays >= 0).sort((a, b) => b._odDays - a._odDays).slice(0, 2);
+          if (!topOld.length) return `No overdue works found in the current snapshot.`;
+          return `
+            <div><b>Longest Overdue Works Across South Zone</b></div>
+            ${topOld.map((r) => renderWorkCard(r)).join("")}
+          `;
+        }
+
+        // --- F. TOP / LEAST OFFICERS RANKING ---
+        if (wantsHighest || wantsLowest || /\b(who|rank|leader|top)\b/.test(qLower)) {
+          const targetRole = wantsAeeOnly ? "AEE" : "AE";
+          const byPct = /\b(pct|percent|percentage|%)\b/.test(qLower);
+          const pool = ds.officers
+            .filter((o) => o.role === targetRole && (wantsLowest ? o.odRows.length > 0 : true))
+            .map((o) => ({
+              ...o,
+              od: o.odRows.length,
+              ets: o.etsRows.length,
+              tot: o.rows.length,
+              pct: o.rows.length > 0 ? (o.odRows.length / o.rows.length) * 100 : 0
+            }))
+            .sort((a, b) => {
+              if (wantsEts) return wantsLowest ? (a.ets - b.ets) : (b.ets - a.ets);
+              if (byPct) return wantsLowest ? (a.pct - b.pct) : (b.pct - a.pct);
+              return wantsLowest ? (a.od - b.od) : (b.od - a.od);
+            })
+            .slice(0, 5);
+
+          const metricTitle = wantsEts ? "ETS Works" : (byPct ? "Overdue %" : "Overdue Works");
+          return `
+            <div><b>Top 5 ${targetRole}s — ${wantsLowest ? "Least" : "Highest"} ${metricTitle}</b></div>
+            <div class="mi-ai-card info">
+              ${pool.map((o, i) => `
+                <div style="padding:4px 0;border-bottom:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;">
+                  <span><b>${i + 1}.</b> ${formatBilingualName(o.raw)}</span>
+                  <span style="color:#DC2626;font-weight:800;">${o.od} OD (${o.pct.toFixed(1)}%) • ${o.ets} ETS</span>
+                </div>
+              `).join("")}
+            </div>
+            <div class="mi-ai-action-row">
+              ${pool.slice(0, 3).map((o) => `
+                <button type="button" class="mi-ai-action-btn" data-open-officer="${esc(o.raw)}" data-is-aee="${o.isAee ? "1" : "0"}">
+                  Open ${esc(o.raw)} →
+                </button>
+              `).join("")}
+            </div>
+          `;
+        }
+
+        // --- G. CHRONIC OVERDUE BREAKDOWN ---
+        if (wantsChronic) {
+          const odRows = ds.rows.filter((r) => r.is_overdue);
+          const y2 = odRows.filter((r) => r._odDays > 730).length;
+          const y3 = odRows.filter((r) => r._odDays > 1095).length;
+          const y4 = odRows.filter((r) => r._odDays > 1460).length;
+          const y5 = odRows.filter((r) => r._odDays > 1825).length;
+          return `
+            <div><b>Chronic Overdue Breakdown (South Zone)</b></div>
+            <div class="mi-ai-stat-grid">
+              <div class="mi-ai-stat-box red">2+ Years Overdue<b>${y2.toLocaleString("en-IN")}</b></div>
+              <div class="mi-ai-stat-box red">3+ Years Overdue<b>${y3.toLocaleString("en-IN")}</b></div>
+              <div class="mi-ai-stat-box red">4+ Years Overdue<b>${y4.toLocaleString("en-IN")}</b></div>
+              <div class="mi-ai-stat-box red">5+ Years Overdue<b>${y5.toLocaleString("en-IN")}</b></div>
+            </div>
+          `;
+        }
+
+        // --- H. OVERALL SUMMARY / FALLBACK ---
+        if (/\b(summary|overview|overall|total|south|zone|status|hello|hi|namaste|help)\b|ಒಟ್ಟು|ನಮಸ್ಕಾರ/.test(qLower)) {
+          const tot = ds.rows.length;
+          const od = ds.rows.filter((r) => r.is_overdue).length;
+          const ets = ds.rows.filter((r) => r.is_status_ets).length;
+          const chronic = ds.rows.filter((r) => r.is_overdue && r._odDays > 730).length;
+          const pct = tot > 0 ? ((od / tot) * 100).toFixed(1) : "0.0";
+          return `
+            <div><b>South Zone Live Dashboard Summary</b> <span style="color:#64748B;font-size:0.74rem;">(${esc(STATE.todayStr || "")})</span></div>
+            <div class="mi-ai-stat-grid">
+              <div class="mi-ai-stat-box">Total Works<b>${tot.toLocaleString("en-IN")}</b></div>
+              <div class="mi-ai-stat-box red">Overdue ('P')<b>${od.toLocaleString("en-IN")} (${pct}%)</b></div>
+              <div class="mi-ai-stat-box green">ETS Works<b>${ets.toLocaleString("en-IN")}</b></div>
+              <div class="mi-ai-stat-box">Chronic (&gt;2 Yrs)<b>${chronic.toLocaleString("en-IN")}</b></div>
+            </div>
+          `;
+        }
+
+        return `
+          I couldn't match a specific officer or division for <b>"${esc(rawQuery)}"</b>.<br><br>
+          Try asking things like:
+          <ul style="margin:6px 0 0 16px;padding:0;font-size:0.78rem;line-height:1.6;">
+            <li><i>"What is the highest overdue period work Sunil has?"</i></li>
+            <li><i>"Kolar overdue works summary"</i></li>
+            <li><i>"Who has the highest overdue works?"</i></li>
+            <li><i>"How many BESCOM registrations are pending?"</i></li>
+          </ul>
+        `;
+      }
+
+      // 4. BUILD THE FLOATING UI (MATCHING YOUR SCREENSHOT LAYOUT)
+      const BOT_SVG = `<svg class="mi-ai-bot-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>`;
+      const SEND_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
+
+      const launcher = document.createElement("button");
+      launcher.id = "mi-ai-launcher";
+      launcher.type = "button";
+      launcher.innerHTML = `<span class="mi-ai-live-dot"></span>${BOT_SVG}<span>Ask MI AI</span>`;
+
+      const panel = document.createElement("div");
+      panel.id = "mi-ai-panel";
+      panel.setAttribute("aria-hidden", "true");
+      panel.innerHTML = `
+        <div class="mi-ai-header">
+          <div class="mi-ai-header-left">
+            <div class="mi-ai-header-badge">${BOT_SVG}</div>
+            <div>
+              <div class="mi-ai-header-title">MI Dashboard Assistant</div>
+              <div class="mi-ai-header-sub">Grounded in Live MI Data • EN &amp; ಕನ್ನಡ</div>
+            </div>
+          </div>
+          <button type="button" class="mi-ai-close" id="mi-ai-close" title="Close">✕</button>
+        </div>
+
+        <div class="mi-ai-body" id="mi-ai-body">
+          <div class="mi-ai-msg-row bot">
+            <div class="mi-ai-avatar">${BOT_SVG.replace('class="mi-ai-bot-svg"', 'width="16" height="16"')}</div>
+            <div class="mi-ai-bubble">
+              Namaste! I am your <b>Minor Irrigation Overdue Works Assistant</b>. Ask me about any AE/AEE (in English or ಕನ್ನಡ), division totals, longest overdue works, or BESCOM pending counts.
+            </div>
+          </div>
+        </div>
+
+        <div class="mi-ai-suggestions" id="mi-ai-suggestions">
+          <div class="mi-ai-sug-title">Suggested Questions:</div>
+          <div class="mi-ai-sug-list">
+            <button type="button" class="mi-ai-sug-chip">Who has the highest overdue works?</button>
+            <button type="button" class="mi-ai-sug-chip">Which work has the longest overdue period?</button>
+            <button type="button" class="mi-ai-sug-chip">Give me overall South Zone summary</button>
+            <button type="button" class="mi-ai-sug-chip">Top 5 divisions by overdue works</button>
+            <button type="button" class="mi-ai-sug-chip">How many BESCOM registrations are pending?</button>
+          </div>
+        </div>
+
+        <div class="mi-ai-footer-wrap">
+          <form class="mi-ai-input-row" id="mi-ai-form">
+            <input type="text" id="mi-ai-input" placeholder="Ask about any AE, division, overdue work..." autocomplete="off" />
+            <button type="submit" id="mi-ai-send" title="Send">${SEND_SVG}</button>
+          </form>
+          <div class="mi-ai-footnote">
+            <span>Minor Irrigation • South Zone</span>
+            <span>MI DASHBOARD AI</span>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(launcher);
+      document.body.appendChild(panel);
+
+      const bodyEl = document.getElementById("mi-ai-body");
+      const inputEl = document.getElementById("mi-ai-input");
+      const sugEl = document.getElementById("mi-ai-suggestions");
+
+      function togglePanel(forceOpen) {
+        const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : !panel.classList.contains("open");
+        panel.classList.toggle("open", shouldOpen);
+        panel.setAttribute("aria-hidden", shouldOpen ? "false" : "true");
+        if (shouldOpen) setTimeout(() => inputEl?.focus(), 160);
+      }
+
+      function appendMessage(role, html) {
+        const row = document.createElement("div");
+        row.className = `mi-ai-msg-row ${role}`;
+        if (role === "bot") {
+          row.innerHTML = `
+            <div class="mi-ai-avatar">${BOT_SVG.replace('class="mi-ai-bot-svg"', 'width="16" height="16"')}</div>
+            <div class="mi-ai-bubble">${html}</div>
+          `;
+        } else {
+          row.innerHTML = `<div class="mi-ai-bubble">${esc(html)}</div>`;
+        }
+        bodyEl.appendChild(row);
+        bodyEl.scrollTop = bodyEl.scrollHeight;
+      }
+
+      function handleAsk(question) {
+        const q = String(question || "").trim();
+        if (!q) return;
+        if (sugEl) sugEl.style.display = "none";
+        appendMessage("user", q);
+        const replyHtml = answerQuestion(q);
+        setTimeout(() => appendMessage("bot", replyHtml), 120);
+      }
+
+      launcher.addEventListener("click", () => togglePanel());
+      document.getElementById("mi-ai-close")?.addEventListener("click", () => togglePanel(false));
+
+      document.getElementById("mi-ai-form")?.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const q = inputEl.value;
+        inputEl.value = "";
+        handleAsk(q);
+      });
+
+      sugEl?.addEventListener("click", (e) => {
+        const chip = e.target.closest(".mi-ai-sug-chip");
+        if (chip) handleAsk(chip.textContent);
+      });
+
+      // Handle clickable buttons inside AI answers (open modal or pick another matching officer)
+      bodyEl?.addEventListener("click", (e) => {
+        const offBtn = e.target.closest("[data-open-officer]");
+        if (offBtn && typeof openOfficerDetailsModal === "function") {
+          togglePanel(false);
+          openOfficerDetailsModal(offBtn.getAttribute("data-open-officer"), offBtn.getAttribute("data-is-aee") === "1");
+          return;
+        }
+        const bescomBtn = e.target.closest("[data-open-bescom]");
+        if (bescomBtn && typeof openBescomAeModal === "function") {
+          togglePanel(false);
+          openBescomAeModal(bescomBtn.getAttribute("data-open-bescom"));
+          return;
+        }
+        const askBtn = e.target.closest("[data-ask-query]");
+        if (askBtn) {
+          handleAsk(askBtn.getAttribute("data-ask-query"));
+        }
+      });
+
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && panel.classList.contains("open")) {
+          togglePanel(false);
+        }
+      });
     })();
   </script>
 </body>
