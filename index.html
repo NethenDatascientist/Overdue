@@ -2359,7 +2359,7 @@
        ========================================================================= */
     #mi-ai-launcher {
       position: fixed;
-      right: 58px; /* Stays cleanly left of your right-edge Scroll HUD */
+      right: 20px; /* Stays cleanly left of your right-edge Scroll HUD */
       bottom: 20px;
       z-index: 9997;
       display: inline-flex;
@@ -2399,7 +2399,7 @@
 
     #mi-ai-panel {
       position: fixed;
-      right: 58px;
+      left: 20px;
       bottom: 78px;
       width: 400px;
       max-width: calc(100vw - 24px);
@@ -2711,13 +2711,15 @@
     /* Mobile sizing so it stays easy to tap on 1360px phone viewport */
     @media (pointer: coarse) {
       #mi-ai-launcher {
-        right: 22px;
+        left: 22px;
+        right: auto;
         bottom: 24px;
         transform: scale(1.22);
-        transform-origin: bottom right;
+        transform-origin: bottom left;
       }
       #mi-ai-panel {
-        right: 22px;
+        left: 22px;
+        right: auto;
         bottom: 94px;
         width: 520px;
         height: 700px;
