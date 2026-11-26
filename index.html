@@ -10824,10 +10824,18 @@
       }
         function attachGeminiActionButtons(rawQuery, replyText) {
         const ds = getAiDataset();
-        const qLower = String(rawQuery || "").toLowerCase();
-        const rLower = String(replyText || "").toLowerCase();
-        const wantsBescom = /\b(bescom|rr\s*no|rr\s*number|rr\s*pending|registration|borewell)\b|ಬೆಸ್ಕಾಂ/.test(qLower) ||
-          /\bbescom\b/.test(rLower);
+        const qLower = String(rawQuery || "").trim().toLowerCase();
+
+        // Never show download/popup buttons for greetings or casual chat
+        if (/^(hi|hello|hey|namaste|namaskara|thanks|thank you|ok|okay|bye|good morning|good afternoon|good evening|ನಮಸ್ಕಾರ)[!.,?\s]*$/i.test(qLower)) {
+          return "";
+        }
+
+        // Only detect BESCOM from the USER'S question (not Gemini's greeting/help text)
+        const wantsBescom = /\b(bescom|rr\s*no|rr\s*number|rr\s*pending|registration|borewell)\b|ಬೆಸ್ಕಾಂ/.test(qLower);
+
+        const isDashboardQuery = wantsBescom ||
+          /\b(overdue|od|ets|chronic|work|works|division|divisions|subdivision|hoa|lekkashirshike|scheme|sheet|ae|aee|ta|as|officer|officers|engineer|pending|status|summary|report|cost|amount|estimate|lakhs|pdf|excel|popup|highest|longest|oldest|top|least|rank|count|total)\b|ಕಾಮಗಾರಿ|ವಿಭಾಗ|ಬಾಕಿ|ಲೆಕ್ಕಶೀರ್ಷಿಕೆ|ಅತಿ|ಹೆಚ್ಚು|ಕಡಿಮೆ|ಒಟ್ಟು/.test(qLower);
 
         let roleHint = "";
         if (/\baee\b|assistant executive/.test(qLower)) roleHint = "AEE";
@@ -10837,19 +10845,25 @@
 
         const qTokens = extractQueryTokens(rawQuery);
         const matchedDivs = matchItems(qTokens, ds.divisions);
+        const matchedHoas = matchItems(qTokens, ds.hoas);
         const offTokens = getOfficerQueryTokens(qTokens, matchedDivs);
 
-        // 1. Check officers explicitly named in user's query (excluding division names like "Mangalore")
+        // 1. Officers explicitly named in the user's question
         let targetOfficers = matchItems(offTokens, ds.officers, roleHint, rawQuery);
 
-        // 2. If user didn't name an officer, check who Gemini named in its reply
-        const replyOfficers = (!targetOfficers.length && replyText)
+        // 2. If it's a dashboard query without a name ("who has highest..."), check Gemini's reply
+        const replyOfficers = (isDashboardQuery && !targetOfficers.length && replyText)
           ? findOfficersInReply(replyText, ds.officers, roleHint)
           : [];
 
         // 3. Follow-up pronoun support ("give me his pdf", "open popup")
-        if (!targetOfficers.length && !replyOfficers.length && !matchedDivs.length && lastContextOfficer && /\b(him|her|his|their|this|that|pdf|excel|popup)\b/.test(qLower)) {
+        if (!targetOfficers.length && !replyOfficers.length && !matchedDivs.length && lastContextOfficer && /\b(him|her|his|their|pdf|excel|popup)\b/.test(qLower)) {
           targetOfficers = [lastContextOfficer];
+        }
+
+        // If the question has nothing to do with MI dashboard data, show NO buttons
+        if (!isDashboardQuery && !targetOfficers.length && !matchedDivs.length && !matchedHoas.length) {
+          return "";
         }
 
         let popupOpts = {};
@@ -10857,7 +10871,6 @@
         let exportTitle = "MI_AI_Report";
 
         if (wantsBescom) {
-          // Scope to division first if user asked about a specific division (e.g., Mangalore)
           const bescomPool = matchedDivs.length
             ? ds.bescomRows.filter((r) => r.division_name === matchedDivs[0].raw)
             : ds.bescomRows;
@@ -10866,7 +10879,6 @@
           const namedAe = (targetOfficers.length ? targetOfficers : replyOfficers)
             .find((o) => o.role === "AE" && validBescomAEs.has(o.raw));
 
-          // If division query returned multiple AEs (e.g. all 5 Mangalore AEs), give division PDF/Excel + AE popup buttons
           const isMultiDivList = matchedDivs.length > 0 && !targetOfficers.length &&
             replyOfficers.filter((o) => o.role === "AE" && validBescomAEs.has(o.raw)).length !== 1;
 
@@ -10897,7 +10909,9 @@
             });
           }
           if (packId && exportRows.length > 0) {
-            btns.push(`<button type="button" class="mi-ai-action-btn pdf-btn" data-ai-export="pdf" data-pack-id="${esc(packId)}">Download PDF (${exportRows.length})</button>`);
+            if (exportRows.length <= 600) {
+              btns.push(`<button type="button" class="mi-ai-action-btn pdf-btn" data-ai-export="pdf" data-pack-id="${esc(packId)}">Download PDF (${exportRows.length})</button>`);
+            }
             btns.push(`<button type="button" class="mi-ai-action-btn xlsx-btn" data-ai-export="xlsx" data-pack-id="${esc(packId)}">Download Excel (${exportRows.length})</button>`);
           }
           return btns.length ? `<div class="mi-ai-action-row">${btns.join("")}</div>` : "";
@@ -10918,10 +10932,17 @@
           const src = d.rows.filter((r) => r.is_overdue).sort((a, b) => b._odDays - a._odDays);
           exportTitle = `Division_${kannadaToEnglish(d.raw) || d.raw}`;
           exportRows = toExportRows(src.length ? src : d.rows, false);
-        } else {
+        } else if (matchedHoas.length > 0) {
+          const h = matchedHoas[0];
+          const src = h.rows.filter((r) => r.is_overdue).sort((a, b) => b._odDays - a._odDays);
+          exportTitle = `HOA_${h.raw}`;
+          exportRows = toExportRows(src.length ? src : h.rows, false);
+        } else if (/\b(overdue|longest|oldest|chronic|pdf|excel|download|summary|report)\b/.test(qLower)) {
           const topOd = ds.rows.filter((r) => r.is_overdue).sort((a, b) => b._odDays - a._odDays).slice(0, 25);
           exportTitle = "South_Zone_Top_Overdue_Works";
           exportRows = toExportRows(topOd, false);
+        } else {
+          return "";
         }
 
         if (exportRows.length > 0) {
