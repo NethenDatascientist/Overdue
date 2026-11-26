@@ -2251,12 +2251,12 @@
       top: 0;
       right: 52px; /* Sits cleanly left of your 48px Scroll HUD ruler */
       bottom: 0;
-      width: 240px;
+      width: 340px;
       z-index: 9994;
       pointer-events: none;
       opacity: 0;
       visibility: hidden;
-      transition: opacity 0.35s ease, visibility 0.35s ease;
+      transition: opacity 0.32s ease, visibility 0.32s ease;
       font-family: 'Montserrat', 'Inter', sans-serif;
       user-select: none;
     }
@@ -2265,46 +2265,45 @@
       visibility: visible;
     }
 
-    .sfn-top-zone {
-      position: absolute;
-      top: 56px;
-      right: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 4px;
-      padding: 10px 12px 10px 30px;
-      border-radius: 12px;
-      background: linear-gradient(90deg, rgba(220, 228, 238, 0) 0%, rgba(220, 228, 238, 0.88) 26%, rgba(220, 228, 238, 0.96) 100%);
-    }
+    .sfn-top-zone,
     .sfn-bottom-zone {
       position: absolute;
-      bottom: 28px;
       right: 0;
       display: flex;
       flex-direction: column;
       align-items: flex-end;
       gap: 4px;
-      padding: 10px 12px 10px 30px;
+      padding: 10px 14px 10px 38px;
       border-radius: 12px;
-      background: linear-gradient(90deg, rgba(220, 228, 238, 0) 0%, rgba(220, 228, 238, 0.88) 26%, rgba(220, 228, 238, 0.96) 100%);
+      background: linear-gradient(
+        90deg,
+        rgba(232, 238, 245, 0) 0%,
+        rgba(232, 238, 245, 0.86) 24%,
+        rgba(232, 238, 245, 0.96) 100%
+      );
+    }
+    .sfn-top-zone {
+      top: 56px;
+    }
+    .sfn-bottom-zone {
+      bottom: 28px;
     }
     .sfn-bottom-zone:empty {
       display: none;
     }
 
     .sfn-item {
-      font-size: 0.72rem;
+      font-size: 0.70rem;
       font-weight: 700;
-      letter-spacing: 0.09em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
       color: #64748B;
       text-align: right;
       white-space: nowrap;
-      line-height: 1.35;
+      line-height: 1.4;
       cursor: pointer;
       pointer-events: none;
-      transition: color 0.15s ease, transform 0.15s ease;
+      transition: color 0.15s ease, transform 0.15s ease, opacity 0.2s ease;
     }
     #scroll-flow-nav.is-visible .sfn-item {
       pointer-events: auto;
@@ -2315,17 +2314,29 @@
     }
 
     .sfn-active-slot {
-      margin-top: 6px;
-      font-size: 1.25rem;
+      position: relative;
+      margin-top: 5px;
+      padding-right: 11px;
+      font-size: 1.06rem;
       font-weight: 900;
       letter-spacing: 0.04em;
       text-transform: uppercase;
       color: #0F172A;
       text-align: right;
       white-space: nowrap;
-      line-height: 1.2;
-      min-height: 1.5rem;
-      text-shadow: 0 2px 10px rgba(255, 255, 255, 0.9);
+      line-height: 1.25;
+      min-height: 1.35rem;
+      text-shadow: 0 1px 8px rgba(255, 255, 255, 0.95);
+    }
+    .sfn-active-slot::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      top: 15%;
+      bottom: 15%;
+      width: 3px;
+      border-radius: 999px;
+      background: #1D4ED8;
     }
 
     .sfn-fly-char {
@@ -2333,7 +2344,7 @@
       z-index: 9996;
       pointer-events: none;
       font-family: 'Montserrat', 'Inter', sans-serif;
-      font-size: 1.25rem;
+      font-size: 1.06rem;
       font-weight: 900;
       letter-spacing: 0.04em;
       text-transform: uppercase;
@@ -2342,7 +2353,6 @@
       transform-origin: center center;
     }
 
-    /* Keep mobile view completely clean and fast */
     @media (pointer: coarse) {
       #scroll-flow-nav,
       .sfn-fly-char {
@@ -8732,6 +8742,9 @@
     // =========================================================================
     // SCROLL-FLOW SECTION INDEX (BIDIRECTIONAL LETTER FLOW + FAST-SCROLL GUARD)
     // =========================================================================
+    // =========================================================================
+    // SCROLL-FLOW SECTION INDEX (CLEAN SINGLE-STREAM RIBBON + 1s AUTO-FADE)
+    // =========================================================================
     (function initScrollFlowNav() {
       const isPhone = Boolean(
         document.documentElement.classList.contains("is-mobile-device") ||
@@ -8771,13 +8784,13 @@
         const page = typeof STATE !== "undefined" ? STATE.activePage : "dashboard";
         const specsByPage = {
           dashboard: [
-            { label: "KPI Overview", el: () => document.getElementById("p1-kpi-grid") },
-            { label: "Officer Chart", el: () => document.getElementById("p1-chart-title")?.closest(".exec-section-banner") || document.getElementById("p1-bar-chart") },
+            { label: "Overview & Officer Chart", el: () => document.getElementById("p1-kpi-grid") },
             { label: "Summary Table", el: () => document.getElementById("p1-summary-table-wrap")?.previousElementSibling || document.getElementById("p1-summary-table-wrap") },
-            { label: "BESCOM Pending RR no.", el: () => document.getElementById("bescom-pending-section") }
+            { label: "BESCOM Pending", el: () => document.getElementById("bescom-pending-section") }
           ],
           analytics: [
-            { label: "Officer Analytics", el: () => document.getElementById("p2-truth-verdict-box")?.closest(".filter-card") },
+            { label: "KPI Overview", el: () => document.getElementById("p2-kpi-grid") },
+            { label: "ETS Verification", el: () => document.getElementById("p2-truth-verdict-box")?.closest(".filter-card") },
             { label: "Leaderboards", el: () => document.getElementById("p2-leaderboards-wrap") }
           ],
           abstract: [
@@ -8857,7 +8870,7 @@
         activeEl.textContent = currentLabel;
       }
 
-      function launchBidirectionalFlight({
+      function launchCleanFlight({
         inLabel,
         inFromRect,
         outLabel,
@@ -8870,153 +8883,138 @@
         if (typeof Element.prototype.animate !== "function") return;
 
         const myGen = animGen;
-        const duration = fastMode ? 290 : 390;
-        const stagger = fastMode ? 12 : 17;
-
-        const inData = measureActiveChars(inLabel);
-        activeEl.style.opacity = "0";
-
+        const duration = fastMode ? 260 : 350;
         let pendingCount = 0;
+
         const onOneDone = () => {
           if (myGen !== animGen) return;
           pendingCount--;
-          if (pendingCount <= 0) {
-            clearFlights();
-          }
+          if (pendingCount <= 0) clearFlights();
         };
 
-        // 1. INCOMING TITLE: letter-by-letter curved sweep into the active bold slot
-        const inTotal = inData.chars.length;
-        inData.chars.forEach((ch, i) => {
-          if (ch === " ") return;
-          const tRect = inData.rects[i];
-          if (!tRect || tRect.width === 0) return;
+        if (goingDown) {
+          // SCROLL DOWN: incoming title sweeps cleanly UP from bottom stack into bold active slot
+          const inData = measureActiveChars(inLabel);
+          const total = inData.chars.length;
+          const stagger = Math.min(fastMode ? 9 : 13, (fastMode ? 95 : 135) / Math.max(1, total));
+          activeEl.style.opacity = "0";
 
-          const fly = document.createElement("span");
-          fly.className = "sfn-fly-char";
-          fly.textContent = ch;
-          fly.style.left = `${tRect.left}px`;
-          fly.style.top = `${tRect.top}px`;
-          nav.appendChild(fly);
-          activeFlightNodes.push(fly);
-
-          let startX, startY, midX, midY, startRot, midRot;
-          if (goingDown && inFromRect) {
-            // Sweeps UP from bottom upcoming stack along the right curve
-            startX = (inFromRect.left + (i / Math.max(1, inTotal)) * inFromRect.width) - tRect.left;
-            startY = inFromRect.top - tRect.top;
-            midX = startX * 0.3 + 24;
-            midY = startY * 0.45;
-            startRot = -12;
-            midRot = -52;
-          } else {
-            // Scrolling UP: peels from top passed stack with a matching outward-right curve
-            startX = inFromRect
-              ? (inFromRect.left + (i / Math.max(1, inTotal)) * inFromRect.width) - tRect.left
-              : 18;
-            startY = inFromRect
-              ? Math.min(-42, inFromRect.top - tRect.top - 22)
-              : -58;
-            midX = startX * 0.35 + 28;
-            midY = startY * 0.45;
-            startRot = 14;
-            midRot = 42;
+          // Subtle settle on the newly-passed item in top stack
+          const lastPassed = passedEl.lastElementChild;
+          if (lastPassed) {
+            const pAnim = lastPassed.animate(
+              [
+                { transform: "translateY(8px)", opacity: 0.4 },
+                { transform: "translateY(0)", opacity: 1 }
+              ],
+              { duration: 220, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }
+            );
+            activeAnims.push(pAnim);
           }
 
-          pendingCount++;
-          const anim = fly.animate(
-            [
+          inData.chars.forEach((ch, i) => {
+            if (ch === " ") return;
+            const tRect = inData.rects[i];
+            if (!tRect || tRect.width === 0) return;
+
+            const fly = document.createElement("span");
+            fly.className = "sfn-fly-char";
+            fly.textContent = ch;
+            fly.style.left = `${tRect.left}px`;
+            fly.style.top = `${tRect.top}px`;
+            nav.appendChild(fly);
+            activeFlightNodes.push(fly);
+
+            const startX = inFromRect
+              ? (inFromRect.left + (i / Math.max(1, total)) * inFromRect.width) - tRect.left
+              : 10;
+            const startY = inFromRect ? inFromRect.top - tRect.top : 240;
+            const midX = startX * 0.35 + 16;
+            const midY = startY * 0.46;
+
+            pendingCount++;
+            const anim = fly.animate(
+              [
+                { transform: `translate3d(${startX.toFixed(1)}px, ${startY.toFixed(1)}px, 0) scale(0.68) rotate(-6deg)`, opacity: 0.45 },
+                { transform: `translate3d(${midX.toFixed(1)}px, ${midY.toFixed(1)}px, 0) scale(0.90) rotate(-14deg)`, opacity: 0.92, offset: 0.50 },
+                { transform: "translate3d(0px, 0px, 0) scale(1) rotate(0deg)", opacity: 1 }
+              ],
               {
-                transform: `translate3d(${startX.toFixed(1)}px, ${startY.toFixed(1)}px, 0) scale(0.62) rotate(${startRot}deg)`,
-                opacity: 0.45
-              },
-              {
-                transform: `translate3d(${midX.toFixed(1)}px, ${midY.toFixed(1)}px, 0) scale(0.86) rotate(${midRot}deg)`,
-                opacity: 0.94,
-                offset: 0.52
-              },
-              {
-                transform: "translate3d(0px, 0px, 0) scale(1) rotate(0deg)",
-                opacity: 1
+                duration,
+                delay: i * stagger,
+                easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+                fill: "both"
               }
+            );
+            activeAnims.push(anim);
+            anim.onfinish = onOneDone;
+          });
+
+          setTimeout(() => {
+            if (myGen === animGen) clearFlights();
+          }, duration + total * stagger + 100);
+        } else {
+          // SCROLL UP: calm step-down for the incoming top title + single clean downward ribbon for outgoing title
+          const aAnim = activeEl.animate(
+            [
+              { transform: "translateY(-10px) scale(0.92)", opacity: 0.35 },
+              { transform: "translateY(0px) scale(1)", opacity: 1 }
             ],
-            {
-              duration,
-              delay: i * stagger,
-              easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-              fill: "both"
-            }
+            { duration: 240, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }
           );
+          activeAnims.push(aAnim);
 
-          activeAnims.push(anim);
-          anim.onfinish = onOneDone;
-        });
+          if (outLabel && outCharData && outDestNode) {
+            const outToRect = outDestNode.getBoundingClientRect();
+            if (outToRect && outToRect.width > 0) {
+              outDestNode.style.opacity = "0";
+              const total = outCharData.chars.length;
+              const stagger = Math.min(fastMode ? 8 : 11, (fastMode ? 85 : 120) / Math.max(1, total));
 
-        // 2. SCROLLING UP OUTGOING TITLE: peels letter-by-letter DOWN the right curve into the bottom stack
-        if (!goingDown && outLabel && outCharData && outDestNode) {
-          const outToRect = outDestNode.getBoundingClientRect();
-          if (outToRect && outToRect.width > 0) {
-            outDestNode.style.opacity = "0";
-            const outTotal = outCharData.chars.length;
+              outCharData.chars.forEach((ch, i) => {
+                if (ch === " ") return;
+                const sRect = outCharData.rects[i];
+                if (!sRect || sRect.width === 0) return;
 
-            outCharData.chars.forEach((ch, i) => {
-              if (ch === " ") return;
-              const sRect = outCharData.rects[i];
-              if (!sRect || sRect.width === 0) return;
+                const fly = document.createElement("span");
+                fly.className = "sfn-fly-char";
+                fly.textContent = ch;
+                fly.style.left = `${sRect.left}px`;
+                fly.style.top = `${sRect.top}px`;
+                nav.appendChild(fly);
+                activeFlightNodes.push(fly);
 
-              const fly = document.createElement("span");
-              fly.className = "sfn-fly-char";
-              fly.textContent = ch;
-              fly.style.left = `${sRect.left}px`;
-              fly.style.top = `${sRect.top}px`;
-              nav.appendChild(fly);
-              activeFlightNodes.push(fly);
+                const endX = (outToRect.left + (i / Math.max(1, total)) * outToRect.width) - sRect.left;
+                const endY = outToRect.top - sRect.top;
+                const midX = endX * 0.35 + 14;
+                const midY = endY * 0.48;
 
-              const endX = (outToRect.left + (i / Math.max(1, outTotal)) * outToRect.width) - sRect.left;
-              const endY = outToRect.top - sRect.top;
-              const midX = endX * 0.35 + 26;
-              const midY = endY * 0.48;
-
-              pendingCount++;
-              const anim = fly.animate(
-                [
+                pendingCount++;
+                const anim = fly.animate(
+                  [
+                    { transform: "translate3d(0px, 0px, 0) scale(0.96) rotate(0deg)", opacity: 0.80 },
+                    { transform: `translate3d(${midX.toFixed(1)}px, ${midY.toFixed(1)}px, 0) scale(0.80) rotate(12deg)`, opacity: 0.65, offset: 0.50 },
+                    { transform: `translate3d(${endX.toFixed(1)}px, ${endY.toFixed(1)}px, 0) scale(0.66) rotate(4deg)`, opacity: 0.38 }
+                  ],
                   {
-                    transform: "translate3d(0px, 0px, 0) scale(1) rotate(0deg)",
-                    opacity: 0.95
-                  },
-                  {
-                    transform: `translate3d(${midX.toFixed(1)}px, ${midY.toFixed(1)}px, 0) scale(0.82) rotate(48deg)`,
-                    opacity: 0.85,
-                    offset: 0.48
-                  },
-                  {
-                    transform: `translate3d(${endX.toFixed(1)}px, ${endY.toFixed(1)}px, 0) scale(0.60) rotate(12deg)`,
-                    opacity: 0.45
+                    duration,
+                    delay: (total - 1 - i) * stagger,
+                    easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+                    fill: "both"
                   }
-                ],
-                {
-                  duration,
-                  delay: (outTotal - 1 - i) * Math.max(10, stagger - 3),
-                  easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-                  fill: "both"
-                }
-              );
+                );
+                activeAnims.push(anim);
+                anim.onfinish = onOneDone;
+              });
 
-              activeAnims.push(anim);
-              anim.onfinish = onOneDone;
-            });
+              setTimeout(() => {
+                if (myGen === animGen) clearFlights();
+              }, duration + total * stagger + 100);
+            }
           }
         }
 
-        if (pendingCount === 0) {
-          clearFlights();
-          return;
-        }
-
-        // Hard safety restore in case browser throttles animations
-        setTimeout(() => {
-          if (myGen === animGen) clearFlights();
-        }, duration + (inTotal + 6) * stagger + 120);
+        if (pendingCount === 0 && goingDown) clearFlights();
       }
 
       function computeActiveIndex(items) {
@@ -9037,7 +9035,6 @@
         const oldLabel = currentLabel;
         const goingDown = nextIdx > oldIdx;
 
-        // Capture source coordinates BEFORE re-rendering stacks
         const srcNode = nav.querySelector(`.sfn-item[data-sfn-idx="${nextIdx}"]`);
         const inFromRect = srcNode ? srcNode.getBoundingClientRect() : null;
         let outCharData = null;
@@ -9060,7 +9057,7 @@
           ? upcomingEl.querySelector(`.sfn-item[data-sfn-idx="${oldIdx}"]`)
           : null;
 
-        launchBidirectionalFlight({
+        launchCleanFlight({
           inLabel: items[currentIdx].label,
           inFromRect,
           outLabel: oldLabel,
@@ -9101,11 +9098,10 @@
           return;
         }
 
-        const isFastScroll = stepPx > 140 || (performance.now() - lastFlightStart) < 110;
+        const isFastScroll = stepPx > 140 || (performance.now() - lastFlightStart) < 120;
         clearTimeout(settleTimer);
 
         if (isFastScroll) {
-          // Wait briefly while fast-scrolling so only one clean flight runs at the destination
           settleTimer = setTimeout(() => {
             const latest = getPageSections();
             if (latest.page !== currentPageKey || latest.items.length < 2) return;
@@ -9113,7 +9109,7 @@
             if (settledIdx !== currentIdx) {
               commitSectionChange(latest.items, settledIdx, true, true);
             }
-          }, 65);
+          }, 70);
         } else {
           commitSectionChange(items, nextIdx, true, false);
         }
