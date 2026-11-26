@@ -10586,6 +10586,17 @@
       }
 
       // 5. BUILD CONTEXT FOR GEMINI (/api/chat) WITH CLEAN INITIALS & ALL BESCOM AEs
+      function getOfficerQueryTokens(qTokens, matchedDivs) {
+        if (!matchedDivs.length) return qTokens;
+        const divTokenSet = new Set();
+        matchedDivs.forEach((d) => {
+          divTokenSet.add(d.folded);
+          (d.tokens || []).forEach((t) => divTokenSet.add(t));
+        });
+        return qTokens.filter((t) => !divTokenSet.has(t));
+      }
+
+      // 5. BUILD CONTEXT FOR GEMINI (/api/chat) WITH CLEAN INITIALS & DIVISION-TAGGED BESCOM AEs
       function buildLiveContextForGemini(rawQuery) {
         const ds = getAiDataset();
         if (!ds.rows.length) return "Data not loaded yet.";
@@ -10631,8 +10642,9 @@
         });
 
         const qTokens = extractQueryTokens(qRaw);
-        const matchedOffs = matchItems(qTokens, ds.officers, "", qRaw);
         const matchedDivs = matchItems(qTokens, ds.divisions);
+        const offTokens = getOfficerQueryTokens(qTokens, matchedDivs);
+        const matchedOffs = matchItems(offTokens, ds.officers, "", qRaw);
 
         // Put matched officers first, then top officers by OD across AE/AEE/TA/AS
         const rankedOffs = [
@@ -10646,26 +10658,47 @@
           return `${o.role} ${o.raw} (${o.enName}) [${Array.from(o.divs).join("/")}] => Tot=${o.rows.length}, OD=${o.odRows.length}, ETS=${o.etsRows.length}${worstTxt}`;
         });
 
-        // Include ALL BESCOM AEs (with CF/CP split) so Gemini never misses anyone
+        // BESCOM: Division-wise summary + ALL AEs tagged with their Division & AEE
         const bescomCf = ds.bescomRows.filter((r) => String(r.status_raw).toUpperCase().trim() === "CF").length;
         const bescomCp = ds.bescomRows.filter((r) => String(r.status_raw).toUpperCase().trim() === "CP").length;
+
+        const bescomByDiv = new Map();
         const bescomByAe = new Map();
         ds.bescomRows.forEach((r) => {
-          const k = r.so_name || "Unassigned";
-          if (!bescomByAe.has(k)) bescomByAe.set(k, { cf: 0, cp: 0, tot: 0 });
-          const g = bescomByAe.get(k);
+          const div = r.division_name || "Unknown";
+          const ae = r.so_name || "Unassigned";
           const st = String(r.status_raw || "").toUpperCase().trim();
-          if (st === "CF") g.cf++;
-          if (st === "CP") g.cp++;
-          g.tot++;
+
+          if (!bescomByDiv.has(div)) bescomByDiv.set(div, { cf: 0, cp: 0, tot: 0, aes: new Set() });
+          const dg = bescomByDiv.get(div);
+          if (st === "CF") dg.cf++;
+          if (st === "CP") dg.cp++;
+          dg.tot++;
+          dg.aes.add(ae);
+
+          const aeKey = `${div}||${ae}`;
+          if (!bescomByAe.has(aeKey)) bescomByAe.set(aeKey, { ae, div, aees: new Set(), cf: 0, cp: 0, tot: 0 });
+          const ag = bescomByAe.get(aeKey);
+          if (st === "CF") ag.cf++;
+          if (st === "CP") ag.cp++;
+          ag.tot++;
+          if (r.aee_name && r.aee_name !== "-") ag.aees.add(r.aee_name);
         });
-        const bescomAeLines = Array.from(bescomByAe.entries())
+
+        const bescomDivLines = Array.from(bescomByDiv.entries())
           .sort((a, b) => b[1].tot - a[1].tot)
-          .map(([ae, g]) => `- AE ${ae} (${kannadaToEnglish(ae)}): Total=${g.tot} (CF=${g.cf}, CP=${g.cp})`);
+          .map(([div, g]) => `- ${div} (${kannadaToEnglish(div)}): ${g.aes.size} AEs, Total=${g.tot} (CF=${g.cf}, CP=${g.cp})`);
+
+        const bescomAeLines = Array.from(bescomByAe.values())
+          .sort((a, b) => b.tot - a.tot)
+          .map((g) => `- AE ${g.ae} (${kannadaToEnglish(g.ae)}) [Div: ${g.div} (${kannadaToEnglish(g.div)})]: Total=${g.tot} (CF=${g.cf}, CP=${g.cp})`);
 
         let detailedWorks = [];
-        if (/\bbescom\b|ಬೆಸ್ಕಾಂ/.test(qLower)) {
-          detailedWorks.push(...ds.bescomRows.slice(0, 20));
+        if (/\bbescom\b|\brr\b|ಬೆಸ್ಕಾಂ/.test(qLower)) {
+          const bPool = matchedDivs.length
+            ? ds.bescomRows.filter((r) => r.division_name === matchedDivs[0].raw)
+            : ds.bescomRows;
+          detailedWorks.push(...bPool.slice(0, 25));
         }
         if (matchedHoaList.length) {
           const targetHoas = new Set(matchedHoaList.map((x) => x.hoa));
@@ -10697,14 +10730,14 @@
         return [
           `TODAY: ${STATE.todayStr || "-"}`,
           `SOUTH ZONE TOTALS: TotalWorks=${tot}, Overdue(P)=${odRows.length}, ETS=${etsCnt}, Chronic2Yr+=${y2}, Chronic3Yr+=${y3}, Chronic4Yr+=${y4}, BESCOM_Pending=${ds.bescomRows.length} (CF=${bescomCf}, CP=${bescomCp})`,
-          `\nBESCOM RR NO. PENDING BY AE — ONLY SCP (Borewell) & TSP (Borewell), Non-Overdue CF & CP (ALL ${bescomAeLines.length} AEs):\n${bescomAeLines.join("\n") || "None"}`,
+          `\nBESCOM RR NO. PENDING BY DIVISION — ONLY SCP (Borewell) & TSP (Borewell), Non-Overdue CF & CP:\n${bescomDivLines.join("\n") || "None"}`,
+          `\nBESCOM RR NO. PENDING BY AE (ALL ${bescomAeLines.length} AEs WITH DIVISION):\n${bescomAeLines.join("\n") || "None"}`,
           `\nLEKKASHIRSHIKE (H.O.A.) SUMMARY:\n${hoaSummaryLines.join("\n")}`,
           `\nDIVISIONS:\n${divLines.join("\n")}`,
           `\nOFFICERS (AE, AEE, TA, AS):\n${offLines.join("\n")}`,
           `\nRELEVANT & LONGEST OVERDUE WORKS:\n${uniqueWorkLines.join("\n")}`
         ].join("\n");
       }
-
       // 6. UI SETUP + SMART POPUP & EXPORT BUTTONS (CHECKS BOTH QUESTION & REPLY)
       const BOT_SVG = `<svg class="mi-ai-bot-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>`;
       const SEND_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
