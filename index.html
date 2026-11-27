@@ -10129,7 +10129,7 @@
         "assistant", "account", "superintendent", "division", "divisions", "subdivision", "sub",
         "district", "districts", "taluk", "taluks", "taluka", "constituency", "constituencies",
         "mathakshetra", "hoa", "lekkashirshike", "scheme", "sheet", "sheets", "mmr", "complete",
-        "dabs", "wise", "mathakshethra", "matakshetra", "abstract", "summary", "overview", "overall", "entire", "whole", "full", "general", "brief", "quick", "dashboard", "valaya", "north", "east", "west", "report", "details", "detail", "status", "pct",
+        "dabs", "cabs", "wise", "mathakshethra", "matakshetra", "abstract", "summary", "overview", "overall", "entire", "whole", "full", "general", "brief", "quick", "dashboard", "valaya", "north", "east", "west", "report", "details", "detail", "status", "pct",
         "percentage", "percent", "south", "zone", "please", "pls", "pdf", "excel", "popup", "pop",
         "open", "download", "his", "her", "him", "their", "this", "that", "these", "those", "its",
         "it", "fresh", "spillover", "continuing", "new", "govt", "government", "order", "fy",
@@ -10561,9 +10561,10 @@
         };
 
         
-        const wantsAllWorks = !hasAnyFilter && !wantsDabs &&
+        const wantsCabs = !wantsDabs && /\bcabs\b/i.test(qRaw);
+     const wantsAllWorks = wantsCabs || (!hasAnyFilter && !wantsDabs &&
        !/\b(bescom|rr\s*no|rr\s*number|summary|overview|how\s+many|count)\b/i.test(qLower) &&
-       /\b(all\s+works|complete\s+(?:details|list|data|works|table)|entire\s+(?:list|works|data)|full\s+(?:list|details|works|table)|every\s+work|list\s+of\s+all|show\s+all\s+works|export\s+all|download\s+all)\b/i.test(qLower);
+       /\b(all\s+works|complete\s+(?:details|list|data|works|table)|entire\s+(?:list|works|data)|full\s+(?:list|details|works|table)|every\s+work|list\s+of\s+all|show\s+all\s+works|export\s+all|download\s+all)\b/i.test(qLower));
      const matchedRows = (hasAnyFilter || wantsDabs || wantsAllWorks) ? ds.rawRows.filter(matchesFilter) : [];
         const default17Rows = (typeof isDefaultAwHoa === "function" && !matchedHoas.length)
           ? matchedRows.filter((r) => isDefaultAwHoa(r.hoa))
@@ -10595,7 +10596,7 @@
         if (officers.length) filterLabels.push(`${officers[0].role}: ${officers[0].raw}`);
 
         return {
-          wantsDabs, dabsGroupBy, wantsAllWorks, costRange, goFyFilter, woFyFilter, anyFyFilter, sf, statuses, excludedStatuses,
+          wantsDabs, dabsGroupBy, wantsCabs, wantsAllWorks, costRange, goFyFilter, woFyFilter, anyFyFilter, sf, statuses, excludedStatuses,
           overdueOnly, odPeriod, minOdDays,
           matchedHoas, excludedHoas, divisions, excludedDivisions,
           subdivisions, excludedSubdivisions, districts, excludedDistricts,
@@ -11736,7 +11737,9 @@
             .map((r, i) => `${i + 1}. Work: ${r.work_name || "-"} | MoolaAndaju: ${r._costNum}L | Exp: ${Number(r.total_exp || 0).toFixed(2)}L | HOA: ${r.hoa} | Div: ${r.division_name} (${kannadaToEnglish(r.division_name)}) | Taluk: ${r.taluk_name || "-"} | AE: ${r.so_name} (${kannadaToEnglish(r.so_name)}) | Status: ${r.status_raw} | S/F: ${r.is_new_work ? "F" : "S"} | GO Date: ${r.go_date_str || "-"} (FY: ${r.go_fy || "-"}) | Target: ${r.target_date} | OverdueBy: ${r.overdue_by}`);
 
           sections.push(
-            `\nLIVE FILTERED QUERY RESULT (MMR COMPLETE ABSTRACT ENGINE):`,
+            mmr.wantsCabs
+              ? `\nLIVE CABS (COMPLETE 28-COLUMN WORKS DETAILS):`
+              : `\nLIVE FILTERED QUERY RESULT (MMR COMPLETE ABSTRACT ENGINE):`,
             `APPLIED FILTERS: ${mmr.filterLabels.length ? mmr.filterLabels.join(" | ") : "All Works (South Zone)"}`,
             `EXACT MATCHING WORKS (Default 17 MMR H.O.A.s): ${mmr.default17Rows.length} | ALL 21 SHEETS: ${mmr.matchedRows.length}`,
             `FINANCIAL TOTALS (for ${rows.length} works): Total Moola Andaju = ₹${totEst.toFixed(2)} Lakhs | Total Expenditure = ₹${totExp.toFixed(2)} Lakhs | Pending Bills = ₹${totPend.toFixed(2)} Lakhs | Overdue('P') = ${odCnt} | ETS = ${etsCount}`,
@@ -11997,12 +12000,14 @@
           const switchBtn = `<button type="button" class="mi-ai-action-btn" data-ask-query="${esc(cleanBaseQ)}, ${otherModeLabel}">Switch to ${otherModeLabel} →</button>`;
           return mainBtns.replace("</div>", `${switchBtn}</div>`);
         }
-        // Case 2: MMR Filtered List Queries OR "All Works" Complete List Requests
-        if (mmr.hasNonOfficerMmrFilter && mmr.matchedRows.length === 0) return "";
+        // Case 2: MMR Filtered List Queries OR "CABS" / "All Works" Complete List Requests
+        if ((mmr.hasNonOfficerMmrFilter || mmr.wantsCabs) && mmr.matchedRows.length === 0) return "";
         if ((mmr.hasNonOfficerMmrFilter || mmr.wantsAllWorks) && mmr.matchedRows.length > 0) {
           const primaryRows = (mmr.default17Rows.length > 0 && !mmr.matchedHoas.length) ? mmr.default17Rows : mmr.matchedRows;
           const filterDesc = mmr.filterLabels.length ? mmr.filterLabels.join(" | ") : "All Works (South Zone)";
-          const title = mmr.filterLabels.length ? `Filtered Works — ${filterDesc}` : "All Works — South Zone";
+          const title = mmr.wantsCabs
+            ? `CABS — ${filterDesc}`
+            : (mmr.filterLabels.length ? `Filtered Works — ${filterDesc}` : "All Works — South Zone");
           const modalId = saveResultModalPack({
             title,
             filterSummary: filterDesc,
@@ -12014,9 +12019,12 @@
           const actionOpts = {
             resultModalId: modalId,
             modalCount: primaryRows.length,
+            modalLabel: mmr.wantsCabs ? `View CABS Table Popup (${primaryRows.length} Works) →` : "",
             mmrAbstractId: modalId,
             packId,
-            packCount: primaryRows.length
+            packCount: primaryRows.length,
+            pdfLabel: mmr.wantsCabs ? `Download CABS PDF (${primaryRows.length})` : "",
+            xlsxLabel: mmr.wantsCabs ? `Download CABS Excel (${primaryRows.length})` : ""
           };
           lastResultActionOpts = actionOpts;
           return buildActionButtonsHtml(actionOpts);
