@@ -3766,11 +3766,18 @@
         upper.includes("ASSEMBLY")
       );
     }
-
-    function findMatchingColumnIndices(headers) {
+      function findMatchingColumnIndices(headers) {
       const map = {};
+      const cleanKnHdr = (s) =>
+        normalizeText(s)
+          .normalize("NFC")
+          .replace(/[\u200B-\u200D\uFEFF]/g, "")
+          .replace(/\u0CC6\u0CD5/g, "\u0CC7")
+          .replace(/\u0CBF\u0CD5/g, "\u0CC0")
+          .replace(/\u0CCA\u0CD5/g, "\u0CCB");
+
       headers.forEach((col, idx) => {
-        const norm = normalizeText(col);
+        const norm = cleanKnHdr(col);
         const upper = norm.toUpperCase();
         const compact = norm.replace(/[\s\-_]+/g, "");
         if ((norm === "ವಿಭಾಗ" || norm === "ವಿಭಾಗದ ಹೆಸರು") && map.division === undefined) map.division = idx;
@@ -3787,7 +3794,7 @@
       });
 
       headers.forEach((col, idx) => {
-        const norm = normalizeText(col);
+        const norm = cleanKnHdr(col);
         const upper = norm.toUpperCase();
         const compactUpper = upper.replace(/\s+/g, "");
         if ((norm.includes("ಉಪವಿಭಾಗ") || norm.includes("ಉಪ ವಿಭಾಗ") || norm.includes("ಉಪ-ವಿಭಾಗ")) && map.subdivision === undefined) map.subdivision = idx;
@@ -3806,10 +3813,17 @@
         else if ((norm.includes("ತಾಲ್ಲೂಕು") || norm.includes("ತಾಲೂಕು") || upper.includes("TALUK")) && !norm.includes("ಕಾಮಗಾರಿ") && map.taluk === undefined) map.taluk = idx;
         else if (isConstituencyHeader(norm, upper) && map.constituency === undefined) map.constituency = idx;
         else if (compactUpper.includes("CP/CF") && map.status === undefined) map.status = idx;
-        else if ((norm.includes("ಸರ್ಕಾರದ ಆದೇಶ") || norm.includes("ಆದೇಶ ದಿನಾಂಕ") || norm.includes("ಮಂಜೂರಾತಿ")) && map.go_date === undefined) map.go_date = idx;
-        else if ((norm.includes("ಕಾರ್ಯಾದೇಶ") || upper.includes("WORK ORDER")) && map.wo_date === undefined) map.wo_date = idx;
+        else if ((norm.includes("ಅಚ್ಚುಕಟ್ಟು") || norm.includes("ಅಚ್ಚುಕಟ್ಟ") || upper.includes("AYACUT") || upper.includes("ATCUKAT") || norm.includes("ಹೆಕ್ಟೇರ್")) && map.achukattu === undefined) map.achukattu = idx;
+        else if (((norm.includes("ಸರ್ಕಾರದ ಆದೇಶ") || norm.includes("ಆದೇಶ")) && norm.includes("ಸಂಖ್ಯೆ") && !norm.includes("ತಾಂತ್ರಿಕ")) && map.go_no === undefined) map.go_no = idx;
+        else if (((norm.includes("ಸರ್ಕಾರದ ಆದೇಶ") || norm.includes("ಆದೇಶ ದಿನಾಂಕ")) && norm.includes("ದಿನಾಂಕ") && !norm.includes("ತಾಂತ್ರಿಕ")) && map.go_date === undefined) map.go_date = idx;
+        else if ((norm.includes("ತಾಂತ್ರಿಕ") && norm.includes("ಮಂಜೂರಾತಿ") && norm.includes("ಸಂಖ್ಯೆ")) && map.ts_no === undefined) map.ts_no = idx;
+        else if ((norm.includes("ತಾಂತ್ರಿಕ") && norm.includes("ಮಂಜೂರಾತಿ") && norm.includes("ದಿನಾಂಕ")) && map.ts_date === undefined) map.ts_date = idx;
+        else if ((norm.includes("ಕಾರ್ಯಾದೇಶ") || norm.includes("ಕಾರ್ಯದೇಶ") || upper.includes("WORK ORDER")) && map.wo_date === undefined) map.wo_date = idx;
+        else if ((norm.includes("ಗುತ್ತಿಗೆದಾರ") || upper.includes("CONTRACTOR") || upper.includes("AGENCY NAME")) && !norm.includes("ಮೊತ್ತ") && map.contractor_name === undefined) map.contractor_name = idx;
+        else if ((norm.includes("ಕಾಲಾವಧಿ") || norm.includes("ತಿಂಗಳು") || upper.includes("DURATION") || upper.includes("MONTHS")) && map.project_duration === undefined) map.project_duration = idx;
+        else if (((norm.includes("ಅನುಮೋದನೆ") || norm.includes("ಅನುಮೋದಿತ") || norm.includes("ಮಂಜೂರಾತಿ")) && norm.includes("ವರ್ಷ")) || upper.includes("APPROVED YEAR") || upper.includes("SANCTION YEAR") ? map.approved_year === undefined : false) map.approved_year = idx;
         else if (((norm.includes("ಪರಿಷ್ಕೃತ") && (norm.includes("ಮೊತ್ತ") || norm.includes("ಅಂದಾಜು"))) || upper.includes("REVISED")) && map.revised_est === undefined) map.revised_est = idx;
-        else if (((norm.includes("ಗುತ್ತಿಗೆ") && norm.includes("ಮೊತ್ತ")) || upper.includes("CONTRACT") || upper.includes("TENDER AMOUNT")) && map.contract_amt === undefined) map.contract_amt = idx;
+        else if (((norm.includes("ಗುತ್ತಿಗೆ") && norm.includes("ಮೊತ್ತ")) || upper.includes("CONTRACT") || upper.includes("TENDER AMOUNT")) && !norm.includes("ಗುತ್ತಿಗೆದಾರ") && map.contract_amt === undefined) map.contract_amt = idx;
         else if ((norm.includes("ಮೂಲ ಅಂದಾಜು") || (norm.includes("ಅಂದಾಜು ಮೊತ್ತ") && !norm.includes("ಪರಿಷ್ಕೃತ")) || upper.includes("ESTIMATED COST")) && map.est_cost === undefined) map.est_cost = idx;
         else if (((norm.includes("ಮಾರ್ಚ್") && (norm.includes("2026") || norm.includes("ವೆಚ್ಚ"))) || (upper.includes("MARCH") && upper.includes("2026"))) && map.exp_mar26 === undefined) map.exp_mar26 = idx;
         else if ((norm.includes("2026-27") && norm.includes("ವೆಚ್ಚ") && !norm.includes("ಮಾರ್ಚ್") && !norm.includes("ಒಟ್ಟಾರೆ")) && map.exp_2627 === undefined) map.exp_2627 = idx;
@@ -3820,10 +3834,20 @@
         else if (((norm.includes("ಮುಂದುವರೆದ") && norm.includes("ಹೊಸ")) || norm.includes("ಕಾಮಗಾರಿಯ ವಿಧ") || upper.includes("WORK TYPE") || upper.includes("SPILLOVER")) && map.work_type === undefined) map.work_type = idx;
       });
 
+      // Fallback for sheets that combine Number & Date or label GO Date loosely
+      if (map.go_date === undefined) {
+        headers.forEach((col, idx) => {
+          const norm = cleanKnHdr(col);
+          if ((norm.includes("ಸರ್ಕಾರದ ಆದೇಶ") || norm.includes("ಮಂಜೂರಾತಿ ದಿನಾಂಕ")) && !norm.includes("ತಾಂತ್ರಿಕ") && idx !== map.go_no && map.go_date === undefined) {
+            map.go_date = idx;
+          }
+        });
+      }
+
       if (map.work_name === undefined) {
         const used = new Set(Object.values(map));
         headers.forEach((col, idx) => {
-          const norm = normalizeText(col);
+          const norm = cleanKnHdr(col);
           const upper = norm.toUpperCase();
           if (
             (norm.includes("ಕಾಮಗಾರಿ") || upper.includes("WORK NAME") || upper.includes("NAME OF WORK")) &&
@@ -3836,7 +3860,6 @@
       }
       return map;
     }
-
     // =========================================================================
     // 3. 23-WORKSHEET EXCEL PARSER
     // =========================================================================
@@ -3942,9 +3965,20 @@
           const hoa = hoaRaw || target;
           const bescomReg = colMap.bescom_reg !== undefined ? normalizeText(r[colMap.bescom_reg]) : "";
 
+          
+          const fmtDateOrText = (cell) => formatDateObj(parseIndianDate(cell)) || normalizeText(cell);
+          const achukattu = colMap.achukattu !== undefined ? normalizeText(r[colMap.achukattu]) : "";
+          const goNo = colMap.go_no !== undefined ? normalizeText(r[colMap.go_no]) : "";
+          const goDateStr = colMap.go_date !== undefined ? fmtDateOrText(r[colMap.go_date]) : "";
+          const tsNo = colMap.ts_no !== undefined ? normalizeText(r[colMap.ts_no]) : "";
+          const tsDateStr = colMap.ts_date !== undefined ? fmtDateOrText(r[colMap.ts_date]) : "";
+          const contractorName = colMap.contractor_name !== undefined ? normalizeText(r[colMap.contractor_name]) : "";
+          const projectDuration = colMap.project_duration !== undefined ? normalizeText(r[colMap.project_duration]) : "";
+          const woDateStr = colMap.wo_date !== undefined ? fmtDateOrText(r[colMap.wo_date]) : "";
           const goFy = colMap.go_date !== undefined ? extractFinancialYear(r[colMap.go_date]) : "";
           const woSourceCell = colMap.wo_date !== undefined ? r[colMap.wo_date] : (colMap.start_date !== undefined ? r[colMap.start_date] : "");
           const woFy = extractFinancialYear(woSourceCell);
+          const approvedYear = colMap.approved_year !== undefined ? normalizeText(r[colMap.approved_year]) : goFy;
           const estCostVal = colMap.est_cost !== undefined ? parseCostNumber(r[colMap.est_cost]) : NaN;
           const contractAmtVal = colMap.contract_amt !== undefined ? parseCostNumber(r[colMap.contract_amt]) : NaN;
           const revisedEstVal = colMap.revised_est !== undefined ? parseCostNumber(r[colMap.revised_est]) : NaN;
@@ -4037,7 +4071,16 @@
             is_status_p: isStatusP ? 1 : 0,
             is_status_ets: isStatusEts ? 1 : 0,
             is_overdue: isOverdue ? 1 : 0,
-            bescom_reg: bescomReg
+            bescom_reg: bescomReg,
+            achukattu: achukattu,
+            go_no: goNo,
+            go_date_str: goDateStr,
+            ts_no: tsNo,
+            ts_date: tsDateStr,
+            contractor_name: contractorName,
+            project_duration: projectDuration,
+            wo_date_str: woDateStr,
+            approved_year: approvedYear
           });
         }
 
@@ -4247,7 +4290,16 @@
         getStrId(row.district_name),
         getStrId(row.taluk_name),
         getStrId(row.constituency_name),
-        getStrId(row.bescom_reg)
+        getStrId(row.bescom_reg),
+        getStrId(row.achukattu),
+        getStrId(row.go_no),
+        getStrId(row.go_date_str),
+        getStrId(row.ts_no),
+        getStrId(row.ts_date),
+        getStrId(row.contractor_name),
+        getStrId(row.project_duration),
+        getStrId(row.wo_date_str),
+        getStrId(row.approved_year)
       ]);
 
       const rawJson = JSON.stringify({
@@ -4313,7 +4365,16 @@
           district_name: arr[31] !== undefined ? (s[arr[31]] || UNSPECIFIED_LABEL) : UNSPECIFIED_LABEL,
           taluk_name: arr[32] !== undefined ? (s[arr[32]] || UNSPECIFIED_LABEL) : UNSPECIFIED_LABEL,
           constituency_name: arr[33] !== undefined ? (s[arr[33]] || UNSPECIFIED_LABEL) : UNSPECIFIED_LABEL,
-          bescom_reg: arr[34] !== undefined ? (s[arr[34]] || "") : ""
+          bescom_reg: arr[34] !== undefined ? (s[arr[34]] || "") : "",
+          achukattu: arr[35] !== undefined ? (s[arr[35]] || "") : "",
+          go_no: arr[36] !== undefined ? (s[arr[36]] || "") : "",
+          go_date_str: arr[37] !== undefined ? (s[arr[37]] || "") : "",
+          ts_no: arr[38] !== undefined ? (s[arr[38]] || "") : "",
+          ts_date: arr[39] !== undefined ? (s[arr[39]] || "") : "",
+          contractor_name: arr[40] !== undefined ? (s[arr[40]] || "") : "",
+          project_duration: arr[41] !== undefined ? (s[arr[41]] || "") : "",
+          wo_date_str: arr[42] !== undefined ? (s[arr[42]] || "") : "",
+          approved_year: arr[43] !== undefined ? (s[arr[43]] || "") : ""
         };
         if (!rowObj.od_period && rowObj.is_overdue) {
           rowObj.od_period = deriveOverduePeriodFromRow(rowObj, todayDt);
@@ -10314,6 +10375,49 @@
         return allRows;
       }
 
+      const AI_KN_COLUMNS = [
+        "ಕ್ರ.ಸಂ",
+        "ವಿಭಾಗ",
+        "ಜಿಲ್ಲೆ",
+        "ತಾಲ್ಲೂಕು",
+        "ಮತಕ್ಷೇತ್ರ",
+        "ಲೆಕ್ಕಶೀರ್ಷಿಕೆ",
+        "ಕಾಮಗಾರಿ ಹೆಸರು",
+        "S /F",
+        "ಮೂಲ ಅಂದಾಜು ಮೊತ್ತ",
+        "ಅಚ್ಚುಕಟ್ಟು(ಸೃಷ್ಟಿಸಿದ/ ಸ್ಥಿರೀಕರಿಸಿದ) (ಹೆಕ್ಟೇರ್ ಗಳಲ್ಲಿ)",
+        "ಅನುಮೋದಿತ ಸರ್ಕಾರದ ಆದೇಶ ಸಂಖ್ಯೆ",
+        "ಸರ್ಕಾರದ ಆದೇಶ ದಿನಾಂಕ",
+        "ತಾಂತ್ರಿಕ ಮಂಜೂರಾತಿ ಸಂಖ್ಯೆ",
+        "ತಾಂತ್ರಿಕ ಮಂಜೂರಾತಿ ದಿನಾಂಕ",
+        "ಗುತ್ತಿಗೆ ಮೊತ್ತ (ಜಿ.ಎಸ್.ಟಿ ಸೇರಿದಂತೆ)",
+        "ಗುತ್ತಿಗೆದಾರರ ಹೆಸರು",
+        "ಪರಿಷ್ಕೃತ ಅಂದಾಜು ಮೊತ್ತ",
+        "ಯೋಜನೆಗೆ ನಿಗಧಿಪಡಿಸಿದ ಕಾಲಾವಧಿ (ತಿಂಗಳು)",
+        "ಕಾರ್ಯದೇಶ ನೀಡಿದ ದಿನಾಂಕ",
+        "ಕಾಮಗಾರಿ ಪ್ರಾರಂಭಿಸಿದ ದಿನಾಂಕ",
+        "ಕಾಮಗಾರಿ ಮುಕ್ತಾಯಗೊಳಿಸಬೇಕಾದ ದಿನಾಂಕ",
+        "ಮಾರ್ಚ್ 2026 ವರೆಗಿನ ವೆಚ್ಚ",
+        "ಒಟ್ಟಾರೆ ವೆಚ್ಚ",
+        "ಬಾಕಿ ಬಿಲ್ಲಿನ ಮೊತ್ತ",
+        "Progress status (cp/cf/p)",
+        "ಅನುಮೋದನೆಯಾದ ವರ್ಷ",
+        "ಶಾಖಾಧಿಕಾರಿಯ ಹೆಸರು",
+        "ಸಹಾಯಕ ಕಾರ್ಯಪಾಲಕ ಇಂಜಿನಿಯರ್ ಹೆಸರು"
+      ];
+
+      function cleanAiCell(v) {
+        const s = String(v ?? "").trim();
+        if (!s || s === UNSPECIFIED_LABEL || s === UNASSIGNED_LABEL) return "-";
+        return s;
+      }
+
+      function fmtAiAmt(val, fallbackEmpty = "-") {
+        const n = parseFloat(val);
+        if (isNaN(n)) return fallbackEmpty;
+        return Number(n.toFixed(2));
+      }
+
       function getAiModalFilteredRows() {
         const base = getAiModalBaseRows();
         const q = (document.getElementById("arm-search")?.value || "").trim().toLowerCase();
@@ -10321,9 +10425,12 @@
         return base.filter((r) =>
           String(r.work_name || "").toLowerCase().includes(q) ||
           String(r.division_name || "").toLowerCase().includes(q) ||
-          String(r.subdivision_name || "").toLowerCase().includes(q) ||
+          String(r.district_name || "").toLowerCase().includes(q) ||
           String(r.taluk_name || "").toLowerCase().includes(q) ||
+          String(r.constituency_name || "").toLowerCase().includes(q) ||
           String(r.hoa || "").toLowerCase().includes(q) ||
+          String(r.contractor_name || "").toLowerCase().includes(q) ||
+          String(r.go_no || "").toLowerCase().includes(q) ||
           String(r.so_name || "").toLowerCase().includes(q) ||
           String(r.aee_name || "").toLowerCase().includes(q) ||
           String(r.status_raw || "").toLowerCase().includes(q)
@@ -10394,25 +10501,40 @@
 
         const limit = AI_MODAL_STATE.showAllRendered ? rows.length : Math.min(rows.length, 300);
         const slice = rows.slice(0, limit);
+        const fmtNum = (n) => (typeof n === "number" ? n.toLocaleString("en-IN", { maximumFractionDigits: 2 }) : "-");
 
         const tbodyHtml = slice.map((r, i) => {
           const odCls = r.is_overdue ? "odm-red-text" : "";
           return `
             <tr>
               <td>${i + 1}</td>
-              <td class="odm-work-col">${esc(r.work_name || "-")}</td>
-              <td>${esc(r.hoa || "-")}</td>
-              <td>${esc(r.division_name || "-")}</td>
-              <td>${esc(r.subdivision_name || "-")}</td>
-              <td>${esc(r.taluk_name || "-")}</td>
-              <td>${esc(r.so_name || "-")}</td>
-              <td>${esc(r.aee_name || "-")}</td>
+              <td>${esc(cleanAiCell(r.division_name))}</td>
+              <td>${esc(cleanAiCell(r.district_name))}</td>
+              <td>${esc(cleanAiCell(r.taluk_name))}</td>
+              <td>${esc(cleanAiCell(r.constituency_name))}</td>
+              <td>${esc(cleanAiCell(r.hoa))}</td>
+              <td class="odm-work-col">${esc(cleanAiCell(r.work_name))}</td>
               <td>${r.is_new_work ? "F" : "S"}</td>
-              <td><b>${esc(r.status_raw || "-")}</b></td>
-              <td style="white-space:nowrap;font-weight:800;color:#1E3A8A;">${r._hasCost ? r._costNum.toLocaleString("en-IN", { maximumFractionDigits: 2 }) : "-"}</td>
-              <td style="white-space:nowrap;">${Number(r.total_exp || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</td>
-              <td class="${odCls}">${esc(r.target_date || "-")}</td>
-              <td class="${odCls}">${esc(r.overdue_by || "-")}</td>
+              <td style="white-space:nowrap;font-weight:800;color:#1E3A8A;">${r._hasCost ? fmtNum(r._costNum) : "-"}</td>
+              <td>${esc(cleanAiCell(r.achukattu))}</td>
+              <td>${esc(cleanAiCell(r.go_no))}</td>
+              <td style="white-space:nowrap;">${esc(cleanAiCell(r.go_date_str || r.go_fy))}</td>
+              <td>${esc(cleanAiCell(r.ts_no))}</td>
+              <td style="white-space:nowrap;">${esc(cleanAiCell(r.ts_date))}</td>
+              <td style="white-space:nowrap;">${fmtNum(fmtAiAmt(r.contract_amt))}</td>
+              <td>${esc(cleanAiCell(r.contractor_name))}</td>
+              <td style="white-space:nowrap;">${fmtNum(fmtAiAmt(r.revised_est))}</td>
+              <td>${esc(cleanAiCell(r.project_duration))}</td>
+              <td style="white-space:nowrap;">${esc(cleanAiCell(r.wo_date_str || r._woFy))}</td>
+              <td style="white-space:nowrap;">${esc(cleanAiCell(r.start_date))}</td>
+              <td class="${odCls}" style="white-space:nowrap;">${esc(cleanAiCell(r.target_date))}</td>
+              <td style="white-space:nowrap;">${fmtNum(fmtAiAmt(r.exp_mar26))}</td>
+              <td style="white-space:nowrap;">${fmtNum(fmtAiAmt(r.total_exp))}</td>
+              <td style="white-space:nowrap;">${fmtNum(fmtAiAmt(r.pending_bill))}</td>
+              <td><b>${esc(cleanAiCell(r.status_raw))}</b></td>
+              <td style="white-space:nowrap;">${esc(cleanAiCell(r.approved_year || r.go_fy))}</td>
+              <td>${esc(cleanAiCell(r.so_name))}</td>
+              <td>${esc(cleanAiCell(r.aee_name))}</td>
             </tr>
           `;
         }).join("");
@@ -10422,24 +10544,9 @@
           : "";
 
         bodyEl.innerHTML = `
-          <table class="odm-table">
+          <table class="odm-table" style="min-width:2400px;">
             <thead>
-              <tr>
-                <th>Sl. No.</th>
-                <th>Work Name</th>
-                <th>H.O.A.</th>
-                <th>Division</th>
-                <th>Sub-division</th>
-                <th>Taluk</th>
-                <th>Assistant Engineer</th>
-                <th>AEE</th>
-                <th>S/F</th>
-                <th>Status</th>
-                <th>Moola Andaju (L)</th>
-                <th>Total Exp. (L)</th>
-                <th>Target Date</th>
-                <th>Overdue By</th>
-              </tr>
+              <tr>${AI_KN_COLUMNS.map((h) => `<th>${esc(h)}</th>`).join("")}</tr>
             </thead>
             <tbody>${tbodyHtml}</tbody>
           </table>
@@ -10540,31 +10647,43 @@
         if (isBescom) {
           return (workList || []).map((r, i) => ({
             "Sl. No.": i + 1,
-            "Work Name": r.work_name || "-",
+            "Work Name": cleanAiCell(r.work_name),
             "Status": String(r.status_raw || "-").toUpperCase().trim(),
-            "AE": r.so_name || "-",
-            "AEE": r.aee_name || "-",
-            "Scheme Sheet": r.sheet_name || "-",
-            "Division": r.division_name || "-"
+            "AE": cleanAiCell(r.so_name),
+            "AEE": cleanAiCell(r.aee_name),
+            "Scheme Sheet": cleanAiCell(r.sheet_name),
+            "Division": cleanAiCell(r.division_name)
           }));
         }
         return (workList || []).map((r, i) => ({
-          "Sl. No.": i + 1,
-          "Work Name": r.work_name || "-",
-          "H.O.A.": r.hoa || "-",
-          "Division": r.division_name || "-",
-          "Sub-division": r.subdivision_name || "-",
-          "Taluk": r.taluk_name || "-",
-          "AE": r.so_name || "-",
-          "AEE": r.aee_name || "-",
-          "TA": r.ta_name || "-",
-          "S/F": r.is_new_work ? "F" : "S",
-          "Status": r.status_raw || "-",
-          "Moola Andaju (Lakhs)": r._hasCost ? r._costNum : (r.est_cost || "-"),
-          "Total Exp. (Lakhs)": Number(r.total_exp || 0),
-          "Pending Bill (Lakhs)": Number(r.pending_bill || 0),
-          "Target Date": r.target_date || "-",
-          "Overdue By": r.overdue_by || "-"
+          "ಕ್ರ.ಸಂ": i + 1,
+          "ವಿಭಾಗ": cleanAiCell(r.division_name),
+          "ಜಿಲ್ಲೆ": cleanAiCell(r.district_name),
+          "ತಾಲ್ಲೂಕು": cleanAiCell(r.taluk_name),
+          "ಮತಕ್ಷೇತ್ರ": cleanAiCell(r.constituency_name),
+          "ಲೆಕ್ಕಶೀರ್ಷಿಕೆ": cleanAiCell(r.hoa),
+          "ಕಾಮಗಾರಿ ಹೆಸರು": cleanAiCell(r.work_name),
+          "S /F": r.is_new_work ? "F" : "S",
+          "ಮೂಲ ಅಂದಾಜು ಮೊತ್ತ": r._hasCost ? fmtAiAmt(r._costNum) : "-",
+          "ಅಚ್ಚುಕಟ್ಟು(ಸೃಷ್ಟಿಸಿದ/ ಸ್ಥಿರೀಕರಿಸಿದ) (ಹೆಕ್ಟೇರ್ ಗಳಲ್ಲಿ)": cleanAiCell(r.achukattu),
+          "ಅನುಮೋದಿತ ಸರ್ಕಾರದ ಆದೇಶ ಸಂಖ್ಯೆ": cleanAiCell(r.go_no),
+          "ಸರ್ಕಾರದ ಆದೇಶ ದಿನಾಂಕ": cleanAiCell(r.go_date_str || r.go_fy),
+          "ತಾಂತ್ರಿಕ ಮಂಜೂರಾತಿ ಸಂಖ್ಯೆ": cleanAiCell(r.ts_no),
+          "ತಾಂತ್ರಿಕ ಮಂಜೂರಾತಿ ದಿನಾಂಕ": cleanAiCell(r.ts_date),
+          "ಗುತ್ತಿಗೆ ಮೊತ್ತ (ಜಿ.ಎಸ್.ಟಿ ಸೇರಿದಂತೆ)": fmtAiAmt(r.contract_amt),
+          "ಗುತ್ತಿಗೆದಾರರ ಹೆಸರು": cleanAiCell(r.contractor_name),
+          "ಪರಿಷ್ಕೃತ ಅಂದಾಜು ಮೊತ್ತ": fmtAiAmt(r.revised_est),
+          "ಯೋಜನೆಗೆ ನಿಗಧಿಪಡಿಸಿದ ಕಾಲಾವಧಿ (ತಿಂಗಳು)": cleanAiCell(r.project_duration),
+          "ಕಾರ್ಯದೇಶ ನೀಡಿದ ದಿನಾಂಕ": cleanAiCell(r.wo_date_str || r._woFy),
+          "ಕಾಮಗಾರಿ ಪ್ರಾರಂಭಿಸಿದ ದಿನಾಂಕ": cleanAiCell(r.start_date),
+          "ಕಾಮಗಾರಿ ಮುಕ್ತಾಯಗೊಳಿಸಬೇಕಾದ ದಿನಾಂಕ": cleanAiCell(r.target_date),
+          "ಮಾರ್ಚ್ 2026 ವರೆಗಿನ ವೆಚ್ಚ": fmtAiAmt(r.exp_mar26),
+          "ಒಟ್ಟಾರೆ ವೆಚ್ಚ": fmtAiAmt(r.total_exp),
+          "ಬಾಕಿ ಬಿಲ್ಲಿನ ಮೊತ್ತ": fmtAiAmt(r.pending_bill),
+          "Progress status (cp/cf/p)": cleanAiCell(r.status_raw),
+          "ಅನುಮೋದನೆಯಾದ ವರ್ಷ": cleanAiCell(r.approved_year || r.go_fy),
+          "ಶಾಖಾಧಿಕಾರಿಯ ಹೆಸರು": cleanAiCell(r.so_name),
+          "ಸಹಾಯಕ ಕಾರ್ಯಪಾಲಕ ಇಂಜಿನಿಯರ್ ಹೆಸರು": cleanAiCell(r.aee_name)
         }));
       }
 
@@ -10574,9 +10693,45 @@
           alert("No rows available to export to Excel.");
           return;
         }
-        const ws = XLSX.utils.json_to_sheet(rows);
+        const cols = Object.keys(rows[0]);
+        const aoa = [cols, ...rows.map((r) => cols.map((c) => r[c] ?? "-"))];
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+        // Set neat column widths (extra wide for Work Name & Contractor)
+        ws["!cols"] = cols.map((c) => {
+          if (c === "ಕ್ರ.ಸಂ" || c === "Sl. No.") return { wch: 7 };
+          if (c === "ಕಾಮಗಾರಿ ಹೆಸರು" || c === "Work Name") return { wch: 46 };
+          if (c === "S /F") return { wch: 7 };
+          if (c === "ಗುತ್ತಿಗೆದಾರರ ಹೆಸರು") return { wch: 24 };
+          if (c.includes("ಅಚ್ಚುಕಟ್ಟು")) return { wch: 22 };
+          if (c.includes("ದಿನಾಂಕ")) return { wch: 14 };
+          return { wch: 16 };
+        });
+
+        const border = {
+          top: { style: "thin", color: { rgb: "64748B" } },
+          bottom: { style: "thin", color: { rgb: "64748B" } },
+          left: { style: "thin", color: { rgb: "64748B" } },
+          right: { style: "thin", color: { rgb: "64748B" } }
+        };
+        const workColIdx = cols.indexOf("ಕಾಮಗಾರಿ ಹೆಸರು") !== -1 ? cols.indexOf("ಕಾಮಗಾರಿ ಹೆಸರು") : cols.indexOf("Work Name");
+        const range = XLSX.utils.decode_range(ws["!ref"]);
+        for (let R = range.s.r; R <= range.e.r; R++) {
+          const isHdr = R === 0;
+          for (let C = range.s.c; C <= range.e.c; C++) {
+            const addr = XLSX.utils.encode_cell({ r: R, c: C });
+            if (!ws[addr]) ws[addr] = { t: "s", v: "" };
+            ws[addr].s = {
+              font: { name: "Calibri", sz: 10, bold: isHdr, color: { rgb: "000000" } },
+              fill: { fgColor: { rgb: isHdr ? "CFE2F3" : (R % 2 === 0 ? "F8FAFC" : "FFFFFF") } },
+              border,
+              alignment: { horizontal: (!isHdr && C === workColIdx) ? "left" : "center", vertical: "center", wrapText: true }
+            };
+          }
+        }
+
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "AI_Report");
+        XLSX.utils.book_append_sheet(wb, ws, "AI_Works_List");
         const safeName = String(pack.title || "MI_AI_Report").replace(/[\\/:*?"<>|]/g, "_").slice(0, 45);
         XLSX.writeFile(wb, `${safeName}_${STATE.todayStr || "Report"}.xlsx`);
       }
@@ -10594,6 +10749,7 @@
         setTimeout(() => {
           try {
             const cols = Object.keys(rows[0]);
+            const isWide28 = cols.length >= 20;
             const safeTitle = String(pack.title || "MI AI Report").replace(/[\\/:*?"<>|]/g, "_").trim();
             const nowStr = new Date().toLocaleString("en-IN", {
               day: "2-digit", month: "2-digit", year: "numeric",
@@ -10608,10 +10764,9 @@
               for (let cIdx = 0; cIdx < cols.length; cIdx++) {
                 const c = cols[cIdx];
                 const val = String(r[c] ?? "-");
-                const isOd = c === "Overdue By" || c === "Target Date";
-                const cls = c === "Work Name" ? ' class="wk"' : "";
-                const sty = isOd && val !== "-" ? ' style="color:#DC2626;"' : "";
-                tds += `<td${cls}${sty}>${esc(val)}</td>`;
+                const isWork = c === "ಕಾಮಗಾರಿ ಹೆಸರು" || c === "Work Name";
+                const cls = isWork ? ' class="wk"' : "";
+                tds += `<td${cls}>${esc(val)}</td>`;
               }
               rowChunks[i] = `<tr>${tds}</tr>`;
             }
@@ -10619,23 +10774,23 @@
             const html = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><title>${esc(safeTitle)}</title>
 <style>
-  @page { size: A4 landscape; margin: 6mm; }
+  @page { size: ${isWide28 ? "A3 landscape" : "A4 landscape"}; margin: 5mm; }
   * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-  body { margin: 12px; font-family: "Segoe UI", "Nirmala UI", Arial, sans-serif; color: #0F172A; background: #FFFFFF; }
-  .topbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: #1E3A8A; color: #FFFFFF; padding: 10px 14px; border-radius: 6px; margin-bottom: 10px; }
+  body { margin: 10px; font-family: "Segoe UI", "Nirmala UI", "Noto Sans Kannada", Arial, sans-serif; color: #0F172A; background: #FFFFFF; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: #1E3A8A; color: #FFFFFF; padding: 9px 14px; border-radius: 6px; margin-bottom: 8px; }
   .print-controls { display: flex; gap: 8px; }
   .print-btn { background: #10B981; color: #FFFFFF; border: none; border-radius: 6px; padding: 7px 14px; font-weight: 700; cursor: pointer; font-size: 13px; }
   .close-btn { background: rgba(255,255,255,0.2); color: #FFFFFF; border: 1px solid rgba(255,255,255,0.4); border-radius: 6px; padding: 7px 12px; font-weight: 700; cursor: pointer; font-size: 13px; }
   @media print { body { margin: 0; } .print-controls { display: none !important; } }
-  table { width: 100%; border-collapse: collapse; font-size: 7pt; }
+  table { width: 100%; border-collapse: collapse; font-size: ${isWide28 ? "5.6pt" : "7.2pt"}; }
   thead { display: table-header-group; }
-  th { background: #DCE8F7; border: 1px solid #64748B; padding: 4px 3px; text-align: center; font-weight: 700; }
-  td { border: 1px solid #94A3B8; padding: 3.5px 4px; text-align: center; vertical-align: middle; }
-  td.wk { text-align: left; max-width: 240px; white-space: normal; }
+  th { background: #CFE2F3; border: 0.8px solid #475569; padding: ${isWide28 ? "3px 2px" : "4px 3px"}; text-align: center; font-weight: 700; line-height: 1.2; }
+  td { border: 0.8px solid #94A3B8; padding: ${isWide28 ? "2.5px 2px" : "3.5px 4px"}; text-align: center; vertical-align: middle; line-height: 1.25; }
+  td.wk { text-align: left; min-width: ${isWide28 ? "130px" : "180px"}; max-width: ${isWide28 ? "210px" : "260px"}; white-space: normal; }
   tbody tr:nth-child(even) { background: #F8FAFC; }
 </style></head><body>
   <div class="topbar">
-    <div><div style="font-size:11.5pt;font-weight:700;">${esc(pack.title)} (${rows.length.toLocaleString("en-IN")} Works)</div><div style="font-size:8pt;opacity:0.9;">Generated: ${esc(nowStr)}</div></div>
+    <div><div style="font-size:11pt;font-weight:700;">${esc(pack.title)} (${rows.length.toLocaleString("en-IN")} Works)</div><div style="font-size:8pt;opacity:0.9;">Generated: ${esc(nowStr)}</div></div>
     <div class="print-controls">
       <button class="print-btn" onclick="window.print()">Save / Print PDF</button>
       <button class="close-btn" onclick="window.close()">Close</button>
