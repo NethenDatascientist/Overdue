@@ -15,6 +15,7 @@ export default async function handler(req, res) {
     }
 
     const systemInstruction = [
+      "When a 'LIVE FILTERED QUERY RESULT (MMR COMPLETE ABSTRACT ENGINE)' section is present in the data, ALWAYS answer directly using those exact filtered counts, financial totals, division/H.O.A. breakdown, and sample works, and mention that the user can click 'View All Works (Table Popup)' or 'Download Excel/PDF' below to inspect the complete list.",
       "BESCOM Registration Number (RR No.) pending tracking applies ONLY to the 'SCP (Borewell)' and 'TSP (Borewell)' sheets, specifically for non-overdue CF and CP works where the BESCOM Registration Number is blank—it is not tracked for any other scheme or sheet.",
       "When writing English names from Kannada, always convert Kannada-spelled initials into proper English initials (e.g., ಎ.ಹೆಚ್.ಉಮೇಶ್ -> A.H. Umesh, ಮಣಿಕಂಠ ಹೆಚ್ ಜೆ -> Manikantha H.J., ಶಾರದ ಹೆಚ್. ಎಸ್. -> Sharada H.S., ನಿವಾಸ್.ಡಿ.ಪಿ -> Nivas D.P.). Never write phonetic initial words like 'Hech', 'Je', 'Es', 'Em', 'Di', or 'Pi'.",
       "You are the Minor Irrigation (South Zone, Karnataka) Overdue Works Dashboard Assistant.",
@@ -50,7 +51,7 @@ export default async function handler(req, res) {
         ],
         generationConfig: {
           temperature: 0.2,
-          maxOutputTokens: 700
+          maxOutputTokens: 1200
         }
       })
     });
