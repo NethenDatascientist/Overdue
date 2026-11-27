@@ -2768,6 +2768,64 @@
         height: 700px;
       }
     }
+    .aw-cost-range-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+    }
+    .aw-cost-input {
+      flex: 1;
+      min-width: 0;
+      height: 40px;
+      padding: 0 10px;
+      border: 1.5px solid #94A3B8;
+      border-radius: 10px;
+      background: #FFFFFF;
+      color: #0F172A;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.84rem;
+      font-weight: 700;
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .aw-cost-input:focus {
+      border-color: #1D4ED8;
+      box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.14);
+    }
+    .aw-cost-input.invalid {
+      border-color: #DC2626;
+      background: #FEF2F2;
+    }
+    .aw-cost-sep {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #475569;
+      user-select: none;
+    }
+    .aw-cost-clear {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      flex-shrink: 0;
+      border-radius: 999px;
+      border: 1px solid #CBD5E1;
+      background: #F1F5F9;
+      color: #475569;
+      font-size: 0.75rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .aw-cost-clear.show {
+      display: inline-flex;
+    }
+    .aw-cost-clear:hover {
+      background: #FEE2E2;
+      border-color: #FCA5A5;
+      color: #DC2626;
+    }
   </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Kannada:wght@600;700;800&display=swap">
 </head>
@@ -3113,19 +3171,13 @@
             </select>
           </div>
           <div class="filter-card">
-            <label for="f-abs-cost">ಮೂಲ ಅಂದಾಜು ಮೊತ್ತ (Lakhs):</label>
-            <select id="f-abs-cost" class="filter-select">
-              <option value="ALL">ALL</option>
-              <option value="Less than 100">Less than 100</option>
-              <option value="0-200">0-200</option>
-              <option value="100-500">100-500</option>
-              <option value="200-500">200-500</option>
-              <option value="500-1000">500-1000</option>
-              <option value="1000-2500">1000-2500</option>
-              <option value="2500-5000">2500-5000</option>
-              <option value="5000-10000">5000-10000</option>
-              <option value="More than 10000">More than 10000</option>
-            </select>
+            <label for="aw-cost-min">ಮೂಲ ಅಂದಾಜು ಮೊತ್ತ (Lakhs):</label>
+            <div class="aw-cost-range-wrap">
+              <input type="text" id="aw-cost-min" class="aw-cost-input" placeholder=">=500" title="Min value (e.g. >=500, >500, or 500)" autocomplete="off" />
+              <span class="aw-cost-sep">to</span>
+              <input type="text" id="aw-cost-max" class="aw-cost-input" placeholder="<600" title="Max value (e.g. <600, <=600, or 600)" autocomplete="off" />
+              <button type="button" id="aw-cost-clear" class="aw-cost-clear" title="Clear cost range">✕</button>
+            </div>
           </div>
           <div class="filter-card">
             <label for="f-abs-hoa">Select H.O.A. (ಲೆಕ್ಕಶೀರ್ಷಿಕೆ):</label>
@@ -3410,10 +3462,91 @@
         ae: [],
         aee: []
       },
+      awCostRange: { min: "", max: "" },
       currentChronicExportRows: [],
       currentAbstractExportRows: [],
       currentAllWorksTableData: []
     };
+    function parseAwCostBound(raw, defaultOp) {
+      const s = String(raw ?? "").replace(/,/g, "").trim();
+      if (!s) return { active: false, valid: true };
+      const m = s.match(/^(>=|<=|>|<|=)?\s*(-?\d+(?:\.\d+)?)$/);
+      if (!m) return { active: true, valid: false };
+      return { active: true, valid: true, op: m[1] || defaultOp, val: parseFloat(m[2]) };
+    }
+
+    function checkAwCostBound(num, b) {
+      if (b.op === ">=") return num >= b.val;
+      if (b.op === ">") return num > b.val;
+      if (b.op === "<=") return num <= b.val;
+      if (b.op === "<") return num < b.val;
+      if (b.op === "=") return num === b.val;
+      return true;
+    }
+
+    window.matchesAwCostRange = function matchesAwCostRange(estCostVal) {
+      const minB = parseAwCostBound(STATE.awCostRange?.min, ">=");
+      const maxB = parseAwCostBound(STATE.awCostRange?.max, "<=");
+      const useMin = minB.active && minB.valid;
+      const useMax = maxB.active && maxB.valid;
+      if (!useMin && !useMax) return true;
+      const n = parseFloat(estCostVal);
+      if (isNaN(n)) return false;
+      if (useMin && !checkAwCostBound(n, minB)) return false;
+      if (useMax && !checkAwCostBound(n, maxB)) return false;
+      return true;
+    };
+
+    window.syncAwCostInputsUi = function syncAwCostInputsUi() {
+      const minEl = document.getElementById("aw-cost-min");
+      const maxEl = document.getElementById("aw-cost-max");
+      const clrEl = document.getElementById("aw-cost-clear");
+      const minVal = STATE.awCostRange?.min || "";
+      const maxVal = STATE.awCostRange?.max || "";
+      if (minEl && minEl.value !== minVal) minEl.value = minVal;
+      if (maxEl && maxEl.value !== maxVal) maxEl.value = maxVal;
+      if (minEl) minEl.classList.toggle("invalid", !parseAwCostBound(minVal, ">=").valid);
+      if (maxEl) maxEl.classList.toggle("invalid", !parseAwCostBound(maxVal, "<=").valid);
+      if (clrEl) clrEl.classList.toggle("show", Boolean(minVal.trim() || maxVal.trim()));
+    };
+
+    (function bindAwCostRangeInputs() {
+      let timer = null;
+      const applyRange = (immediate = false) => {
+        const minEl = document.getElementById("aw-cost-min");
+        const maxEl = document.getElementById("aw-cost-max");
+        if (!minEl || !maxEl) return;
+        STATE.awCostRange = { min: minEl.value.trim(), max: maxEl.value.trim() };
+        syncAwCostInputsUi();
+        clearTimeout(timer);
+        const run = () => {
+          if (typeof renderAllWorksPage === "function") renderAllWorksPage();
+          else if (typeof renderAbstractPage === "function") renderAbstractPage();
+          else if (typeof renderActivePage === "function") renderActivePage();
+        };
+        if (immediate) run();
+        else timer = setTimeout(run, 250);
+      };
+
+      document.addEventListener("input", (e) => {
+        if (e.target && (e.target.id === "aw-cost-min" || e.target.id === "aw-cost-max")) {
+          applyRange(false);
+        }
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && e.target && (e.target.id === "aw-cost-min" || e.target.id === "aw-cost-max")) {
+          e.preventDefault();
+          applyRange(true);
+        }
+      });
+      document.addEventListener("click", (e) => {
+        if (e.target && e.target.id === "aw-cost-clear") {
+          STATE.awCostRange = { min: "", max: "" };
+          syncAwCostInputsUi();
+          applyRange(true);
+        }
+      });
+    })();
     const DEFAULT_AW_HOAS_NORM = new Set([
       "APB", "FMP", "KMERC", "K.M.E.R.C.", "K.M.E.R.C", "LIS", "MOT",
       "N FMP", "NFMP", "N-FMP", "N LIS", "NLIS", "N-LIS",
@@ -10444,15 +10577,32 @@
         officers.forEach((o) => {
           const rawNorm = normalizeKnRaw(o.raw);
           const enLow = (o.enName || "").toLowerCase();
-          const matchedRaw = rawNorm.length >= 3 && normText.includes(rawNorm);
-          const matchedEn = enLow.length >= 4 && lowText.includes(enLow);
-          if (matchedRaw || matchedEn) {
-            const roleBoost = preferredRole && o.role === preferredRole ? 100 : (o.role === "AE" ? 20 : 10);
-            hits.push({ o, score: (matchedRaw ? 500 : 300) + rawNorm.length + roleBoost });
+          const rawIdx = rawNorm.length >= 3 ? normText.indexOf(rawNorm) : -1;
+          const enIdx = enLow.length >= 4 ? lowText.indexOf(enLow) : -1;
+
+          if (rawIdx !== -1 || enIdx !== -1) {
+            const pos = (rawIdx !== -1 && enIdx !== -1) ? Math.min(rawIdx, enIdx) : (rawIdx !== -1 ? rawIdx : enIdx);
+            const matchLen = rawIdx !== -1 ? rawNorm.length : enLow.length;
+
+            // Check if the reply mentions this officer's role right near their name (e.g. "(AEE Level)")
+            const nearby = lowText.slice(Math.max(0, pos - 60), pos + 40);
+            const roleRe = new RegExp(`\\b${o.role.toLowerCase()}\\b`);
+            const localRoleMatch = roleRe.test(nearby) ? 1 : 0;
+            const prefMatch = (preferredRole && o.role === preferredRole) ? 1 : 0;
+
+            hits.push({ o, pos, matchLen, localRoleMatch, prefMatch });
           }
         });
 
-        hits.sort((a, b) => b.score - a.score);
+        // Sort by earliest mention in the reply first (primary answer always wins)
+        hits.sort((a, b) => {
+          if (Math.abs(a.pos - b.pos) > 25) return a.pos - b.pos;
+          if (b.prefMatch !== a.prefMatch) return b.prefMatch - a.prefMatch;
+          if (b.localRoleMatch !== a.localRoleMatch) return b.localRoleMatch - a.localRoleMatch;
+          if (b.matchLen !== a.matchLen) return b.matchLen - a.matchLen;
+          return (b.o.odRows?.length || 0) - (a.o.odRows?.length || 0);
+        });
+
         const seen = new Set();
         return hits.map((h) => h.o).filter((o) => {
           const k = `${o.role}||${o.raw}`;
@@ -10461,7 +10611,6 @@
           return true;
         });
       }
-
       // 4. FULL-SCREEN AI FILTERED WORKS MODAL (REUSES EXISTING .odm-* MODAL STYLING)
       let AI_MODAL_STATE = {
         title: "Filtered Works",
@@ -10763,7 +10912,13 @@
           STATE.awFilters.hoa = mmrFilters.matchedHoas.map((x) => x.raw);
           STATE.awHoaDefaultApplied = true;
         }
-        if (mmrFilters.costRange?.awBucket) STATE.awFilters.cost = [mmrFilters.costRange.awBucket];
+        STATE.awCostRange = { min: "", max: "" };
+        if (mmrFilters.costRange) {
+          const cr = mmrFilters.costRange;
+          if (cr.min > 0 || cr.strictMin) STATE.awCostRange.min = `${cr.strictMin ? ">" : ">="}${cr.min}`;
+          if (isFinite(cr.max)) STATE.awCostRange.max = `${cr.strictMax ? "<" : "<="}${cr.max}`;
+        }
+        if (typeof syncAwCostInputsUi === "function") syncAwCostInputsUi();
         if (mmrFilters.goFyFilter && typeof AW_STATIC_FYS !== "undefined") {
           STATE.awFilters.go = AW_STATIC_FYS.filter((fy) => {
             const sy = parseInt(fy.slice(0, 4), 10);
@@ -11274,7 +11429,7 @@
             mmrFilters: mmr
           });
           const packId = saveExportPack(title, toExportRows(primaryRows, false), false);
-          const canOpenMmr = Boolean(!mmr.costRange || mmr.costRange.awBucket);
+          const canOpenMmr = true;
           return buildActionButtonsHtml({
             resultModalId: modalId,
             modalCount: primaryRows.length,
