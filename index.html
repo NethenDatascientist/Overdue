@@ -9802,9 +9802,10 @@
           .replace(/^###\s+(.+)$/gm, '<div style="font-weight:800;color:#0F172A;margin:8px 0 3px 0;font-size:0.84rem;">$1</div>')
           .replace(/^##\s+(.+)$/gm, '<div style="font-weight:800;color:#1E3A8A;margin:9px 0 4px 0;font-size:0.88rem;">$1</div>')
           .replace(/^---$/gm, '<hr style="border:none;border-top:1px solid #CBD5E1;margin:8px 0;">')
-          .replace(/^[-*]\s+/gm, "• ")
-          .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
-          .replace(/\*(.+?)\*/g, "<i>$1</i>")
+          .replace(/^\s*[-*•]\s+/gm, "• ")
+          .replace(/\*\*([^*]+?)\*\*/g, "<b>$1</b>")
+          .replace(/(^|[\s(])\*([^*\n]+?)\*(?=[\s).,!?:;]|$)/g, "$1<i>$2</i>")
+          .replace(/\*/g, "")
           .replace(/\n/g, "<br>");
       }
 
@@ -10634,29 +10635,45 @@
         const normText = normalizeKnRaw(text);
         const lowText = text.toLowerCase();
 
+        const GENERIC_OFF_NAMES = new Set([
+          "ae", "aee", "ee", "ta", "as", "sri", "smt", "kum", "dr",
+          "officer", "engineer", "assistant engineer", "assistant executive engineer",
+          "executive engineer", "technical assistant", "account superintendent",
+          "unassigned", "not specified", "unspecified", "none", "nil", "na"
+        ]);
+
+        const isWordBoundaryMatch = (haystack, needle) => {
+          const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const m = haystack.match(new RegExp(`(^|[^a-z0-9\\u0C80-\\u0CFF])${escaped}(?=$|[^a-z0-9\\u0C80-\\u0CFF])`, "i"));
+          return m ? (m.index + m[1].length) : -1;
+        };
+
         const hits = [];
         officers.forEach((o) => {
-          const rawNorm = normalizeKnRaw(o.raw);
-          const enLow = (o.enName || "").toLowerCase();
-          const rawIdx = rawNorm.length >= 3 ? normText.indexOf(rawNorm) : -1;
-          const enIdx = enLow.length >= 4 ? lowText.indexOf(enLow) : -1;
+          const rawNorm = normalizeKnRaw(o.raw).trim();
+          const enLow = (o.enName || "").toLowerCase().trim();
+          if (GENERIC_OFF_NAMES.has(rawNorm.toLowerCase()) || GENERIC_OFF_NAMES.has(enLow)) return;
+
+          const rawIdx = rawNorm.length >= 3 ? isWordBoundaryMatch(normText, rawNorm) : -1;
+          const enIdx = enLow.length >= 4 ? isWordBoundaryMatch(lowText, enLow) : -1;
 
           if (rawIdx !== -1 || enIdx !== -1) {
             const pos = (rawIdx !== -1 && enIdx !== -1) ? Math.min(rawIdx, enIdx) : (rawIdx !== -1 ? rawIdx : enIdx);
+            const hasExactRaw = rawIdx !== -1 ? 1 : 0;
             const matchLen = rawIdx !== -1 ? rawNorm.length : enLow.length;
 
-            // Check if the reply mentions this officer's role right near their name (e.g. "(AEE Level)")
             const nearby = lowText.slice(Math.max(0, pos - 60), pos + 40);
             const roleRe = new RegExp(`\\b${o.role.toLowerCase()}\\b`);
             const localRoleMatch = roleRe.test(nearby) ? 1 : 0;
             const prefMatch = (preferredRole && o.role === preferredRole) ? 1 : 0;
 
-            hits.push({ o, pos, matchLen, localRoleMatch, prefMatch });
+            hits.push({ o, pos, hasExactRaw, matchLen, localRoleMatch, prefMatch });
           }
         });
 
-        // Sort by earliest mention in the reply first (primary answer always wins)
+        // Exact Kannada name match wins first, then earliest position, then highest OD count
         hits.sort((a, b) => {
+          if (b.hasExactRaw !== a.hasExactRaw) return b.hasExactRaw - a.hasExactRaw;
           if (Math.abs(a.pos - b.pos) > 25) return a.pos - b.pos;
           if (b.prefMatch !== a.prefMatch) return b.prefMatch - a.prefMatch;
           if (b.localRoleMatch !== a.localRoleMatch) return b.localRoleMatch - a.localRoleMatch;
@@ -11535,9 +11552,24 @@
           }
           return `<div class="mi-ai-action-row">${btns.join("")}</div>`;
         }
-
-        const askingAboutOfficer = /\b(who|ae|aee|ta|as|ee|officer|engineer|him|her|his)\b/.test(qLower);
+        const askingAboutOfficer = /\b(who|which|ae|aee|ta|as|ee|officer|engineer|him|her|his)\b/.test(qLower);
         let pickedOff = mmr.officers[0] || null;
+
+        // Directly pick the true #1 ranked AE/AEE from live data for ranking queries
+        if (!pickedOff && mmr.roleHint && /\b(highest|most|top|max|maximum|worst|least|lowest|min|minimum|fewest)\b/.test(qLower) &&
+            /\b(overdue|od|ets)\b/.test(qLower) && !/\b(period|longest|oldest|which\s+work)\b/.test(qLower)) {
+          const isLeast = /\b(least|lowest|min|minimum|fewest)\b/.test(qLower);
+          const byEts = /\bets\b/.test(qLower) && !/\b(overdue|od)\b/.test(qLower);
+          const pool = ds.officers
+            .filter((o) => o.role === mmr.roleHint && (isLeast ? (byEts ? o.etsRows.length > 0 : o.odRows.length > 0) : true))
+            .sort((a, b) => {
+              const av = byEts ? a.etsRows.length : a.odRows.length;
+              const bv = byEts ? b.etsRows.length : b.odRows.length;
+              return isLeast ? (av - bv || b.rows.length - a.rows.length) : (bv - av || b.rows.length - a.rows.length);
+            });
+          if (pool.length) pickedOff = pool[0];
+        }
+
         if (!pickedOff && askingAboutOfficer && replyText) {
           const replyPool = mmr.roleHint
             ? ds.officers.filter((o) => o.role === mmr.roleHint)
@@ -11547,7 +11579,6 @@
         if (!pickedOff && lastContextOfficer && /\b(him|her|his|their|pdf|excel|popup)\b/.test(qLower)) {
           pickedOff = lastContextOfficer;
         }
-
         if (pickedOff) {
           lastContextOfficer = pickedOff;
           const src = pickedOff.odRows.length ? [...pickedOff.odRows].sort((a, b) => b._odDays - a._odDays) : pickedOff.rows;
