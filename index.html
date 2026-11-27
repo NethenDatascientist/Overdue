@@ -10174,7 +10174,7 @@
         "assistant", "account", "superintendent", "division", "divisions", "subdivision", "sub",
         "district", "districts", "taluk", "taluks", "taluka", "constituency", "constituencies",
         "mathakshetra", "hoa", "lekkashirshike", "scheme", "sheet", "sheets", "mmr", "complete",
-        "abstract", "summary", "overview", "overall", "entire", "whole", "full", "general", "brief", "quick", "dashboard", "valaya", "north", "east", "west", "report", "details", "detail", "status", "pct",
+        "dabs", "abstract", "summary", "overview", "overall", "entire", "whole", "full", "general", "brief", "quick", "dashboard", "valaya", "north", "east", "west", "report", "details", "detail", "status", "pct",
         "percentage", "percent", "south", "zone", "please", "pls", "pdf", "excel", "popup", "pop",
         "open", "download", "his", "her", "him", "their", "this", "that", "these", "those", "its",
         "it", "fresh", "spillover", "continuing", "new", "govt", "government", "order", "fy",
@@ -10592,7 +10592,8 @@
           return true;
         };
 
-        const matchedRows = hasAnyFilter ? ds.rawRows.filter(matchesFilter) : [];
+        const wantsDabs = /\bdabs\b/i.test(qRaw);
+        const matchedRows = (hasAnyFilter || wantsDabs) ? ds.rawRows.filter(matchesFilter) : [];
         const default17Rows = (typeof isDefaultAwHoa === "function" && !matchedHoas.length)
           ? matchedRows.filter((r) => isDefaultAwHoa(r.hoa))
           : matchedRows;
@@ -10623,7 +10624,7 @@
         if (officers.length) filterLabels.push(`${officers[0].role}: ${officers[0].raw}`);
 
         return {
-          costRange, goFyFilter, woFyFilter, anyFyFilter, sf, statuses, excludedStatuses,
+          wantsDabs, costRange, goFyFilter, woFyFilter, anyFyFilter, sf, statuses, excludedStatuses,
           overdueOnly, odPeriod, minOdDays,
           matchedHoas, excludedHoas, divisions, excludedDivisions,
           subdivisions, excludedSubdivisions, districts, excludedDistricts,
@@ -10692,8 +10693,298 @@
           return true;
         });
       }
-      // 4. FULL-SCREEN AI FILTERED WORKS MODAL (REUSES EXISTING .odm-* MODAL STYLING)
+      // DABS (MMR Division Wise Abstract) Engine — Identical 30-Column Format to Page 4
+      function getAiDabsGrantInfo(zoneOrDiv, hoaLabel, activeDivs, isFullZone) {
+        if (zoneOrDiv !== "ದಕ್ಷಿಣ ವಲಯ") {
+          return typeof getGrantInfo === "function"
+            ? getGrantInfo(zoneOrDiv, hoaLabel, [zoneOrDiv])
+            : { num: 0, html: "-", excel: "-", combinedKey: null };
+        }
+        const gMap = (typeof STATE !== "undefined" && STATE.grantMap) ? STATE.grantMap : {};
+        const key = typeof mapHoaToGrantKey === "function" ? mapHoaToGrantKey(hoaLabel) : String(hoaLabel || "").toUpperCase();
+        const isCombinedScp = key === "SCP";
+        const isCombinedTsp = key === "TSP";
+
+        let val = null;
+        const zoneKey = Object.keys(gMap).find((k) => k.includes("ದಕ್ಷಿಣ ವಲಯ") || k.includes("ವಲಯ"));
+        if (isFullZone && zoneKey && gMap[zoneKey]?.[key] !== undefined) {
+          val = gMap[zoneKey][key];
+        } else {
+          let sum = 0, found = false;
+          (activeDivs || []).forEach((d) => {
+            const gi = typeof getGrantInfo === "function" ? getGrantInfo(d, hoaLabel, [d]) : null;
+            if (gi && gi.html !== "-") {
+              sum += gi.num;
+              found = true;
+            }
+          });
+          if (found) val = sum;
+        }
+        if (val === null || isNaN(val)) return { num: 0, html: "-", excel: "-", combinedKey: null };
+        const fmtNum = val.toFixed(2);
+        if (isCombinedScp) {
+          return { num: val, html: `${fmtNum}<br><span style="font-size:0.70rem;color:#334155;">(Combined SCP)</span>`, excel: `${fmtNum}\n(Combined SCP)`, combinedKey: "SCP" };
+        }
+        if (isCombinedTsp) {
+          return { num: val, html: `${fmtNum}<br><span style="font-size:0.70rem;color:#334155;">(Combined TSP)</span>`, excel: `${fmtNum}\n(Combined TSP)`, combinedKey: "TSP" };
+        }
+        return { num: val, html: fmtNum, excel: Number(fmtNum), combinedKey: null };
+      }
+
+      function buildAiDabsTableData(works, totalDivCount) {
+        const tableRows = [];
+        const activeDivs = Array.from(new Set((works || []).map((r) => r.division_name).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+        const isFullZone = totalDivCount > 0 && activeDivs.length >= totalDivCount;
+        let zoneTotalRow = null;
+
+        if (activeDivs.length > 1 && works.length > 0) {
+          const zoneHoaMap = new Map();
+          const zoneTotalAgg = createEmptyAgg();
+          works.forEach((r) => {
+            const h = r.hoa || "-";
+            if (!zoneHoaMap.has(h)) zoneHoaMap.set(h, createEmptyAgg());
+            addRowToAgg(zoneHoaMap.get(h), r);
+            addRowToAgg(zoneTotalAgg, r);
+          });
+
+          const sortedHoas = Array.from(zoneHoaMap.keys()).sort((a, b) => a.localeCompare(b));
+          let zoneGrantSum = 0;
+          const seenCombined = new Set();
+          sortedHoas.forEach((h, idx) => {
+            const gInfo = getAiDabsGrantInfo("ದಕ್ಷಿಣ ವಲಯ", h, activeDivs, isFullZone);
+            if (gInfo.combinedKey) {
+              if (!seenCombined.has(gInfo.combinedKey)) {
+                seenCombined.add(gInfo.combinedKey);
+                zoneGrantSum += gInfo.num;
+              }
+            } else {
+              zoneGrantSum += gInfo.num;
+            }
+            tableRows.push(buildAggRowObject(idx + 1, "ದಕ್ಷಿಣ ವಲಯ", h, zoneHoaMap.get(h), gInfo, "data"));
+          });
+
+          const zGrantFmt = zoneGrantSum.toFixed(2);
+          zoneTotalRow = buildAggRowObject(
+            "", "ದಕ್ಷಿಣ ವಲಯ", "👉 ಸಣ್ಣ ನೀರಾವರಿ (ದ) ಒಟ್ಟು",
+            zoneTotalAgg,
+            { num: zoneGrantSum, html: zGrantFmt, excel: Number(zGrantFmt) },
+            "zone-total"
+          );
+          tableRows.push(zoneTotalRow);
+          tableRows.push({ rowType: "divider", label: "ವಿಭಾಗವಾರು" });
+        }
+
+        activeDivs.forEach((divName) => {
+          const divRows = works.filter((r) => r.division_name === divName);
+          const divHoaMap = new Map();
+          const divTotalAgg = createEmptyAgg();
+          divRows.forEach((r) => {
+            const h = r.hoa || "-";
+            if (!divHoaMap.has(h)) divHoaMap.set(h, createEmptyAgg());
+            addRowToAgg(divHoaMap.get(h), r);
+            addRowToAgg(divTotalAgg, r);
+          });
+
+          const sortedDivHoas = Array.from(divHoaMap.keys()).sort((a, b) => a.localeCompare(b));
+          let divGrantSum = 0;
+          const seenCombinedDiv = new Set();
+          sortedDivHoas.forEach((h, idx) => {
+            const gInfo = getAiDabsGrantInfo(divName, h, [divName], false);
+            if (gInfo.combinedKey) {
+              if (!seenCombinedDiv.has(gInfo.combinedKey)) {
+                seenCombinedDiv.add(gInfo.combinedKey);
+                divGrantSum += gInfo.num;
+              }
+            } else {
+              divGrantSum += gInfo.num;
+            }
+            tableRows.push(buildAggRowObject(idx + 1, divName, h, divHoaMap.get(h), gInfo, "data"));
+          });
+
+          const dGrantFmt = divGrantSum.toFixed(2);
+          const divTotRow = buildAggRowObject(
+            "", divName, `${divName} ಒಟ್ಟು`,
+            divTotalAgg,
+            { num: divGrantSum, html: dGrantFmt, excel: Number(dGrantFmt) },
+            "div-total"
+          );
+          if (!zoneTotalRow) zoneTotalRow = divTotRow;
+          tableRows.push(divTotRow);
+        });
+
+        return { tableRows, activeDivs, zoneTotalRow };
+      }
+
+      function exportAiDabsExcel(tableRows, title) {
+        if (!tableRows || !tableRows.length || typeof XLSX === "undefined") {
+          alert("No DABS rows available to export to Excel.");
+          return;
+        }
+        const colCount = AW_HEADERS.length;
+        const visCols = Array.from({ length: colCount }, (_, i) => i);
+        const unitRow = new Array(colCount).fill("");
+        unitRow[0] = "(ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)";
+
+        const aoa = [unitRow, [...AW_HEADERS], visCols.map((i) => i + 1)];
+        const rowMeta = ["unit", "header", "colnum"];
+        const merges = [{ s: { r: 0, c: 0 }, e: { r: 0, c: colCount - 1 } }];
+
+        tableRows.forEach((row) => {
+          if (row.rowType === "divider") {
+            const divArr = new Array(colCount).fill("");
+            divArr[0] = row.label;
+            const rIdx = aoa.length;
+            aoa.push(divArr);
+            rowMeta.push("divider");
+            merges.push({ s: { r: rIdx, c: 0 }, e: { r: rIdx, c: colCount - 1 } });
+            return;
+          }
+          aoa.push(visCols.map((cIdx) => getAwCellExcel(row, cIdx)));
+          rowMeta.push(row.rowType);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+        ws["!merges"] = merges;
+        ws["!cols"] = visCols.map((cIdx) => ({ wch: getAwColWidth(cIdx) }));
+        ws["!rows"] = rowMeta.map((type, idx) => {
+          if (type === "unit") return { hpt: 22 };
+          if (type === "header") return { hpt: 46 };
+          if (type === "colnum") return { hpt: 21 };
+          if (type === "zone-total" || type === "div-total") return { hpt: 26 };
+          if (type === "divider") return { hpt: 24 };
+          return { hpt: String(aoa[idx][11] || "").includes("\n") ? 32 : 22 };
+        });
+
+        const thinBorder = {
+          top: { style: "thin", color: { rgb: "475569" } },
+          bottom: { style: "thin", color: { rgb: "475569" } },
+          left: { style: "thin", color: { rgb: "475569" } },
+          right: { style: "thin", color: { rgb: "475569" } }
+        };
+
+        const range = XLSX.utils.decode_range(ws["!ref"]);
+        for (let R = range.s.r; R <= range.e.r; R++) {
+          const mType = rowMeta[R];
+          for (let C = range.s.c; C <= range.e.c; C++) {
+            const addr = XLSX.utils.encode_cell({ r: R, c: C });
+            if (!ws[addr]) ws[addr] = { t: "s", v: "" };
+            let fillRgb = "FFFFFF", fontRgb = "000000", isBold = false, hAlign = "center";
+            if (mType === "unit") { fillRgb = "F8FAFC"; fontRgb = "DC2626"; isBold = true; hAlign = "right"; }
+            else if (mType === "header") { fillRgb = "CFE2F3"; isBold = true; }
+            else if (mType === "colnum") { fillRgb = "EAD1DC"; isBold = true; }
+            else if (mType === "zone-total") { fillRgb = "FCE4D6"; isBold = true; }
+            else if (mType === "div-total") { fillRgb = "FFF2CC"; isBold = true; }
+            else if (mType === "divider") { fillRgb = "E2E8F0"; isBold = true; hAlign = "left"; }
+
+            ws[addr].s = {
+              font: { name: "Calibri", sz: 10, bold: isBold, color: { rgb: fontRgb } },
+              fill: { fgColor: { rgb: fillRgb } },
+              border: thinBorder,
+              alignment: { horizontal: hAlign, vertical: "center", wrapText: true }
+            };
+            if (!["unit", "header", "colnum", "divider"].includes(mType) && isAwNum2Col(C) && typeof ws[addr].v === "number") {
+              ws[addr].z = "0.00";
+            }
+          }
+        }
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "DABS_Abstract");
+        const safeName = String(title || "DABS_Abstract").replace(/[\\/:*?"<>|]/g, "_").slice(0, 45);
+        XLSX.writeFile(wb, `${safeName}_${STATE.todayStr || "Report"}.xlsx`);
+      }
+
+      function exportAiDabsPdf(tableRows, title, filterSummary, workCount, divCount, btnEl) {
+        if (!tableRows || !tableRows.length) {
+          alert("No DABS rows available to export to PDF.");
+          return;
+        }
+        const origTxt = btnEl ? btnEl.textContent : "";
+        if (btnEl) { btnEl.disabled = true; btnEl.textContent = "Opening PDF..."; }
+
+        const printWin = window.open("", "_blank");
+        setTimeout(() => {
+          try {
+            const colCount = AW_HEADERS.length;
+            const visCols = Array.from({ length: colCount }, (_, i) => i);
+            const safeTitle = String(title || "DABS — MMR Division Wise Abstract").replace(/[\\/:*?"<>|]/g, "_").trim();
+            const nowStr = new Date().toLocaleString("en-IN", {
+              day: "2-digit", month: "2-digit", year: "numeric",
+              hour: "2-digit", minute: "2-digit", hour12: true
+            });
+
+            const unitRowHtml = `<tr class="aw-unit-row"><th colspan="${colCount}">(ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)</th></tr>`;
+            const headerRowHtml = `<tr>${AW_HEADERS.map((h) => `<th>${esc(h)}</th>`).join("")}</tr>`;
+            const colNumRowHtml = `<tr class="aw-colnum-row">${visCols.map((i) => `<th>${i + 1}</th>`).join("")}</tr>`;
+            const tbodyHtml = tableRows.map((row) => {
+              if (row.rowType === "divider") {
+                return `<tr class="aw-section-divider"><td colspan="${colCount}">${esc(row.label)}</td></tr>`;
+              }
+              const trCls = row.rowType === "zone-total" ? "aw-zone-total-row" : (row.rowType === "div-total" ? "aw-div-total-row" : "");
+              return `<tr class="${trCls}">${visCols.map((cIdx) => getAwCellHtml(row, cIdx)).join("")}</tr>`;
+            }).join("");
+
+            const html = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>${esc(safeTitle)}</title>
+<style>
+  @page { size: A4 landscape; margin: 5mm; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  body { margin: 8px; font-family: "Segoe UI", "Nirmala UI", "Noto Sans Kannada", Arial, sans-serif; color: #0F172A; background: #FFFFFF; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: #1E3A8A; color: #FFFFFF; padding: 8px 12px; border-radius: 5px; margin-bottom: 6px; }
+  .print-controls { display: flex; gap: 8px; }
+  .print-btn { background: #10B981; color: #FFFFFF; border: none; border-radius: 6px; padding: 6px 13px; font-weight: 700; cursor: pointer; font-size: 12px; }
+  .close-btn { background: rgba(255,255,255,0.2); color: #FFFFFF; border: 1px solid rgba(255,255,255,0.4); border-radius: 6px; padding: 6px 11px; font-weight: 700; cursor: pointer; font-size: 12px; }
+  @media print { body { margin: 0; } .print-controls { display: none !important; } }
+  table { width: 100%; border-collapse: collapse; font-size: 5.5pt; color: #000000; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; page-break-inside: avoid; }
+  thead th { background: #CFE2F3; border: 0.7px solid #475569; padding: 2.5px 2px; text-align: center; vertical-align: middle; line-height: 1.2; white-space: normal; font-weight: 700; }
+  thead tr.aw-unit-row th { background: #F8FAFC; color: #DC2626; text-align: right; font-size: 7pt; padding: 3px 6px; }
+  thead tr.aw-colnum-row th { background: #EAD1DC; color: #000000; padding: 2px; }
+  td { border: 0.7px solid #64748B; padding: 2.5px 2px; text-align: center; vertical-align: middle; line-height: 1.22; white-space: nowrap; }
+  td.aw-wrap-td { white-space: normal; }
+  tr.aw-zone-total-row td { background: #FCE4D6; font-weight: 700; }
+  tr.aw-div-total-row td { background: #FFF2CC; font-weight: 700; }
+  tr.aw-section-divider td { background: #E2E8F0; text-align: left; padding-left: 8px; font-weight: 700; }
+</style></head><body>
+  <div class="topbar">
+    <div>
+      <div style="font-size:10.5pt;font-weight:700;">${esc(title || "DABS — MMR Division Wise Abstract")}</div>
+      <div style="font-size:7.5pt;opacity:0.92;">Filter: ${esc(filterSummary || "All Works")} | Works: ${Number(workCount || 0).toLocaleString("en-IN")} | Divisions: ${divCount || 0} | Generated: ${esc(nowStr)}</div>
+    </div>
+    <div class="print-controls">
+      <button class="print-btn" onclick="window.print()">Save / Print PDF</button>
+      <button class="close-btn" onclick="window.close()">Close</button>
+    </div>
+  </div>
+  <table><thead>${unitRowHtml}${headerRowHtml}${colNumRowHtml}</thead><tbody>${tbodyHtml}</tbody></table>
+  <script>window.addEventListener("load", function(){ setTimeout(function(){ window.print(); }, 250); });<\/script>
+</body></html>`;
+
+            if (printWin && !printWin.closed) {
+              printWin.document.open();
+              printWin.document.write(html);
+              printWin.document.close();
+            } else {
+              const old = document.getElementById("mi-ai-pdf-frame");
+              if (old) old.remove();
+              const iframe = document.createElement("iframe");
+              iframe.id = "mi-ai-pdf-frame";
+              iframe.style.cssText = "position:fixed;width:0;height:0;border:0;visibility:hidden;";
+              document.body.appendChild(iframe);
+              iframe.contentWindow.document.open();
+              iframe.contentWindow.document.write(html);
+              iframe.contentWindow.document.close();
+              setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => iframe.remove(), 30000); }, 300);
+            }
+          } finally {
+            if (btnEl) { btnEl.disabled = false; btnEl.textContent = origTxt; }
+          }
+        }, 30);
+      }
+
       let AI_MODAL_STATE = {
+        mode: "works", // "works" | "dabs"
         title: "Filtered Works",
         filterSummary: "",
         allRows: [],
@@ -10740,11 +11031,23 @@
         });
         document.getElementById("arm-dl-xlsx-btn")?.addEventListener("click", () => {
           const rows = getAiModalFilteredRows();
-          downloadAiExcel({ title: AI_MODAL_STATE.title, rows: toExportRows(rows, false) });
+          if (AI_MODAL_STATE.mode === "dabs") {
+            const ds = getAiDataset();
+            const dabs = buildAiDabsTableData(rows, ds.divisions.length);
+            exportAiDabsExcel(dabs.tableRows, AI_MODAL_STATE.title);
+          } else {
+            downloadAiExcel({ title: AI_MODAL_STATE.title, rows: toExportRows(rows, false) });
+          }
         });
         document.getElementById("arm-dl-pdf-btn")?.addEventListener("click", (e) => {
           const rows = getAiModalFilteredRows();
-          downloadAiPdf({ title: AI_MODAL_STATE.title, rows: toExportRows(rows, false) }, e.currentTarget);
+          if (AI_MODAL_STATE.mode === "dabs") {
+            const ds = getAiDataset();
+            const dabs = buildAiDabsTableData(rows, ds.divisions.length);
+            exportAiDabsPdf(dabs.tableRows, AI_MODAL_STATE.title, AI_MODAL_STATE.filterSummary, rows.length, dabs.activeDivs.length, e.currentTarget);
+          } else {
+            downloadAiPdf({ title: AI_MODAL_STATE.title, rows: toExportRows(rows, false) }, e.currentTarget);
+          }
         });
         return modal;
       }
@@ -10787,6 +11090,7 @@
         "ಶಾಖಾಧಿಕಾರಿಯ ಹೆಸರು",
         "ಸಹಾಯಕ ಕಾರ್ಯಪಾಲಕ ಇಂಜಿನಿಯರ್ ಹೆಸರು"
       ];
+
       function cleanAiCell(v) {
         const s = String(v ?? "").trim();
         if (!s || s === UNSPECIFIED_LABEL || s === UNASSIGNED_LABEL) return "-";
@@ -10803,6 +11107,13 @@
         const base = getAiModalBaseRows();
         const q = (document.getElementById("arm-search")?.value || "").trim().toLowerCase();
         if (!q) return base;
+        if (AI_MODAL_STATE.mode === "dabs") {
+          return base.filter((r) =>
+            String(r.division_name || "").toLowerCase().includes(q) ||
+            kannadaToEnglish(r.division_name || "").toLowerCase().includes(q) ||
+            String(r.hoa || "").toLowerCase().includes(q)
+          );
+        }
         return base.filter((r) =>
           String(r.work_name || "").toLowerCase().includes(q) ||
           String(r.division_name || "").toLowerCase().includes(q) ||
@@ -10819,7 +11130,7 @@
       }
 
       function renderAiResultsModalBody() {
-        const { allRows, def17Rows, activeTab, filterSummary } = AI_MODAL_STATE;
+        const { mode, allRows, def17Rows, activeTab, filterSummary } = AI_MODAL_STATE;
         const hasDiff17 = def17Rows.length !== allRows.length && def17Rows.length > 0;
         const odCnt = allRows.filter((r) => r.is_overdue).length;
         const etsCnt = allRows.filter((r) => r.is_status_ets).length;
@@ -10834,8 +11145,9 @@
         if (sumEl) {
           sumEl.innerHTML = `
             <div class="odm-chip-row">
-              <span class="odm-chip"><span class="odm-chip-label">Applied Filter:</span> ${esc(filterSummary || "Live Query")}</span>
-              <span class="odm-chip"><span class="odm-chip-label">Works Shown:</span> ${rows.length.toLocaleString("en-IN")}</span>
+              <span class="odm-chip"><span class="odm-chip-label">Format:</span> ${mode === "dabs" ? "DABS (MMR Division Wise Abstract)" : "Works List (28 Columns)"}</span>
+              <span class="odm-chip"><span class="odm-chip-label">Applied Filter:</span> ${esc(filterSummary || "All Works")}</span>
+              <span class="odm-chip"><span class="odm-chip-label">Matching Works:</span> ${rows.length.toLocaleString("en-IN")}</span>
               <span class="odm-chip"><span class="odm-chip-label">Divisions:</span> ${divCnt}</span>
             </div>
             <div class="odm-chip-row">
@@ -10857,7 +11169,7 @@
             tabs.push({ id: "all", label: `All Matching (${allRows.length})` });
           }
           tabs.push({ id: "overdue", label: `Overdue (${odCnt})`, isOd: true });
-          tabs.push({ id: "ets", label: `ETS (${etsCnt})` });
+          if (mode !== "dabs") tabs.push({ id: "ets", label: `ETS (${etsCnt})` });
 
           tabsEl.innerHTML = tabs.map((t) => {
             const cls = activeTab === t.id ? (t.isOd ? "odm-tab-btn active-od" : "odm-tab-btn active") : "odm-tab-btn";
@@ -10880,6 +11192,39 @@
           return;
         }
 
+        // DABS MODE: Render the exact 30-column MMR Division Wise Abstract table
+        if (mode === "dabs") {
+          const ds = getAiDataset();
+          const { tableRows } = buildAiDabsTableData(rows, ds.divisions.length);
+          const colCount = AW_HEADERS.length;
+          const visCols = Array.from({ length: colCount }, (_, i) => i);
+
+          const unitRowHtml = `<tr class="aw-unit-row"><th colspan="${colCount}">(ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)</th></tr>`;
+          const headerRowHtml = `<tr>${visCols.map((cIdx) => `<th class="${getAwThClass(cIdx)}" style="padding:8px 6px !important;">${esc(AW_HEADERS[cIdx])}</th>`).join("")}</tr>`;
+          const colNumRowHtml = `<tr class="aw-colnum-row">${visCols.map((i) => `<th>${i + 1}</th>`).join("")}</tr>`;
+          const tbodyHtml = tableRows.map((row) => {
+            if (row.rowType === "divider") {
+              return `<tr class="aw-section-divider"><td colspan="${colCount}">${esc(row.label)}</td></tr>`;
+            }
+            const trCls = row.rowType === "zone-total" ? "aw-zone-total-row" : (row.rowType === "div-total" ? "aw-div-total-row" : "");
+            return `<tr class="${trCls}">${visCols.map((cIdx) => getAwCellHtml(row, cIdx)).join("")}</tr>`;
+          }).join("");
+
+          bodyEl.innerHTML = `
+            <table class="aw-abstract-table" style="margin-top:8px;">
+              <thead>
+                ${unitRowHtml}
+                ${headerRowHtml}
+                ${colNumRowHtml}
+              </thead>
+              <tbody>${tbodyHtml}</tbody>
+            </table>
+          `;
+          bodyEl.scrollTop = 0;
+          return;
+        }
+
+        // STANDARD WORKS MODE: 28-column Kannada Works List
         const limit = AI_MODAL_STATE.showAllRendered ? rows.length : Math.min(rows.length, 300);
         const slice = rows.slice(0, limit);
         const fmtNum = (n) => (typeof n === "number" ? n.toLocaleString("en-IN", { maximumFractionDigits: 2 }) : "-");
@@ -10946,6 +11291,7 @@
         const modal = ensureAiResultsModalDom();
         const hasDiff17 = pack.def17Rows && pack.def17Rows.length !== pack.allRows.length && pack.def17Rows.length > 0;
         AI_MODAL_STATE = {
+          mode: pack.mode || "works",
           title: pack.title || "Filtered Works",
           filterSummary: pack.filterSummary || "",
           allRows: pack.allRows,
@@ -10956,13 +11302,17 @@
         const titleEl = document.getElementById("arm-title");
         if (titleEl) titleEl.textContent = AI_MODAL_STATE.title;
         const searchEl = document.getElementById("arm-search");
-        if (searchEl) searchEl.value = "";
+        if (searchEl) {
+          searchEl.value = "";
+          searchEl.placeholder = AI_MODAL_STATE.mode === "dabs"
+            ? "🔍 Filter Division or H.O.A...."
+            : "🔍 Filter work, AE, division, H.O.A....";
+        }
         renderAiResultsModalBody();
         modal.classList.add("open");
         modal.setAttribute("aria-hidden", "false");
         document.body.style.overflow = "hidden";
       }
-
       function closeAiResultsModal() {
         const modal = document.getElementById("ai-results-modal");
         if (!modal) return;
@@ -11088,8 +11438,19 @@
           "ಸಹಾಯಕ ಕಾರ್ಯಪಾಲಕ ಇಂಜಿನಿಯರ್ ಹೆಸರು": cleanAiCell(r.aee_name)
         }));
       }
-      function downloadAiExcel(pack) {
-        const rows = pack?.rows || [];
+        function saveDabsExportPack(meta) {
+     const id = `pack_${++aiPackSeq}`;
+     aiExportPacks.set(id, { isDabs: true, ...meta });
+     if (aiExportPacks.size > 15) aiExportPacks.delete(aiExportPacks.keys().next().value);
+     return id;
+   }
+
+   function downloadAiExcel(pack) {
+     if (pack?.isDabs) {
+       exportAiDabsExcel(pack.dabsRows, pack.title);
+       return;
+     }
+     const rows = pack?.rows || [];
         if (!rows.length || typeof XLSX === "undefined") {
           alert("No rows available to export to Excel.");
           return;
@@ -11137,8 +11498,12 @@
         XLSX.writeFile(wb, `${safeName}_${STATE.todayStr || "Report"}.xlsx`);
       }
 
-      function downloadAiPdf(pack, btnEl) {
-        const rows = pack?.rows || [];
+        function downloadAiPdf(pack, btnEl) {
+     if (pack?.isDabs) {
+       exportAiDabsPdf(pack.dabsRows, pack.title, pack.filterSummary, pack.workCount, pack.divCount, btnEl);
+       return;
+     }
+     const rows = pack?.rows || [];
         if (!rows.length) {
           alert("No rows available to export to PDF.");
           return;
@@ -11230,7 +11595,8 @@
       function buildActionButtonsHtml(opts = {}) {
         const btns = [];
         if (opts.resultModalId && opts.modalCount > 0) {
-          btns.push(`<button type="button" class="mi-ai-action-btn" data-open-ai-modal="${esc(opts.resultModalId)}">View All ${opts.modalCount} Works (Table Popup) →</button>`);
+          const mLbl = opts.modalLabel || `View All ${opts.modalCount} Works (Table Popup) →`;
+          btns.push(`<button type="button" class="mi-ai-action-btn" data-open-ai-modal="${esc(opts.resultModalId)}">${esc(mLbl)}</button>`);
         }
         if (opts.mmrAbstractId) {
           btns.push(`<button type="button" class="mi-ai-action-btn" data-open-mmr-abstract="${esc(opts.mmrAbstractId)}">Open in MMR Abstract →</button>`);
@@ -11242,10 +11608,12 @@
           btns.push(`<button type="button" class="mi-ai-action-btn" data-open-officer="${esc(opts.officerName)}" data-is-aee="${opts.isAee ? "1" : "0"}">Open Full Works Popup →</button>`);
         }
         if (opts.packId && opts.packCount > 0) {
-          if (opts.packCount <= 600) {
-            btns.push(`<button type="button" class="mi-ai-action-btn pdf-btn" data-ai-export="pdf" data-pack-id="${esc(opts.packId)}">Download PDF (${opts.packCount})</button>`);
+          if (opts.allowPdf || opts.packCount <= 600) {
+            const pLbl = opts.pdfLabel || `Download PDF (${opts.packCount})`;
+            btns.push(`<button type="button" class="mi-ai-action-btn pdf-btn" data-ai-export="pdf" data-pack-id="${esc(opts.packId)}">${esc(pLbl)}</button>`);
           }
-          btns.push(`<button type="button" class="mi-ai-action-btn xlsx-btn" data-ai-export="xlsx" data-pack-id="${esc(opts.packId)}">Download Excel (${opts.packCount})</button>`);
+          const xLbl = opts.xlsxLabel || `Download Excel (${opts.packCount})`;
+          btns.push(`<button type="button" class="mi-ai-action-btn xlsx-btn" data-ai-export="xlsx" data-pack-id="${esc(opts.packId)}">${esc(xLbl)}</button>`);
         }
         return btns.length ? `<div class="mi-ai-action-row">${btns.join("")}</div>` : "";
       }
@@ -11271,7 +11639,32 @@
         ];
 
         // PRIORITY SECTION: If user asked an MMR-style filtered query (e.g. Moola Andaju 500-1000, Taluk, Status, FY, S/F, etc.)
-        if (mmr && mmr.hasNonOfficerMmrFilter) {
+        if (mmr && mmr.wantsDabs) {
+          const rows = (mmr.default17Rows.length > 0 && !mmr.matchedHoas.length) ? mmr.default17Rows : mmr.matchedRows;
+          const dabs = buildAiDabsTableData(rows, ds.divisions.length);
+          const z = dabs.zoneTotalRow;
+          const filterDesc = mmr.filterLabels.length ? mmr.filterLabels.join(" | ") : "All Works (South Zone)";
+          const statusSummary = z
+            ? AW_STATUS_COLS.filter((c) => z.status[c] > 0).map((c) => `${c}=${z.status[c]}`).join(", ")
+            : "None";
+
+          const hoaLines = dabs.tableRows
+            .filter((r) => r.rowType === "data" && (dabs.activeDivs.length > 1 ? r.divLabel === "ದಕ್ಷಿಣ ವಲಯ" : true))
+            .map((r) => `- ${r.hoaLabel}: Spillover=${r.cont_cnt} (₹${r.cont_est}L), Fresh=${r.new_cnt} (₹${r.new_est}L), Total=${r.tot_cnt} (₹${r.tot_est}L), Contract=₹${r.contract_amt}L, Revised=₹${r.revised_est}L, Grant26-27=${r.grantExcel}, ExpMar26=₹${r.exp_mar26}L, Exp26-27=₹${r.exp_2627}L, TotExp=₹${r.total_exp}L, PendBill=₹${r.pending_bill}L, Bal=₹${r.bal_to_complete}L | CP=${r.status.CP}, CF=${r.status.CF}, P=${r.status.P}, ETS=${r.status.ETS}`);
+
+          const divTotLines = dabs.tableRows
+            .filter((r) => r.rowType === "div-total")
+            .map((r) => `- ${r.divLabel} (${kannadaToEnglish(r.divLabel)}): Works=${r.tot_cnt} (S=${r.cont_cnt}, F=${r.new_cnt}), TotEst=₹${r.tot_est}L, Contract=₹${r.contract_amt}L, Revised=₹${r.revised_est}L, Grant26-27=₹${r.grantExcel}L, TotExp=₹${r.total_exp}L, PendBill=₹${r.pending_bill}L, Bal=₹${r.bal_to_complete}L | CP=${r.status.CP}, CF=${r.status.CF}, P=${r.status.P}, ETS=${r.status.ETS}`);
+
+          sections.push(
+            `\nLIVE DABS (MMR DIVISION WISE ABSTRACT — 30-COLUMN FORMAT):`,
+            `APPLIED FILTERS: ${filterDesc}`,
+            `MATCHING WORKS: 17 MMR H.O.A.s=${mmr.default17Rows.length} | All 21 Sheets=${mmr.matchedRows.length} | Divisions Shown=${dabs.activeDivs.length}`,
+            z ? `GRAND TOTAL (₹ Lakhs): Spillover=${z.cont_cnt} (₹${z.cont_est}L) | Fresh=${z.new_cnt} (₹${z.new_est}L) | Total Works=${z.tot_cnt} (₹${z.tot_est}L) | Contract Amt=₹${z.contract_amt}L | Revised Est=₹${z.revised_est}L | 2026-27 Grant=₹${z.grantExcel}L | Exp upto Mar 2026=₹${z.exp_mar26}L | Exp 2026-27=₹${z.exp_2627}L | Total Exp=₹${z.total_exp}L | Pending Bills=₹${z.pending_bill}L | Balance to Complete=₹${z.bal_to_complete}L | Statuses: ${statusSummary}` : `GRAND TOTAL: 0 works match these filters.`,
+            `H.O.A.-WISE DABS SUMMARY:\n${hoaLines.join("\n") || "None"}`,
+            `DIVISION-WISE DABS TOTALS:\n${divTotLines.join("\n") || "None"}`
+          );
+        } else if (mmr && mmr.hasNonOfficerMmrFilter) {
           const rows = mmr.default17Rows.length > 0 && !mmr.matchedHoas.length ? mmr.default17Rows : mmr.matchedRows;
           const divAgg = new Map();
           const hoaAgg = new Map();
@@ -11509,6 +11902,42 @@
           return btns.length ? `<div class="mi-ai-action-row">${btns.join("")}</div>` : "";
         }
 
+        // Case 1B: DABS (MMR Division Wise Abstract 30-Column Format)
+        if (mmr.wantsDabs) {
+          if (!mmr.matchedRows.length) return "";
+          const primaryRows = (mmr.default17Rows.length > 0 && !mmr.matchedHoas.length) ? mmr.default17Rows : mmr.matchedRows;
+          const filterDesc = mmr.filterLabels.length ? mmr.filterLabels.join(" | ") : "All Works (South Zone)";
+          const title = `DABS — ${filterDesc}`;
+          const dabs = buildAiDabsTableData(primaryRows, ds.divisions.length);
+
+          const modalId = saveResultModalPack({
+            mode: "dabs",
+            title,
+            filterSummary: filterDesc,
+            allRows: mmr.matchedRows,
+            def17Rows: mmr.default17Rows,
+            mmrFilters: mmr
+          });
+          const packId = saveDabsExportPack({
+            title,
+            filterSummary: filterDesc,
+            workCount: primaryRows.length,
+            divCount: dabs.activeDivs.length,
+            dabsRows: dabs.tableRows
+          });
+
+          return buildActionButtonsHtml({
+            resultModalId: modalId,
+            modalCount: primaryRows.length,
+            modalLabel: `View DABS Table Popup (${primaryRows.length} Works) →`,
+            mmrAbstractId: modalId,
+            packId,
+            packCount: primaryRows.length,
+            allowPdf: true,
+            pdfLabel: `Download DABS PDF`,
+            xlsxLabel: `Download DABS Excel`
+          });
+        }
         // Case 2: MMR Filtered List Queries (Moola Andaju range, Taluk, District, Constituency, Status, FY, S/F, Division, H.O.A.)
         if (mmr.hasNonOfficerMmrFilter && mmr.matchedRows.length === 0) return "";
         if (mmr.hasNonOfficerMmrFilter && mmr.matchedRows.length > 0) {
