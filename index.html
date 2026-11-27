@@ -9769,7 +9769,7 @@
           [/\bshimoga\b/g, "shivamogga"], [/\bchikmagalur\b/g, "chikkamagaluru"],
           [/\bchickballapur\b/g, "chikkaballapura"], [/\bchikkaballapur\b/g, "chikkaballapura"],
           [/\bramanagar\b/g, "ramanagara"], [/\bchamarajanagar\b/g, "chamarajanagara"],
-          [/\bcoorg\b/g, "kodagu"], [/\bsouth zone\b/g, "dakshina valaya"]
+          [/\bcoorg\b/g, "kodagu"]
         ];
         placeAliases.forEach(([re, rep]) => { s = s.replace(re, rep); });
 
@@ -9979,7 +9979,7 @@
         "assistant", "account", "superintendent", "division", "divisions", "subdivision", "sub",
         "district", "districts", "taluk", "taluks", "taluka", "constituency", "constituencies",
         "mathakshetra", "hoa", "lekkashirshike", "scheme", "sheet", "sheets", "mmr", "complete",
-        "abstract", "summary", "overview", "report", "details", "detail", "status", "pct",
+        "abstract", "summary", "overview", "overall", "entire", "whole", "full", "general", "brief", "quick", "dashboard", "valaya", "north", "east", "west", "report", "details", "detail", "status", "pct",
         "percentage", "percent", "south", "zone", "please", "pls", "pdf", "excel", "popup", "pop",
         "open", "download", "his", "her", "him", "their", "this", "that", "these", "those", "its",
         "it", "fresh", "spillover", "continuing", "new", "govt", "government", "order", "fy",
@@ -9992,7 +9992,13 @@
           .filter((t) => t.length >= 2 && !STOPWORDS.has(t) && !/^\d+$/.test(t));
       }
 
-      function matchItems(queryTokens, items, roleHint = "", rawQueryForInitials = "") {
+      const GENERIC_PLACE_WORDS = new Set([
+        "daksina", "dakshina", "utara", "uttara", "purva", "pasima", "paschima",
+        "nagara", "nagar", "gramantara", "rural", "urban", "city", "town",
+        "taluk", "taluka", "jile", "jille", "vibaga", "vibhaga", "upa", "ksetra", "kshetra"
+      ]);
+
+      function matchItems(queryTokens, items, roleHint = "", rawQueryForInitials = "", strictExact = false) {
         if (!queryTokens.length) return [];
         const qInitials = rawQueryForInitials ? extractInitialLetters(rawQueryForInitials) : [];
         const scored = [];
@@ -10001,40 +10007,46 @@
           if (roleHint && item.role && item.role !== roleHint) return;
           let bestScore = 0;
           let matchedTokens = 0;
+          let matchedDistinctive = false;
 
           queryTokens.forEach((qt) => {
             if (item.folded === qt) {
               bestScore = Math.max(bestScore, 100);
               matchedTokens++;
+              if (!GENERIC_PLACE_WORDS.has(qt)) matchedDistinctive = true;
               return;
             }
             let tokBest = 0;
             item.tokens.forEach((it) => {
               if (it === qt) tokBest = Math.max(tokBest, 92);
-              else if (qt.length >= 4 && (it.startsWith(qt) || qt.startsWith(it))) tokBest = Math.max(tokBest, 76);
-              else if (qt.length >= 5 && it.length >= 5 && editDistance(qt, it) <= 1) tokBest = Math.max(tokBest, 62);
+              else if (!strictExact && qt.length >= 4 && (it.startsWith(qt) || qt.startsWith(it))) tokBest = Math.max(tokBest, 76);
+              else if (!strictExact && qt.length >= 5 && it.length >= 5 && editDistance(qt, it) <= 1) tokBest = Math.max(tokBest, 62);
             });
             if (tokBest > 0) {
               matchedTokens++;
               bestScore = Math.max(bestScore, tokBest);
+              if (!GENERIC_PLACE_WORDS.has(qt)) matchedDistinctive = true;
             }
           });
 
-          if (matchedTokens > 0) {
+          // Never let a generic direction word like "dakshina" or "uttara" alone match a place
+          if (matchedTokens > 0 && (item.role || matchedDistinctive)) {
             let initBonus = 0;
             if (qInitials.length && Array.isArray(item.initials) && item.initials.length) {
               qInitials.forEach((ini) => {
                 if (item.initials.includes(ini)) initBonus += 18;
               });
             }
-            scored.push({ item, score: bestScore + (matchedTokens - 1) * 14 + initBonus });
+            // Prefer cleaner single-place matches over concatenated multi-taluk cells
+            const multiCellPenalty = !item.role && String(item.raw || "").includes(",") ? -22 : 0;
+            scored.push({ item, score: bestScore + (matchedTokens - 1) * 14 + initBonus + multiCellPenalty });
           }
         });
 
         scored.sort((a, b) => b.score - a.score || (b.item.odRows?.length || b.item.rows?.length || 0) - (a.item.odRows?.length || a.item.rows?.length || 0));
         if (!scored.length) return [];
         const topScore = scored[0].score;
-        const threshold = topScore >= 90 ? 80 : 62;
+        const threshold = strictExact ? 90 : (topScore >= 90 ? 80 : 65);
         return scored.filter((s) => s.score >= threshold).map((s) => s.item);
       }
 
@@ -10311,9 +10323,9 @@
             }
           }
           if (!hasDivWord && !hasConstWord && !hasTalukWord && !hasSubWord && !hasDistWord && clTokens.length) {
-            const tryTaluk = matchItems(clTokens, ds.taluks);
-            const tryConst = !tryTaluk.length ? matchItems(clTokens, ds.constituencies) : [];
-            const trySub = (!tryTaluk.length && !tryConst.length) ? matchItems(clTokens, ds.subdivisions) : [];
+            const tryTaluk = matchItems(clTokens, ds.taluks, "", "", true).slice(0, 1);
+            const tryConst = !tryTaluk.length ? matchItems(clTokens, ds.constituencies, "", "", true).slice(0, 1) : [];
+            const trySub = (!tryTaluk.length && !tryConst.length) ? matchItems(clTokens, ds.subdivisions, "", "", true).slice(0, 1) : [];
             if (tryTaluk.length) { pushUnique(isExcl ? excludedTaluks : taluks, tryTaluk); clTokens = subtractTokens(clTokens, [tryTaluk]); }
             if (tryConst.length) { pushUnique(isExcl ? excludedConstituencies : constituencies, tryConst); clTokens = subtractTokens(clTokens, [tryConst]); }
             if (trySub.length) { pushUnique(isExcl ? excludedSubdivisions : subdivisions, trySub); clTokens = subtractTokens(clTokens, [trySub]); }
@@ -11019,7 +11031,7 @@
 
         const sections = [
           `TODAY: ${STATE.todayStr || "-"}`,
-          `SOUTH ZONE TOTALS (Dashboard Collapsed): TotalWorks=${tot}, Overdue(P)=${odRows.length}, ETS=${etsCnt}, Chronic2Yr+=${y2}, Chronic3Yr+=${y3}, Chronic4Yr+=${y4}, TotalRawWorks=${ds.rawRows.length}`
+          `SOUTH ZONE TOTALS: Unique Works (after package grouping)=${tot}, Raw Rows across 21 Sheets=${ds.rawRows.length}, Overdue Works (Status 'P')=${odRows.length}, Estimation To be Sanctioned (ETS)=${etsCnt}, Chronic Overdue (2+ Yrs)=${y2}, (3+ Yrs)=${y3}, (4+ Yrs)=${y4}, BESCOM RR Pending (SCP/TSP Borewell)=${ds.bescomRows.length}`
         ];
 
         // PRIORITY SECTION: If user asked an MMR-style filtered query (e.g. Moola Andaju 500-1000, Taluk, Status, FY, S/F, etc.)
