@@ -5826,6 +5826,17 @@
      const anyOverdue = overdueWorks.length > 0;
      const anyEts = !anyOverdue && etsWorks.length > 0;
 
+     const sumNum = (key) => members.reduce((acc, m) => acc + (Number(m[key]) || 0), 0);
+     let estSum = 0;
+     let hasEst = false;
+     members.forEach((m) => {
+       const v = parseFloat(m.est_cost);
+       if (!isNaN(v)) {
+         estSum += v;
+         hasEst = true;
+       }
+     });
+
      const displayWorks = anyOverdue
        ? overdueWorks
        : (anyEts ? etsWorks : works);
@@ -5836,8 +5847,17 @@
 
      output[grp.outIdx] = {
        ...base,
-       is_overdue: anyOverdue,
-       is_status_ets: anyEts,
+       est_cost: hasEst ? String(Number(estSum.toFixed(2))) : "",
+       contract_amt: Number(sumNum("contract_amt").toFixed(2)),
+       revised_est: Number(sumNum("revised_est").toFixed(2)),
+       exp_mar26: Number(sumNum("exp_mar26").toFixed(2)),
+       exp_2627: Number(sumNum("exp_2627").toFixed(2)),
+       total_exp: Number(sumNum("total_exp").toFixed(2)),
+       pending_bill: Number(sumNum("pending_bill").toFixed(2)),
+       bal_to_complete: Number(sumNum("bal_to_complete").toFixed(2)),
+       is_status_p: (anyOverdue || members.some((m) => m.is_status_p)) ? 1 : 0,
+       is_overdue: anyOverdue ? 1 : 0,
+       is_status_ets: anyEts ? 1 : 0,
        is_package: true,
        package_code: grp.code,
        package_count: works.length,
@@ -5847,7 +5867,6 @@
        work_name: `${headerLine}\n${numberedLines}`
      };
    });
-
    return output;
  }
 
@@ -5928,9 +5947,7 @@
    window.__pkgScopeWrapped = true;
    const _origGetFilteredScopeRows = getFilteredScopeRows;
    getFilteredScopeRows = function () {
-     if (typeof STATE !== "undefined" && STATE.activePage === "allworks") {
-       return _origGetFilteredScopeRows.apply(this, arguments);
-     }
+     
      const sig = getScopeCacheSignature();
      if (_pkgScopeCache.sig === sig && _pkgScopeCache.masterRef === STATE.masterRows && _pkgScopeCache.rows) {
        return _pkgScopeCache.rows;
@@ -6996,9 +7013,12 @@
       const sec = document.getElementById("page-allworks");
       if (!sec) return;
 
-      const baseRows = STATE.allWorksOverdueOnly
-        ? STATE.masterRows.filter((r) => r.is_overdue)
+      const collapsedMaster = typeof collapsePackageRows === "function"
+        ? collapsePackageRows(STATE.masterRows)
         : STATE.masterRows;
+      const baseRows = STATE.allWorksOverdueOnly
+        ? collapsedMaster.filter((r) => r.is_overdue)
+        : collapsedMaster;
       const triggerRerender = () => {
         if (STATE.activePage === "allworks") renderAllWorksPage();
       };
@@ -10007,8 +10027,8 @@
           };
         };
 
-        const rawEnriched = rawRows.map(enrichRow);
         const collapsed = (typeof collapsePackageRows === "function" ? collapsePackageRows(rawRows) : rawRows).map(enrichRow);
+        const rawEnriched = collapsed;
 
         const officersMap = new Map();
         const divsMap = new Map();
