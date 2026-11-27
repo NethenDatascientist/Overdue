@@ -3171,12 +3171,12 @@
             </select>
           </div>
           <div class="filter-card">
-            <label for="aw-cost-min">ಮೂಲ ಅಂದಾಜು ಮೊತ್ತ (Lakhs):</label>
+            <label for="abs-cost-min">ಮೂಲ ಅಂದಾಜು ಮೊತ್ತ (Lakhs):</label>
             <div class="aw-cost-range-wrap">
-              <input type="text" id="aw-cost-min" class="aw-cost-input" placeholder=">=500" title="Min value (e.g. >=500, >500, or 500)" autocomplete="off" />
+              <input type="text" id="abs-cost-min" class="aw-cost-input" placeholder=">=500" title="Min value (e.g. >=500, >500, or 500)" autocomplete="off" />
               <span class="aw-cost-sep">to</span>
-              <input type="text" id="aw-cost-max" class="aw-cost-input" placeholder="<600" title="Max value (e.g. <600, <=600, or 600)" autocomplete="off" />
-              <button type="button" id="aw-cost-clear" class="aw-cost-clear" title="Clear cost range">✕</button>
+              <input type="text" id="abs-cost-max" class="aw-cost-input" placeholder="<600" title="Max value (e.g. <600, <=600, or 600)" autocomplete="off" />
+              <button type="button" id="abs-cost-clear" class="aw-cost-clear" title="Clear cost range">✕</button>
             </div>
           </div>
           <div class="filter-card">
@@ -3244,8 +3244,13 @@
             <select id="f-aw-wo" class="filter-select"></select>
           </div>
           <div class="filter-card">
-            <label for="f-aw-cost">ಮೂಲ ಅಂದಾಜು ಮೊತ್ತ (Lakhs):</label>
-            <select id="f-aw-cost" class="filter-select"></select>
+            <label for="aw-cost-min">ಮೂಲ ಅಂದಾಜು ಮೊತ್ತ (Lakhs):</label>
+            <div class="aw-cost-range-wrap">
+              <input type="text" id="aw-cost-min" class="aw-cost-input" placeholder=">=500" title="Min value (e.g. >=500, >500, or 500)" autocomplete="off" />
+              <span class="aw-cost-sep">to</span>
+              <input type="text" id="aw-cost-max" class="aw-cost-input" placeholder="<600" title="Max value (e.g. <600, <=600, or 600)" autocomplete="off" />
+              <button type="button" id="aw-cost-clear" class="aw-cost-clear" title="Clear cost range">✕</button>
+            </div>
           </div>
           <div class="filter-card">
             <label for="f-aw-hoa">Select H.O.A. (ಲೆಕ್ಕಶೀರ್ಷಿಕೆ):</label>
@@ -3467,12 +3472,17 @@
       currentAbstractExportRows: [],
       currentAllWorksTableData: []
     };
+    STATE.absCostRange = STATE.absCostRange || { min: "", max: "" };
+
     function parseAwCostBound(raw, defaultOp) {
       const s = String(raw ?? "").replace(/,/g, "").trim();
       if (!s) return { active: false, valid: true };
-      const m = s.match(/^(>=|<=|>|<|=)?\s*(-?\d+(?:\.\d+)?)$/);
+      const m = s.match(/^(>=|=>|<=|=<|>|<|=)?\s*(-?\d+(?:\.\d+)?)$/);
       if (!m) return { active: true, valid: false };
-      return { active: true, valid: true, op: m[1] || defaultOp, val: parseFloat(m[2]) };
+      let op = m[1] || defaultOp;
+      if (op === "=>") op = ">=";
+      if (op === "=<") op = "<=";
+      return { active: true, valid: true, op, val: parseFloat(m[2]) };
     }
 
     function checkAwCostBound(num, b) {
@@ -3484,9 +3494,9 @@
       return true;
     }
 
-    window.matchesAwCostRange = function matchesAwCostRange(estCostVal) {
-      const minB = parseAwCostBound(STATE.awCostRange?.min, ">=");
-      const maxB = parseAwCostBound(STATE.awCostRange?.max, "<=");
+    function evalCostRange(estCostVal, rangeObj) {
+      const minB = parseAwCostBound(rangeObj?.min, ">=");
+      const maxB = parseAwCostBound(rangeObj?.max, "<=");
       const useMin = minB.active && minB.valid;
       const useMax = maxB.active && maxB.valid;
       if (!useMin && !useMax) return true;
@@ -3495,55 +3505,83 @@
       if (useMin && !checkAwCostBound(n, minB)) return false;
       if (useMax && !checkAwCostBound(n, maxB)) return false;
       return true;
+    }
+
+    window.matchesAwCostRange = function matchesAwCostRange(estCostVal) {
+      return evalCostRange(estCostVal, STATE.awCostRange);
     };
 
-    window.syncAwCostInputsUi = function syncAwCostInputsUi() {
-      const minEl = document.getElementById("aw-cost-min");
-      const maxEl = document.getElementById("aw-cost-max");
-      const clrEl = document.getElementById("aw-cost-clear");
-      const minVal = STATE.awCostRange?.min || "";
-      const maxVal = STATE.awCostRange?.max || "";
+    window.matchesAbsCostRange = function matchesAbsCostRange(estCostVal) {
+      return evalCostRange(estCostVal, STATE.absCostRange);
+    };
+
+    function syncRangePairUi(prefix, rangeObj) {
+      const minEl = document.getElementById(`${prefix}-cost-min`);
+      const maxEl = document.getElementById(`${prefix}-cost-max`);
+      const clrEl = document.getElementById(`${prefix}-cost-clear`);
+      const minVal = rangeObj?.min || "";
+      const maxVal = rangeObj?.max || "";
       if (minEl && minEl.value !== minVal) minEl.value = minVal;
       if (maxEl && maxEl.value !== maxVal) maxEl.value = maxVal;
       if (minEl) minEl.classList.toggle("invalid", !parseAwCostBound(minVal, ">=").valid);
       if (maxEl) maxEl.classList.toggle("invalid", !parseAwCostBound(maxVal, "<=").valid);
       if (clrEl) clrEl.classList.toggle("show", Boolean(minVal.trim() || maxVal.trim()));
+    }
+
+    window.syncAwCostInputsUi = function syncAwCostInputsUi() {
+      syncRangePairUi("aw", STATE.awCostRange);
     };
 
-    (function bindAwCostRangeInputs() {
+    window.syncAbsCostInputsUi = function syncAbsCostInputsUi() {
+      syncRangePairUi("abs", STATE.absCostRange);
+    };
+
+    (function bindBothCostRangeInputs() {
       let timer = null;
-      const applyRange = (immediate = false) => {
-        const minEl = document.getElementById("aw-cost-min");
-        const maxEl = document.getElementById("aw-cost-max");
+      const applyFor = (prefix, immediate = false) => {
+        const minEl = document.getElementById(`${prefix}-cost-min`);
+        const maxEl = document.getElementById(`${prefix}-cost-max`);
         if (!minEl || !maxEl) return;
-        STATE.awCostRange = { min: minEl.value.trim(), max: maxEl.value.trim() };
-        syncAwCostInputsUi();
+        const rangeObj = { min: minEl.value.trim(), max: maxEl.value.trim() };
+        if (prefix === "aw") {
+          STATE.awCostRange = rangeObj;
+          syncAwCostInputsUi();
+        } else {
+          STATE.absCostRange = rangeObj;
+          syncAbsCostInputsUi();
+        }
         clearTimeout(timer);
         const run = () => {
-          if (typeof renderAllWorksPage === "function") renderAllWorksPage();
-          else if (typeof renderAbstractPage === "function") renderAbstractPage();
-          else if (typeof renderActivePage === "function") renderActivePage();
+          if (prefix === "aw" && typeof renderAllWorksPage === "function") renderAllWorksPage();
+          else if (prefix === "abs" && typeof renderAbstractPage === "function") renderAbstractPage();
         };
         if (immediate) run();
         else timer = setTimeout(run, 250);
       };
 
+      const getPrefix = (id) => {
+        if (id === "aw-cost-min" || id === "aw-cost-max" || id === "aw-cost-clear") return "aw";
+        if (id === "abs-cost-min" || id === "abs-cost-max" || id === "abs-cost-clear") return "abs";
+        return "";
+      };
+
       document.addEventListener("input", (e) => {
-        if (e.target && (e.target.id === "aw-cost-min" || e.target.id === "aw-cost-max")) {
-          applyRange(false);
-        }
+        const p = getPrefix(e.target?.id);
+        if (p) applyFor(p, false);
       });
       document.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" && e.target && (e.target.id === "aw-cost-min" || e.target.id === "aw-cost-max")) {
+        const p = getPrefix(e.target?.id);
+        if (e.key === "Enter" && p) {
           e.preventDefault();
-          applyRange(true);
+          applyFor(p, true);
         }
       });
       document.addEventListener("click", (e) => {
-        if (e.target && e.target.id === "aw-cost-clear") {
-          STATE.awCostRange = { min: "", max: "" };
-          syncAwCostInputsUi();
-          applyRange(true);
+        const p = getPrefix(e.target?.id);
+        if (p && e.target.id.endsWith("-clear")) {
+          if (p === "aw") { STATE.awCostRange = { min: "", max: "" }; syncAwCostInputsUi(); }
+          else { STATE.absCostRange = { min: "", max: "" }; syncAbsCostInputsUi(); }
+          applyFor(p, true);
         }
       });
     })();
@@ -6745,7 +6783,7 @@
         if (selPeriod !== ALL_OPTION && rowPeriod !== selPeriod) return false;
         if (selGo !== ALL_OPTION && r.go_fy !== selGo) return false;
         if (selWo !== ALL_OPTION && rowWoFy !== selWo) return false;
-        if (!matchesCostBucket(r.est_cost, selCost)) return false;
+        if (!matchesAbsCostRange(r.est_cost)) return false;
         if (selHoa !== ALL_OPTION && r.hoa !== selHoa) return false;
         return true;
       });
@@ -7010,7 +7048,7 @@
       syncMultiSelect(document.getElementById("f-aw-period"), AW_STATIC_PERIODS, "period", triggerRerender, { pluralLabel: "Periods" });
       syncMultiSelect(document.getElementById("f-aw-go"), AW_STATIC_FYS, "go", triggerRerender, { pluralLabel: "FYs" });
       syncMultiSelect(document.getElementById("f-aw-wo"), AW_STATIC_FYS, "wo", triggerRerender, { pluralLabel: "FYs" });
-      syncMultiSelect(document.getElementById("f-aw-cost"), AW_STATIC_COSTS, "cost", triggerRerender, { pluralLabel: "Ranges" });
+      if (typeof syncAwCostInputsUi === "function") syncAwCostInputsUi();
       syncMultiSelect(document.getElementById("f-aw-hoa"), hoaOpts, "hoa", triggerRerender, {
         pluralLabel: "H.O.A. Selected",
         onResetDefaults: () => {
@@ -7051,7 +7089,7 @@
         if (f.period.length > 0 && !f.period.includes(rowPeriod)) return false;
         if (f.go.length > 0 && !f.go.includes(r.go_fy)) return false;
         if (f.wo.length > 0 && !f.wo.includes(rowWoFy)) return false;
-        if (f.cost.length > 0 && !f.cost.some((b) => matchesCostBucket(r.est_cost, b))) return false;
+        if (!matchesAwCostRange(r.est_cost)) return false;
         if (f.hoa.length > 0 && !f.hoa.includes(r.hoa)) return false;
         if (f.sf.length > 0 && !f.sf.includes(rowSf)) return false;
         if (f.district.length > 0 && !f.district.includes(r.district_name)) return false;
