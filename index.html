@@ -1497,11 +1497,16 @@
        ========================================================================= */
     .filter-grid-aw-extra {
       display: grid;
-      grid-template-columns: 1fr 1fr 1.2fr;
+      grid-template-columns: 0.85fr 0.85fr 1.15fr 1.15fr;
       gap: 10px;
       margin-bottom: 0.65rem;
     }
-    @media (max-width: 900px) {
+    @media (max-width: 1100px) {
+      .filter-grid-aw-extra {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    @media (max-width: 720px) {
       .filter-grid-aw-extra {
         grid-template-columns: 1fr;
       }
@@ -3293,6 +3298,13 @@
             <select id="f-aw-aee" class="filter-select"></select>
           </div>
           <div class="filter-card">
+            <label>Abstract Grouping:</label>
+            <div class="aw-mode-toggle">
+              <button type="button" id="aw-group-div-btn" class="aw-mode-btn active-all">Division Wise</button>
+              <button type="button" id="aw-group-const-btn" class="aw-mode-btn">Mathakshethra Wise</button>
+            </div>
+          </div>
+          <div class="filter-card">
             <label>Report Work Filter Mode:</label>
             <div class="aw-mode-toggle">
               <button type="button" id="aw-mode-all-btn" class="aw-mode-btn active-all">All Works</button>
@@ -3447,6 +3459,7 @@
       sidebarAutoClosed: false,
       grantMap: {},
       allWorksOverdueOnly: false,
+      awAbstractBy: "division",
       awHoaDefaultApplied: false,
       awFilters: {
         div: [],
@@ -6953,12 +6966,13 @@
       if (agg.status[st] !== undefined) agg.status[st] += 1;
     }
 
-    function buildAggRowObject(slNo, divLabel, hoaLabel, agg, grantInfo, rowType) {
+    function buildAggRowObject(slNo, divLabel, hoaLabel, agg, grantInfo, rowType, constLabel = "") {
       const r2 = (n) => Number((Number(n) || 0).toFixed(2));
       return {
         rowType,
         slNo,
         divLabel,
+        constLabel,
         hoaLabel,
         cont_cnt: agg.cont_cnt,
         cont_est: r2(agg.cont_est),
@@ -7066,12 +7080,19 @@
       syncMultiSelect(document.getElementById("f-aw-ae"), aeOpts, "ae", triggerRerender, { pluralLabel: "AEs" });
       syncMultiSelect(document.getElementById("f-aw-aee"), aeeOpts, "aee", triggerRerender, { pluralLabel: "AEEs" });
 
-      // Update Overdue toggle button styling
       const btnAll = document.getElementById("aw-mode-all-btn");
       const btnOd = document.getElementById("aw-mode-od-btn");
       if (btnAll && btnOd) {
         btnAll.className = "aw-mode-btn" + (!STATE.allWorksOverdueOnly ? " active-all" : "");
         btnOd.className = "aw-mode-btn" + (STATE.allWorksOverdueOnly ? " active-od" : "");
+      }
+
+      const isConstMode = STATE.awAbstractBy === "constituency";
+      const btnGrpDiv = document.getElementById("aw-group-div-btn");
+      const btnGrpConst = document.getElementById("aw-group-const-btn");
+      if (btnGrpDiv && btnGrpConst) {
+        btnGrpDiv.className = "aw-mode-btn" + (!isConstMode ? " active-all" : "");
+        btnGrpConst.className = "aw-mode-btn" + (isConstMode ? " active-all" : "");
       }
 
       const todayDt = getTodayIST().dateObj;
@@ -7103,6 +7124,8 @@
 
       const tableRows = [];
       const activeDivs = Array.from(new Set(filteredRows.map((r) => r.division_name))).sort((a, b) => a.localeCompare(b));
+      const cleanConst = (v) => (!v || v === UNSPECIFIED_LABEL || v === UNASSIGNED_LABEL) ? "-" : v;
+      const activeConstsAll = new Set(filteredRows.map((r) => cleanConst(r.constituency_name)).filter((x) => x !== "-"));
 
       // 1. ZONE-WISE SUMMARY SECTION (shown when ALL or multiple divisions are selected)
       if (f.div.length !== 1 && filteredRows.length > 0) {
@@ -7130,7 +7153,7 @@
           } else {
             zoneGrantSum += gInfo.num;
           }
-          tableRows.push(buildAggRowObject(idx + 1, "ದಕ್ಷಿಣ ವಲಯ", h, zoneHoaMap.get(h), gInfo, "data"));
+          tableRows.push(buildAggRowObject(idx + 1, "ದಕ್ಷಿಣ ವಲಯ", h, zoneHoaMap.get(h), gInfo, "data", "ಎಲ್ಲಾ"));
         });
 
         const zGrantFmt = zoneGrantSum.toFixed(2);
@@ -7138,31 +7161,30 @@
           "", "ದಕ್ಷಿಣ ವಲಯ", "👉 ಸಣ್ಣ ನೀರಾವರಿ (ದ) ಒಟ್ಟು",
           zoneTotalAgg,
           { num: zoneGrantSum, html: zGrantFmt, excel: Number(zGrantFmt) },
-          "zone-total"
+          "zone-total",
+          "-"
         ));
 
-        tableRows.push({ rowType: "divider", label: "ವಿಭಾಗವಾರು" });
+        tableRows.push({ rowType: "divider", label: isConstMode ? "ವಿಭಾಗ ಮತ್ತು ಮತಕ್ಷೇತ್ರವಾರು" : "ವಿಭಾಗವಾರು" });
       }
 
-      // 2. DIVISION-WISE SECTIONS (ವಿಭಾಗವಾರು)
+      // 2. DIVISION-WISE OR MATHAKSHETHRA-WISE SECTIONS
       activeDivs.forEach((divName) => {
         const divRows = filteredRows.filter((r) => r.division_name === divName);
-        const divHoaMap = new Map();
         const divTotalAgg = createEmptyAgg();
+        const divHoaSet = new Set();
 
         divRows.forEach((r) => {
-          const h = r.hoa || "-";
-          if (!divHoaMap.has(h)) divHoaMap.set(h, createEmptyAgg());
-          addRowToAgg(divHoaMap.get(h), r);
+          divHoaSet.add(r.hoa || "-");
           addRowToAgg(divTotalAgg, r);
         });
 
-        const sortedDivHoas = Array.from(divHoaMap.keys()).sort((a, b) => a.localeCompare(b));
         let divGrantSum = 0;
         const seenCombinedDiv = new Set();
-
-        sortedDivHoas.forEach((h, idx) => {
+        const grantByHoa = new Map();
+        Array.from(divHoaSet).sort((a, b) => a.localeCompare(b)).forEach((h) => {
           const gInfo = getGrantInfo(divName, h, [divName]);
+          grantByHoa.set(h, gInfo);
           if (gInfo.combinedKey) {
             if (!seenCombinedDiv.has(gInfo.combinedKey)) {
               seenCombinedDiv.add(gInfo.combinedKey);
@@ -7171,52 +7193,104 @@
           } else {
             divGrantSum += gInfo.num;
           }
-          tableRows.push(buildAggRowObject(idx + 1, divName, h, divHoaMap.get(h), gInfo, "data"));
         });
+
+        if (!isConstMode) {
+          const divHoaMap = new Map();
+          divRows.forEach((r) => {
+            const h = r.hoa || "-";
+            if (!divHoaMap.has(h)) divHoaMap.set(h, createEmptyAgg());
+            addRowToAgg(divHoaMap.get(h), r);
+          });
+          Array.from(divHoaMap.keys()).sort((a, b) => a.localeCompare(b)).forEach((h, idx) => {
+            tableRows.push(buildAggRowObject(idx + 1, divName, h, divHoaMap.get(h), grantByHoa.get(h), "data", "-"));
+          });
+        } else {
+          const constList = Array.from(new Set(divRows.map((r) => cleanConst(r.constituency_name))))
+            .sort((a, b) => (a === "-" ? 1 : b === "-" ? -1 : a.localeCompare(b)));
+          const emptyGrant = { num: 0, html: "-", excel: "-", combinedKey: null };
+          let slCounter = 1;
+
+          constList.forEach((constName) => {
+            const constRows = divRows.filter((r) => cleanConst(r.constituency_name) === constName);
+            const cHoaMap = new Map();
+            constRows.forEach((r) => {
+              const h = r.hoa || "-";
+              if (!cHoaMap.has(h)) cHoaMap.set(h, createEmptyAgg());
+              addRowToAgg(cHoaMap.get(h), r);
+            });
+            Array.from(cHoaMap.keys()).sort((a, b) => a.localeCompare(b)).forEach((h) => {
+              tableRows.push(buildAggRowObject(slCounter++, divName, h, cHoaMap.get(h), emptyGrant, "data", constName));
+            });
+          });
+        }
 
         const dGrantFmt = divGrantSum.toFixed(2);
         tableRows.push(buildAggRowObject(
           "", divName, `${divName} ಒಟ್ಟು`,
           divTotalAgg,
           { num: divGrantSum, html: dGrantFmt, excel: Number(dGrantFmt) },
-          "div-total"
+          "div-total",
+          "-"
         ));
       });
 
       STATE.currentAllWorksTableData = tableRows;
 
       const modeTag = STATE.allWorksOverdueOnly ? "OVERDUE WORKS ONLY" : "ALL WORKS";
+      const grpTag = isConstMode ? "Mathakshethra Wise" : "Division Wise";
       const titleEl = document.getElementById("p4-section-title");
       if (titleEl) {
-        titleEl.textContent = STATE.allWorksOverdueOnly
-          ? "Division Wise Abstract - Overdue Works Abstract (Zone & Division Wise)"
-          : "Division Wise Abstract - Zone & Division Wise Abstract";
+        if (isConstMode) {
+          titleEl.textContent = STATE.allWorksOverdueOnly
+            ? "Mathakshethra Wise Abstract - Overdue Works Abstract"
+            : "Mathakshethra Wise Abstract - Zone, Division & Constituency Abstract";
+        } else {
+          titleEl.textContent = STATE.allWorksOverdueOnly
+            ? "Division Wise Abstract - Overdue Works Abstract (Zone & Division Wise)"
+            : "Division Wise Abstract - Zone & Division Wise Abstract";
+        }
       }
 
       const fmtBadge = (arr) => (arr.length === 0 ? "ALL" : arr.length <= 2 ? arr.join(", ") : `${arr.length} Selected`);
       const badgeEl = document.getElementById("p4-scope-badge");
       if (badgeEl) {
-        badgeEl.textContent = `${modeTag} | Division: ${fmtBadge(f.div)} | Sub-div: ${fmtBadge(f.subdiv)} | H.O.A.: ${fmtBadge(f.hoa)} | S/F: ${fmtBadge(f.sf)} | Status: ${fmtBadge(f.status)}`;
+        badgeEl.textContent = `${modeTag} | ${grpTag} | Division: ${fmtBadge(f.div)} | H.O.A.: ${fmtBadge(f.hoa)} | S/F: ${fmtBadge(f.sf)} | Status: ${fmtBadge(f.status)}`;
       }
 
       const metaEl = document.getElementById("p4-meta-info");
       if (metaEl) {
-        metaEl.innerHTML = `<b>Mode:</b> ${modeTag} &nbsp;|&nbsp; <b>Total Matching Works:</b> ${filteredRows.length.toLocaleString()} &nbsp;|&nbsp; <b>Divisions Shown:</b> ${activeDivs.length}`;
+        const constInfo = isConstMode ? ` &nbsp;|&nbsp; <b>Mathakshethras Shown:</b> ${activeConstsAll.size}` : "";
+        metaEl.innerHTML = `<b>Mode:</b> ${modeTag} (${grpTag}) &nbsp;|&nbsp; <b>Total Matching Works:</b> ${filteredRows.length.toLocaleString()} &nbsp;|&nbsp; <b>Divisions Shown:</b> ${activeDivs.length}${constInfo}`;
       }
       renderAllWorksTableOnly();
+    }
+
+    const AW_CONST_COL_IDX = 30;
+
+    function getAwHeaderLabel(cIdx) {
+      return cIdx === AW_CONST_COL_IDX ? "ಮತಕ್ಷೇತ್ರ" : AW_HEADERS[cIdx];
+    }
+
+    function getAwAllColIndices(isConstMode) {
+      const cols = [];
+      for (let i = 0; i < AW_HEADERS.length; i++) {
+        cols.push(i);
+        if (i === 1 && isConstMode) cols.push(AW_CONST_COL_IDX);
+      }
+      return cols;
     }
 
     function getAwVisibleColIndices() {
       if (!Array.isArray(STATE.awHiddenCols)) STATE.awHiddenCols = [];
       const hiddenSet = new Set(STATE.awHiddenCols);
-      const vis = [];
-      for (let i = 0; i < AW_HEADERS.length; i++) {
-        if (!hiddenSet.has(i)) vis.push(i);
-      }
+      const allCols = getAwAllColIndices(STATE.awAbstractBy === "constituency");
+      const vis = allCols.filter((cIdx) => !hiddenSet.has(cIdx));
       return vis.length ? vis : [0];
     }
 
     function getAwColWidth(cIdx) {
+      if (cIdx === AW_CONST_COL_IDX) return 18;
       const widths = [7, 16, 24, 14, 16, 13, 15, 14, 16, 16, 17, 20, 16, 15, 16, 15, 18];
       return cIdx < widths.length ? widths[cIdx] : 8;
     }
@@ -7226,14 +7300,15 @@
     }
 
     function getAwThClass(cIdx) {
-      if (cIdx === 1) return "aw-col-div";
+      if (cIdx === 1 || cIdx === AW_CONST_COL_IDX) return "aw-col-div";
       if (cIdx === 2) return "aw-col-hoa";
       if (cIdx === 11) return "aw-col-grant";
-      if (cIdx >= 17) return "aw-col-stat";
+      if (cIdx >= 17 && cIdx !== AW_CONST_COL_IDX) return "aw-col-stat";
       return "";
     }
 
     function getAwCellHtml(row, cIdx) {
+      if (cIdx === AW_CONST_COL_IDX) return `<td class="aw-wrap-td">${escapeHtml(row.constLabel || "-")}</td>`;
       const fmt2 = (v) => Number(v || 0).toFixed(2);
       switch (cIdx) {
         case 0: return `<td>${escapeHtml(row.slNo)}</td>`;
@@ -7261,6 +7336,7 @@
     }
 
     function getAwCellExcel(row, cIdx) {
+      if (cIdx === AW_CONST_COL_IDX) return row.constLabel || "-";
       switch (cIdx) {
         case 0: return row.slNo;
         case 1: return row.divLabel;
@@ -7297,13 +7373,16 @@
       }
 
       if (!Array.isArray(STATE.awHiddenCols)) STATE.awHiddenCols = [];
+      const allActiveCols = getAwAllColIndices(STATE.awAbstractBy === "constituency");
+      const activeSet = new Set(allActiveCols);
       const visCols = getAwVisibleColIndices();
 
       let hiddenBarHtml = "";
-      if (STATE.awHiddenCols.length > 0) {
-        const sortedHidden = [...STATE.awHiddenCols].sort((a, b) => a - b);
+      const visibleHidden = STATE.awHiddenCols.filter((c) => activeSet.has(c));
+      if (visibleHidden.length > 0) {
+        const sortedHidden = [...visibleHidden].sort((a, b) => allActiveCols.indexOf(a) - allActiveCols.indexOf(b));
         const chipsHtml = sortedHidden
-          .map((cIdx) => `<button type="button" class="aw-hidden-chip" data-aw-show-col="${cIdx}" title="Click to show column">+ ${escapeHtml(AW_HEADERS[cIdx])}</button>`)
+          .map((cIdx) => `<button type="button" class="aw-hidden-chip" data-aw-show-col="${cIdx}" title="Click to show column">+ ${escapeHtml(getAwHeaderLabel(cIdx))}</button>`)
           .join("");
         hiddenBarHtml = `
           <div class="aw-hidden-bar">
@@ -7315,16 +7394,14 @@
       }
 
       const unitRowHtml = `<tr class="aw-unit-row"><th colspan="${visCols.length}">(ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)</th></tr>`;
-
       const headerRowHtml = `<tr>${visCols.map((cIdx) => `
         <th class="${getAwThClass(cIdx)}">
           <div class="aw-th-inner">
-            <span>${escapeHtml(AW_HEADERS[cIdx])}</span>
+            <span>${escapeHtml(getAwHeaderLabel(cIdx))}</span>
             <button type="button" class="aw-col-hide-btn" data-aw-hide-col="${cIdx}" title="Hide this column">✕</button>
           </div>
         </th>
       `).join("")}</tr>`;
-
       const colNumRowHtml = `<tr class="aw-colnum-row">${visCols.map((_, idx) => `<th>${idx + 1}</th>`).join("")}</tr>`;
 
       const tbodyHtml = tableRows.map((row) => {
@@ -7394,7 +7471,7 @@
 
       const aoa = [
         unitRow,
-        visCols.map((cIdx) => AW_HEADERS[cIdx]),
+        visCols.map((cIdx) => getAwHeaderLabel(cIdx)),
         visCols.map((_, idx) => idx + 1)
       ];
       const rowMeta = ["unit", "header", "colnum"];
@@ -7422,7 +7499,6 @@
 
       const ws = XLSX.utils.aoa_to_sheet(aoa);
       if (merges.length) ws["!merges"] = merges;
-
       ws["!cols"] = visCols.map((cIdx) => ({ wch: getAwColWidth(cIdx) }));
 
       const grantPos = visCols.indexOf(11);
@@ -7444,40 +7520,19 @@
       };
 
       const range = XLSX.utils.decode_range(ws["!ref"]);
-
       for (let R = range.s.r; R <= range.e.r; R++) {
         const mType = rowMeta[R];
         for (let C = range.s.c; C <= range.e.c; C++) {
           const addr = XLSX.utils.encode_cell({ r: R, c: C });
           if (!ws[addr]) ws[addr] = { t: "s", v: "" };
 
-          let fillRgb = "FFFFFF";
-          let fontRgb = "000000";
-          let isBold = false;
-          let hAlign = "center";
-
-          if (mType === "unit") {
-            fillRgb = "F8FAFC";
-            fontRgb = "DC2626";
-            isBold = true;
-            hAlign = "right";
-          } else if (mType === "header") {
-            fillRgb = "CFE2F3";
-            isBold = true;
-          } else if (mType === "colnum") {
-            fillRgb = "EAD1DC";
-            isBold = true;
-          } else if (mType === "zone-total") {
-            fillRgb = "FCE4D6";
-            isBold = true;
-          } else if (mType === "div-total") {
-            fillRgb = "FFF2CC";
-            isBold = true;
-          } else if (mType === "divider") {
-            fillRgb = "E2E8F0";
-            isBold = true;
-            hAlign = "left";
-          }
+          let fillRgb = "FFFFFF", fontRgb = "000000", isBold = false, hAlign = "center";
+          if (mType === "unit") { fillRgb = "F8FAFC"; fontRgb = "DC2626"; isBold = true; hAlign = "right"; }
+          else if (mType === "header") { fillRgb = "CFE2F3"; isBold = true; }
+          else if (mType === "colnum") { fillRgb = "EAD1DC"; isBold = true; }
+          else if (mType === "zone-total") { fillRgb = "FCE4D6"; isBold = true; }
+          else if (mType === "div-total") { fillRgb = "FFF2CC"; isBold = true; }
+          else if (mType === "divider") { fillRgb = "E2E8F0"; isBold = true; hAlign = "left"; }
 
           ws[addr].s = {
             font: { name: "Calibri", sz: 10, bold: isBold, color: { rgb: fontRgb } },
@@ -7487,10 +7542,7 @@
           };
 
           if (
-            mType !== "unit" &&
-            mType !== "header" &&
-            mType !== "colnum" &&
-            mType !== "divider" &&
+            !["unit", "header", "colnum", "divider"].includes(mType) &&
             isAwNum2Col(visCols[C]) &&
             typeof ws[addr].v === "number"
           ) {
@@ -7500,9 +7552,11 @@
       }
 
       const wb = XLSX.utils.book_new();
-      const sheetTabName = STATE.allWorksOverdueOnly ? "Overdue_Works_Report" : "All_Works_Report";
+      const isConstMode = STATE.awAbstractBy === "constituency";
+      const sheetTabName = isConstMode ? "Mathakshethra_Abstract" : (STATE.allWorksOverdueOnly ? "Overdue_Works_Report" : "All_Works_Report");
       XLSX.utils.book_append_sheet(wb, ws, sheetTabName);
-      const filePrefix = STATE.allWorksOverdueOnly ? "All_Works_Report_Overdue_Only" : "All_Works_Report";
+      const basePrefix = isConstMode ? "Mathakshethra_Wise_Abstract" : "Division_Wise_Abstract";
+      const filePrefix = STATE.allWorksOverdueOnly ? `${basePrefix}_Overdue_Only` : basePrefix;
       XLSX.writeFile(wb, `${filePrefix}_${STATE.todayStr}.xlsx`);
     }
 
@@ -7523,21 +7577,19 @@
       const pad = (n) => String(n).padStart(2, "0");
       const dateTag = STATE.todayStr || `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}`;
       const timestamp = now.toLocaleString("en-IN", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true
+        day: "2-digit", month: "2-digit", year: "numeric",
+        hour: "2-digit", minute: "2-digit", hour12: true
       });
-      const filePrefix = STATE.allWorksOverdueOnly ? "All_Works_Report_Overdue_Only" : "All_Works_Report";
+      const isConstMode = STATE.awAbstractBy === "constituency";
+      const basePrefix = isConstMode ? "Mathakshethra_Wise_Abstract" : "Division_Wise_Abstract";
+      const filePrefix = STATE.allWorksOverdueOnly ? `${basePrefix}_Overdue_Only` : basePrefix;
       const safeFileName = `${filePrefix}_${dateTag}`;
 
-      const fontSize = visCols.length > 22 ? "5.6pt" : (visCols.length > 16 ? "6.6pt" : "7.6pt");
-      const cellPad = visCols.length > 22 ? "2.5px 2px" : (visCols.length > 16 ? "3.5px 3px" : "4.5px 4px");
+      const fontSize = visCols.length > 22 ? "5.4pt" : (visCols.length > 16 ? "6.6pt" : "7.6pt");
+      const cellPad = visCols.length > 22 ? "2.3px 1.8px" : (visCols.length > 16 ? "3.5px 3px" : "4.5px 4px");
 
       const unitRowHtml = `<tr class="aw-unit-row"><th colspan="${visCols.length}">(ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)</th></tr>`;
-      const headerRowHtml = `<tr>${visCols.map((cIdx) => `<th>${escapeHtml(AW_HEADERS[cIdx])}</th>`).join("")}</tr>`;
+      const headerRowHtml = `<tr>${visCols.map((cIdx) => `<th>${escapeHtml(getAwHeaderLabel(cIdx))}</th>`).join("")}</tr>`;
       const colNumRowHtml = `<tr class="aw-colnum-row">${visCols.map((_, idx) => `<th>${idx + 1}</th>`).join("")}</tr>`;
 
       const tbodyHtml = rows.map((row) => {
@@ -7556,119 +7608,25 @@
   <title>${safeFileName}</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Kannada:wght@400&display=swap">
   <style>
-    @page {
-      size: A4 landscape;
-      margin: 6mm;
-    }
-    * {
-      box-sizing: border-box;
-      font-weight: 400 !important;
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-    }
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: "Inter", "Segoe UI", "Noto Sans Kannada", "Nirmala UI", sans-serif;
-      color: #0F172A;
-      background: #FFFFFF;
-    }
-    .pdf-banner {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      background: linear-gradient(90deg, #1E3A8A 0%, #1D4ED8 100%);
-      color: #FFFFFF;
-      padding: 8px 12px;
-      border-radius: 5px 5px 0 0;
-    }
-    .pdf-banner-title {
-      font-size: 11.5pt;
-      line-height: 1.25;
-    }
-    .pdf-banner-meta {
-      text-align: right;
-      font-size: 7.5pt;
-      line-height: 1.35;
-      white-space: nowrap;
-    }
-    .pdf-tab-badge {
-      display: inline-block;
-      background: #DC2626;
-      color: #FFFFFF;
-      padding: 1.5px 8px;
-      border-radius: 999px;
-      font-size: 7.2pt;
-      margin-bottom: 2px;
-    }
-    .pdf-summary {
-      background: #F8FAFC;
-      border: 1px solid #94A3B8;
-      border-top: none;
-      padding: 5px 10px;
-      margin-bottom: 6px;
-      font-size: 7.4pt;
-      line-height: 1.4;
-      color: #1E293B;
-    }
-    table.aw-pdf-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: ${fontSize};
-      color: #000000;
-    }
-    table.aw-pdf-table thead {
-      display: table-header-group;
-    }
-    table.aw-pdf-table tr {
-      break-inside: avoid;
-      page-break-inside: avoid;
-    }
-    table.aw-pdf-table thead th {
-      background: #CFE2F3;
-      color: #000000;
-      text-align: center;
-      vertical-align: middle;
-      padding: ${cellPad};
-      border: 0.8px solid #475569;
-      line-height: 1.2;
-      white-space: normal;
-    }
-    table.aw-pdf-table thead tr.aw-unit-row th {
-      background: #F8FAFC;
-      color: #DC2626;
-      text-align: right;
-      font-size: 7.5pt;
-      padding: 3px 6px;
-    }
-    table.aw-pdf-table thead tr.aw-colnum-row th {
-      background: #EAD1DC;
-      color: #000000;
-      padding: 2.5px 2px;
-    }
-    table.aw-pdf-table td {
-      padding: ${cellPad};
-      border: 0.8px solid #64748B;
-      text-align: center;
-      vertical-align: middle;
-      line-height: 1.25;
-      white-space: nowrap;
-    }
-    table.aw-pdf-table td.aw-wrap-td {
-      white-space: normal;
-    }
-    table.aw-pdf-table tr.aw-zone-total-row td {
-      background: #FCE4D6;
-    }
-    table.aw-pdf-table tr.aw-div-total-row td {
-      background: #FFF2CC;
-    }
-    table.aw-pdf-table tr.aw-section-divider td {
-      background: #E2E8F0;
-      text-align: left;
-      padding-left: 8px;
-    }
+    @page { size: A4 landscape; margin: 6mm; }
+    * { box-sizing: border-box; font-weight: 400 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    body { margin: 0; padding: 0; font-family: "Inter", "Segoe UI", "Noto Sans Kannada", "Nirmala UI", sans-serif; color: #0F172A; background: #FFFFFF; }
+    .pdf-banner { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: linear-gradient(90deg, #1E3A8A 0%, #1D4ED8 100%); color: #FFFFFF; padding: 8px 12px; border-radius: 5px 5px 0 0; }
+    .pdf-banner-title { font-size: 11.5pt; line-height: 1.25; }
+    .pdf-banner-meta { text-align: right; font-size: 7.5pt; line-height: 1.35; white-space: nowrap; }
+    .pdf-tab-badge { display: inline-block; background: #DC2626; color: #FFFFFF; padding: 1.5px 8px; border-radius: 999px; font-size: 7.2pt; margin-bottom: 2px; }
+    .pdf-summary { background: #F8FAFC; border: 1px solid #94A3B8; border-top: none; padding: 5px 10px; margin-bottom: 6px; font-size: 7.4pt; line-height: 1.4; color: #1E293B; }
+    table.aw-pdf-table { width: 100%; border-collapse: collapse; font-size: ${fontSize}; color: #000000; }
+    table.aw-pdf-table thead { display: table-header-group; }
+    table.aw-pdf-table tr { break-inside: avoid; page-break-inside: avoid; }
+    table.aw-pdf-table thead th { background: #CFE2F3; color: #000000; text-align: center; vertical-align: middle; padding: ${cellPad}; border: 0.8px solid #475569; line-height: 1.2; white-space: normal; }
+    table.aw-pdf-table thead tr.aw-unit-row th { background: #F8FAFC; color: #DC2626; text-align: right; font-size: 7.5pt; padding: 3px 6px; }
+    table.aw-pdf-table thead tr.aw-colnum-row th { background: #EAD1DC; color: #000000; padding: 2.5px 2px; }
+    table.aw-pdf-table td { padding: ${cellPad}; border: 0.8px solid #64748B; text-align: center; vertical-align: middle; line-height: 1.25; white-space: nowrap; }
+    table.aw-pdf-table td.aw-wrap-td { white-space: normal; }
+    table.aw-pdf-table tr.aw-zone-total-row td { background: #FCE4D6; }
+    table.aw-pdf-table tr.aw-div-total-row td { background: #FFF2CC; }
+    table.aw-pdf-table tr.aw-section-divider td { background: #E2E8F0; text-align: left; padding-left: 8px; }
   </style>
 </head>
 <body>
@@ -7699,13 +7657,7 @@
 
       const iframe = document.createElement("iframe");
       iframe.id = "aw-pdf-print-frame";
-      iframe.style.position = "fixed";
-      iframe.style.right = "0";
-      iframe.style.bottom = "0";
-      iframe.style.width = "0";
-      iframe.style.height = "0";
-      iframe.style.border = "0";
-      iframe.style.visibility = "hidden";
+      iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
       document.body.appendChild(iframe);
 
       const iWin = iframe.contentWindow;
@@ -7728,12 +7680,8 @@
       };
 
       const fontReady = iDoc.fonts && iDoc.fonts.ready ? iDoc.fonts.ready : Promise.resolve();
-      Promise.race([
-        fontReady,
-        new Promise((resolve) => setTimeout(resolve, 1000))
-      ]).then(() => setTimeout(triggerPrint, 100));
+      Promise.race([fontReady, new Promise((resolve) => setTimeout(resolve, 1000))]).then(() => setTimeout(triggerPrint, 100));
     }
-
     function renderActivePage() {
       document.getElementById("status-source-pill").textContent = STATE.sourceLabel;
       document.getElementById("status-time-label").textContent = STATE.lastSynced;
@@ -7893,6 +7841,15 @@
 
     document.getElementById("aw-mode-od-btn")?.addEventListener("click", () => {
       STATE.allWorksOverdueOnly = true;
+      renderAllWorksPage();
+    });
+    document.getElementById("aw-group-div-btn")?.addEventListener("click", () => {
+      STATE.awAbstractBy = "division";
+      renderAllWorksPage();
+    });
+
+    document.getElementById("aw-group-const-btn")?.addEventListener("click", () => {
+      STATE.awAbstractBy = "constituency";
       renderAllWorksPage();
     });
 
@@ -10174,7 +10131,7 @@
         "assistant", "account", "superintendent", "division", "divisions", "subdivision", "sub",
         "district", "districts", "taluk", "taluks", "taluka", "constituency", "constituencies",
         "mathakshetra", "hoa", "lekkashirshike", "scheme", "sheet", "sheets", "mmr", "complete",
-        "dabs", "abstract", "summary", "overview", "overall", "entire", "whole", "full", "general", "brief", "quick", "dashboard", "valaya", "north", "east", "west", "report", "details", "detail", "status", "pct",
+        "dabs", "wise", "mathakshethra", "matakshetra", "abstract", "summary", "overview", "overall", "entire", "whole", "full", "general", "brief", "quick", "dashboard", "valaya", "north", "east", "west", "report", "details", "detail", "status", "pct",
         "percentage", "percent", "south", "zone", "please", "pls", "pdf", "excel", "popup", "pop",
         "open", "download", "his", "her", "him", "their", "this", "that", "these", "those", "its",
         "it", "fresh", "spillover", "continuing", "new", "govt", "government", "order", "fy",
@@ -10402,7 +10359,20 @@
         const qLower = qRaw.toLowerCase();
 
         // Split into clauses on commas/semicolons/newlines so "Division - Exclude Mangalore" stays scoped cleanly
-        const clauses = qRaw.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
+        const wantsDabs = /\bdabs\b/i.test(qRaw);
+        let dabsGroupBy = ""; // "" (ask user) | "division" | "constituency"
+        if (wantsDabs) {
+          if (/\b(mathakshethra|mathakshetra|matakshetra|constituency)\s*[-]?\s*wise\b|\bby\s+(mathakshethra|mathakshetra|matakshetra|constituency)\b|ಮತಕ್ಷೇತ್ರವಾರು/i.test(qRaw)) {
+            dabsGroupBy = "constituency";
+          } else if (/\bdivision\s*[-]?\s*wise\b|\bby\s+division\b|ವಿಭಾಗವಾರು/i.test(qRaw)) {
+            dabsGroupBy = "division";
+          }
+        }
+        const qForClauses = qRaw
+          .replace(/\b(division|mathakshethra|mathakshetra|matakshetra|constituency)\s*[-]?\s*wise\b/gi, " ")
+          .replace(/\bby\s+(division|mathakshethra|mathakshetra|matakshetra|constituency)\b/gi, " ")
+          .replace(/ಮತಕ್ಷೇತ್ರವಾರು|ವಿಭಾಗವಾರು/g, " ");
+        const clauses = qForClauses.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
         const EXCL_RE = /\b(exclude|excluding|excluded|except|without|other\s+than|not\s+in|not|apart\s+from|leave\s+out)\b|ಬಿಟ್ಟು|ಹೊರತುಪಡಿಸಿ/i;
 
         // 1. Cost range (Moola Andaju)
@@ -10592,7 +10562,7 @@
           return true;
         };
 
-        const wantsDabs = /\bdabs\b/i.test(qRaw);
+        
         const matchedRows = (hasAnyFilter || wantsDabs) ? ds.rawRows.filter(matchesFilter) : [];
         const default17Rows = (typeof isDefaultAwHoa === "function" && !matchedHoas.length)
           ? matchedRows.filter((r) => isDefaultAwHoa(r.hoa))
@@ -10624,7 +10594,7 @@
         if (officers.length) filterLabels.push(`${officers[0].role}: ${officers[0].raw}`);
 
         return {
-          wantsDabs, costRange, goFyFilter, woFyFilter, anyFyFilter, sf, statuses, excludedStatuses,
+          wantsDabs, dabsGroupBy, costRange, goFyFilter, woFyFilter, anyFyFilter, sf, statuses, excludedStatuses,
           overdueOnly, odPeriod, minOdDays,
           matchedHoas, excludedHoas, divisions, excludedDivisions,
           subdivisions, excludedSubdivisions, districts, excludedDistricts,
@@ -10731,11 +10701,15 @@
         return { num: val, html: fmtNum, excel: Number(fmtNum), combinedKey: null };
       }
 
-      function buildAiDabsTableData(works, totalDivCount) {
+      function buildAiDabsTableData(works, totalDivCount, groupBy = "division") {
+        const isConstMode = groupBy === "constituency";
         const tableRows = [];
         const activeDivs = Array.from(new Set((works || []).map((r) => r.division_name).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+        const cleanConst = (v) => (!v || v === UNSPECIFIED_LABEL || v === UNASSIGNED_LABEL) ? "-" : v;
+        const activeConsts = Array.from(new Set((works || []).map((r) => cleanConst(r.constituency_name)).filter((x) => x !== "-"))).sort((a, b) => a.localeCompare(b));
         const isFullZone = totalDivCount > 0 && activeDivs.length >= totalDivCount;
         let zoneTotalRow = null;
+        const constTotalsMap = new Map();
 
         if (activeDivs.length > 1 && works.length > 0) {
           const zoneHoaMap = new Map();
@@ -10760,7 +10734,7 @@
             } else {
               zoneGrantSum += gInfo.num;
             }
-            tableRows.push(buildAggRowObject(idx + 1, "ದಕ್ಷಿಣ ವಲಯ", h, zoneHoaMap.get(h), gInfo, "data"));
+            tableRows.push(buildAggRowObject(idx + 1, "ದಕ್ಷಿಣ ವಲಯ", h, zoneHoaMap.get(h), gInfo, "data", "ಎಲ್ಲಾ"));
           });
 
           const zGrantFmt = zoneGrantSum.toFixed(2);
@@ -10768,28 +10742,28 @@
             "", "ದಕ್ಷಿಣ ವಲಯ", "👉 ಸಣ್ಣ ನೀರಾವರಿ (ದ) ಒಟ್ಟು",
             zoneTotalAgg,
             { num: zoneGrantSum, html: zGrantFmt, excel: Number(zGrantFmt) },
-            "zone-total"
+            "zone-total",
+            "-"
           );
           tableRows.push(zoneTotalRow);
-          tableRows.push({ rowType: "divider", label: "ವಿಭಾಗವಾರು" });
+          tableRows.push({ rowType: "divider", label: isConstMode ? "ವಿಭಾಗ ಮತ್ತು ಮತಕ್ಷೇತ್ರವಾರು" : "ವಿಭಾಗವಾರು" });
         }
 
         activeDivs.forEach((divName) => {
           const divRows = works.filter((r) => r.division_name === divName);
-          const divHoaMap = new Map();
           const divTotalAgg = createEmptyAgg();
+          const divHoaSet = new Set();
           divRows.forEach((r) => {
-            const h = r.hoa || "-";
-            if (!divHoaMap.has(h)) divHoaMap.set(h, createEmptyAgg());
-            addRowToAgg(divHoaMap.get(h), r);
+            divHoaSet.add(r.hoa || "-");
             addRowToAgg(divTotalAgg, r);
           });
 
-          const sortedDivHoas = Array.from(divHoaMap.keys()).sort((a, b) => a.localeCompare(b));
           let divGrantSum = 0;
           const seenCombinedDiv = new Set();
-          sortedDivHoas.forEach((h, idx) => {
+          const grantByHoa = new Map();
+          Array.from(divHoaSet).sort((a, b) => a.localeCompare(b)).forEach((h) => {
             const gInfo = getAiDabsGrantInfo(divName, h, [divName], false);
+            grantByHoa.set(h, gInfo);
             if (gInfo.combinedKey) {
               if (!seenCombinedDiv.has(gInfo.combinedKey)) {
                 seenCombinedDiv.add(gInfo.combinedKey);
@@ -10798,34 +10772,68 @@
             } else {
               divGrantSum += gInfo.num;
             }
-            tableRows.push(buildAggRowObject(idx + 1, divName, h, divHoaMap.get(h), gInfo, "data"));
           });
+
+          if (!isConstMode) {
+            const divHoaMap = new Map();
+            divRows.forEach((r) => {
+              const h = r.hoa || "-";
+              if (!divHoaMap.has(h)) divHoaMap.set(h, createEmptyAgg());
+              addRowToAgg(divHoaMap.get(h), r);
+            });
+            Array.from(divHoaMap.keys()).sort((a, b) => a.localeCompare(b)).forEach((h, idx) => {
+              tableRows.push(buildAggRowObject(idx + 1, divName, h, divHoaMap.get(h), grantByHoa.get(h), "data", "-"));
+            });
+          } else {
+            const constList = Array.from(new Set(divRows.map((r) => cleanConst(r.constituency_name))))
+              .sort((a, b) => (a === "-" ? 1 : b === "-" ? -1 : a.localeCompare(b)));
+            const emptyGrant = { num: 0, html: "-", excel: "-", combinedKey: null };
+            let slCounter = 1;
+
+            constList.forEach((constName) => {
+              const constRows = divRows.filter((r) => cleanConst(r.constituency_name) === constName);
+              const cHoaMap = new Map();
+              const cTotAgg = createEmptyAgg();
+              constRows.forEach((r) => {
+                const h = r.hoa || "-";
+                if (!cHoaMap.has(h)) cHoaMap.set(h, createEmptyAgg());
+                addRowToAgg(cHoaMap.get(h), r);
+                addRowToAgg(cTotAgg, r);
+              });
+              constTotalsMap.set(`${divName}||${constName}`, { divName, constName, agg: cTotAgg });
+              Array.from(cHoaMap.keys()).sort((a, b) => a.localeCompare(b)).forEach((h) => {
+                tableRows.push(buildAggRowObject(slCounter++, divName, h, cHoaMap.get(h), emptyGrant, "data", constName));
+              });
+            });
+          }
 
           const dGrantFmt = divGrantSum.toFixed(2);
           const divTotRow = buildAggRowObject(
             "", divName, `${divName} ಒಟ್ಟು`,
             divTotalAgg,
             { num: divGrantSum, html: dGrantFmt, excel: Number(dGrantFmt) },
-            "div-total"
+            "div-total",
+            "-"
           );
           if (!zoneTotalRow) zoneTotalRow = divTotRow;
           tableRows.push(divTotRow);
         });
 
-        return { tableRows, activeDivs, zoneTotalRow };
+        return { tableRows, activeDivs, activeConsts, zoneTotalRow, constTotals: Array.from(constTotalsMap.values()) };
       }
 
-      function exportAiDabsExcel(tableRows, title) {
+      function exportAiDabsExcel(tableRows, title, groupBy = "division") {
         if (!tableRows || !tableRows.length || typeof XLSX === "undefined") {
           alert("No DABS rows available to export to Excel.");
           return;
         }
-        const colCount = AW_HEADERS.length;
-        const visCols = Array.from({ length: colCount }, (_, i) => i);
+        const isConstMode = groupBy === "constituency";
+        const visCols = getAwAllColIndices(isConstMode);
+        const colCount = visCols.length;
         const unitRow = new Array(colCount).fill("");
         unitRow[0] = "(ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)";
 
-        const aoa = [unitRow, [...AW_HEADERS], visCols.map((i) => i + 1)];
+        const aoa = [unitRow, visCols.map((cIdx) => getAwHeaderLabel(cIdx)), visCols.map((_, i) => i + 1)];
         const rowMeta = ["unit", "header", "colnum"];
         const merges = [{ s: { r: 0, c: 0 }, e: { r: 0, c: colCount - 1 } }];
 
@@ -10846,13 +10854,14 @@
         const ws = XLSX.utils.aoa_to_sheet(aoa);
         ws["!merges"] = merges;
         ws["!cols"] = visCols.map((cIdx) => ({ wch: getAwColWidth(cIdx) }));
+        const grantPos = visCols.indexOf(11);
         ws["!rows"] = rowMeta.map((type, idx) => {
           if (type === "unit") return { hpt: 22 };
           if (type === "header") return { hpt: 46 };
           if (type === "colnum") return { hpt: 21 };
           if (type === "zone-total" || type === "div-total") return { hpt: 26 };
           if (type === "divider") return { hpt: 24 };
-          return { hpt: String(aoa[idx][11] || "").includes("\n") ? 32 : 22 };
+          return { hpt: (grantPos !== -1 && String(aoa[idx][grantPos] || "").includes("\n")) ? 32 : 22 };
         });
 
         const thinBorder = {
@@ -10882,19 +10891,19 @@
               border: thinBorder,
               alignment: { horizontal: hAlign, vertical: "center", wrapText: true }
             };
-            if (!["unit", "header", "colnum", "divider"].includes(mType) && isAwNum2Col(C) && typeof ws[addr].v === "number") {
+            if (!["unit", "header", "colnum", "divider"].includes(mType) && isAwNum2Col(visCols[C]) && typeof ws[addr].v === "number") {
               ws[addr].z = "0.00";
             }
           }
         }
 
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "DABS_Abstract");
+        XLSX.utils.book_append_sheet(wb, ws, isConstMode ? "DABS_Mathakshethra" : "DABS_Division");
         const safeName = String(title || "DABS_Abstract").replace(/[\\/:*?"<>|]/g, "_").slice(0, 45);
         XLSX.writeFile(wb, `${safeName}_${STATE.todayStr || "Report"}.xlsx`);
       }
 
-      function exportAiDabsPdf(tableRows, title, filterSummary, workCount, divCount, btnEl) {
+      function exportAiDabsPdf(tableRows, title, filterSummary, workCount, divCount, btnEl, groupBy = "division") {
         if (!tableRows || !tableRows.length) {
           alert("No DABS rows available to export to PDF.");
           return;
@@ -10905,17 +10914,18 @@
         const printWin = window.open("", "_blank");
         setTimeout(() => {
           try {
-            const colCount = AW_HEADERS.length;
-            const visCols = Array.from({ length: colCount }, (_, i) => i);
-            const safeTitle = String(title || "DABS — MMR Division Wise Abstract").replace(/[\\/:*?"<>|]/g, "_").trim();
+            const isConstMode = groupBy === "constituency";
+            const visCols = getAwAllColIndices(isConstMode);
+            const colCount = visCols.length;
+            const safeTitle = String(title || "DABS — MMR Abstract").replace(/[\\/:*?"<>|]/g, "_").trim();
             const nowStr = new Date().toLocaleString("en-IN", {
               day: "2-digit", month: "2-digit", year: "numeric",
               hour: "2-digit", minute: "2-digit", hour12: true
             });
 
             const unitRowHtml = `<tr class="aw-unit-row"><th colspan="${colCount}">(ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)</th></tr>`;
-            const headerRowHtml = `<tr>${AW_HEADERS.map((h) => `<th>${esc(h)}</th>`).join("")}</tr>`;
-            const colNumRowHtml = `<tr class="aw-colnum-row">${visCols.map((i) => `<th>${i + 1}</th>`).join("")}</tr>`;
+            const headerRowHtml = `<tr>${visCols.map((cIdx) => `<th>${esc(getAwHeaderLabel(cIdx))}</th>`).join("")}</tr>`;
+            const colNumRowHtml = `<tr class="aw-colnum-row">${visCols.map((_, i) => `<th>${i + 1}</th>`).join("")}</tr>`;
             const tbodyHtml = tableRows.map((row) => {
               if (row.rowType === "divider") {
                 return `<tr class="aw-section-divider"><td colspan="${colCount}">${esc(row.label)}</td></tr>`;
@@ -10935,13 +10945,13 @@
   .print-btn { background: #10B981; color: #FFFFFF; border: none; border-radius: 6px; padding: 6px 13px; font-weight: 700; cursor: pointer; font-size: 12px; }
   .close-btn { background: rgba(255,255,255,0.2); color: #FFFFFF; border: 1px solid rgba(255,255,255,0.4); border-radius: 6px; padding: 6px 11px; font-weight: 700; cursor: pointer; font-size: 12px; }
   @media print { body { margin: 0; } .print-controls { display: none !important; } }
-  table { width: 100%; border-collapse: collapse; font-size: 5.5pt; color: #000000; }
+  table { width: 100%; border-collapse: collapse; font-size: 5.3pt; color: #000000; }
   thead { display: table-header-group; }
   tr { break-inside: avoid; page-break-inside: avoid; }
-  thead th { background: #CFE2F3; border: 0.7px solid #475569; padding: 2.5px 2px; text-align: center; vertical-align: middle; line-height: 1.2; white-space: normal; font-weight: 700; }
+  thead th { background: #CFE2F3; border: 0.7px solid #475569; padding: 2.3px 1.8px; text-align: center; vertical-align: middle; line-height: 1.2; white-space: normal; font-weight: 700; }
   thead tr.aw-unit-row th { background: #F8FAFC; color: #DC2626; text-align: right; font-size: 7pt; padding: 3px 6px; }
   thead tr.aw-colnum-row th { background: #EAD1DC; color: #000000; padding: 2px; }
-  td { border: 0.7px solid #64748B; padding: 2.5px 2px; text-align: center; vertical-align: middle; line-height: 1.22; white-space: nowrap; }
+  td { border: 0.7px solid #64748B; padding: 2.3px 1.8px; text-align: center; vertical-align: middle; line-height: 1.22; white-space: nowrap; }
   td.aw-wrap-td { white-space: normal; }
   tr.aw-zone-total-row td { background: #FCE4D6; font-weight: 700; }
   tr.aw-div-total-row td { background: #FFF2CC; font-weight: 700; }
@@ -10949,8 +10959,8 @@
 </style></head><body>
   <div class="topbar">
     <div>
-      <div style="font-size:10.5pt;font-weight:700;">${esc(title || "DABS — MMR Division Wise Abstract")}</div>
-      <div style="font-size:7.5pt;opacity:0.92;">Filter: ${esc(filterSummary || "All Works")} | Works: ${Number(workCount || 0).toLocaleString("en-IN")} | Divisions: ${divCount || 0} | Generated: ${esc(nowStr)}</div>
+      <div style="font-size:10.5pt;font-weight:700;">${esc(title || "DABS — MMR Abstract")}</div>
+      <div style="font-size:7.5pt;opacity:0.92;">Grouping: ${isConstMode ? "Mathakshethra Wise" : "Division Wise"} | Filter: ${esc(filterSummary || "All Works")} | Works: ${Number(workCount || 0).toLocaleString("en-IN")} | Divisions: ${divCount || 0} | Generated: ${esc(nowStr)}</div>
     </div>
     <div class="print-controls">
       <button class="print-btn" onclick="window.print()">Save / Print PDF</button>
@@ -10985,11 +10995,12 @@
 
       let AI_MODAL_STATE = {
         mode: "works", // "works" | "dabs"
+        dabsGroupBy: "division", // "division" | "constituency"
         title: "Filtered Works",
         filterSummary: "",
         allRows: [],
         def17Rows: [],
-        activeTab: "def17", // "def17" | "all" | "overdue" | "ets"
+        activeTab: "def17",
         showAllRendered: false
       };
 
@@ -11033,8 +11044,8 @@
           const rows = getAiModalFilteredRows();
           if (AI_MODAL_STATE.mode === "dabs") {
             const ds = getAiDataset();
-            const dabs = buildAiDabsTableData(rows, ds.divisions.length);
-            exportAiDabsExcel(dabs.tableRows, AI_MODAL_STATE.title);
+            const dabs = buildAiDabsTableData(rows, ds.divisions.length, AI_MODAL_STATE.dabsGroupBy);
+            exportAiDabsExcel(dabs.tableRows, AI_MODAL_STATE.title, AI_MODAL_STATE.dabsGroupBy);
           } else {
             downloadAiExcel({ title: AI_MODAL_STATE.title, rows: toExportRows(rows, false) });
           }
@@ -11043,8 +11054,8 @@
           const rows = getAiModalFilteredRows();
           if (AI_MODAL_STATE.mode === "dabs") {
             const ds = getAiDataset();
-            const dabs = buildAiDabsTableData(rows, ds.divisions.length);
-            exportAiDabsPdf(dabs.tableRows, AI_MODAL_STATE.title, AI_MODAL_STATE.filterSummary, rows.length, dabs.activeDivs.length, e.currentTarget);
+            const dabs = buildAiDabsTableData(rows, ds.divisions.length, AI_MODAL_STATE.dabsGroupBy);
+            exportAiDabsPdf(dabs.tableRows, AI_MODAL_STATE.title, AI_MODAL_STATE.filterSummary, rows.length, dabs.activeDivs.length, e.currentTarget, AI_MODAL_STATE.dabsGroupBy);
           } else {
             downloadAiPdf({ title: AI_MODAL_STATE.title, rows: toExportRows(rows, false) }, e.currentTarget);
           }
@@ -11111,6 +11122,8 @@
           return base.filter((r) =>
             String(r.division_name || "").toLowerCase().includes(q) ||
             kannadaToEnglish(r.division_name || "").toLowerCase().includes(q) ||
+            String(r.constituency_name || "").toLowerCase().includes(q) ||
+            kannadaToEnglish(r.constituency_name || "").toLowerCase().includes(q) ||
             String(r.hoa || "").toLowerCase().includes(q)
           );
         }
@@ -11130,7 +11143,8 @@
       }
 
       function renderAiResultsModalBody() {
-        const { mode, allRows, def17Rows, activeTab, filterSummary } = AI_MODAL_STATE;
+        const { mode, dabsGroupBy, allRows, def17Rows, activeTab, filterSummary } = AI_MODAL_STATE;
+        const isConstDabs = mode === "dabs" && dabsGroupBy === "constituency";
         const hasDiff17 = def17Rows.length !== allRows.length && def17Rows.length > 0;
         const odCnt = allRows.filter((r) => r.is_overdue).length;
         const etsCnt = allRows.filter((r) => r.is_status_ets).length;
@@ -11143,9 +11157,12 @@
 
         const sumEl = document.getElementById("arm-summary-bar");
         if (sumEl) {
+          const fmtTag = mode === "dabs"
+            ? (isConstDabs ? "DABS (Mathakshethra Wise — 31 Columns)" : "DABS (Division Wise — 30 Columns)")
+            : "Works List (28 Columns)";
           sumEl.innerHTML = `
             <div class="odm-chip-row">
-              <span class="odm-chip"><span class="odm-chip-label">Format:</span> ${mode === "dabs" ? "DABS (MMR Division Wise Abstract)" : "Works List (28 Columns)"}</span>
+              <span class="odm-chip"><span class="odm-chip-label">Format:</span> ${fmtTag}</span>
               <span class="odm-chip"><span class="odm-chip-label">Applied Filter:</span> ${esc(filterSummary || "All Works")}</span>
               <span class="odm-chip"><span class="odm-chip-label">Matching Works:</span> ${rows.length.toLocaleString("en-IN")}</span>
               <span class="odm-chip"><span class="odm-chip-label">Divisions:</span> ${divCnt}</span>
@@ -11192,16 +11209,15 @@
           return;
         }
 
-        // DABS MODE: Render the exact 30-column MMR Division Wise Abstract table
         if (mode === "dabs") {
           const ds = getAiDataset();
-          const { tableRows } = buildAiDabsTableData(rows, ds.divisions.length);
-          const colCount = AW_HEADERS.length;
-          const visCols = Array.from({ length: colCount }, (_, i) => i);
+          const { tableRows } = buildAiDabsTableData(rows, ds.divisions.length, dabsGroupBy);
+          const visCols = getAwAllColIndices(isConstDabs);
+          const colCount = visCols.length;
 
           const unitRowHtml = `<tr class="aw-unit-row"><th colspan="${colCount}">(ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)</th></tr>`;
-          const headerRowHtml = `<tr>${visCols.map((cIdx) => `<th class="${getAwThClass(cIdx)}" style="padding:8px 6px !important;">${esc(AW_HEADERS[cIdx])}</th>`).join("")}</tr>`;
-          const colNumRowHtml = `<tr class="aw-colnum-row">${visCols.map((i) => `<th>${i + 1}</th>`).join("")}</tr>`;
+          const headerRowHtml = `<tr>${visCols.map((cIdx) => `<th class="${getAwThClass(cIdx)}" style="padding:8px 6px !important;">${esc(getAwHeaderLabel(cIdx))}</th>`).join("")}</tr>`;
+          const colNumRowHtml = `<tr class="aw-colnum-row">${visCols.map((_, i) => `<th>${i + 1}</th>`).join("")}</tr>`;
           const tbodyHtml = tableRows.map((row) => {
             if (row.rowType === "divider") {
               return `<tr class="aw-section-divider"><td colspan="${colCount}">${esc(row.label)}</td></tr>`;
@@ -11224,7 +11240,6 @@
           return;
         }
 
-        // STANDARD WORKS MODE: 28-column Kannada Works List
         const limit = AI_MODAL_STATE.showAllRendered ? rows.length : Math.min(rows.length, 300);
         const slice = rows.slice(0, limit);
         const fmtNum = (n) => (typeof n === "number" ? n.toLocaleString("en-IN", { maximumFractionDigits: 2 }) : "-");
@@ -11292,6 +11307,7 @@
         const hasDiff17 = pack.def17Rows && pack.def17Rows.length !== pack.allRows.length && pack.def17Rows.length > 0;
         AI_MODAL_STATE = {
           mode: pack.mode || "works",
+          dabsGroupBy: pack.dabsGroupBy || "division",
           title: pack.title || "Filtered Works",
           filterSummary: pack.filterSummary || "",
           allRows: pack.allRows,
@@ -11305,7 +11321,7 @@
         if (searchEl) {
           searchEl.value = "";
           searchEl.placeholder = AI_MODAL_STATE.mode === "dabs"
-            ? "🔍 Filter Division or H.O.A...."
+            ? "🔍 Filter Division, Mathakshethra or H.O.A...."
             : "🔍 Filter work, AE, division, H.O.A....";
         }
         renderAiResultsModalBody();
@@ -11374,6 +11390,7 @@
           else if (o.role === "AS") STATE.awFilters.as = [o.raw];
         }
 
+        STATE.awAbstractBy = mmrFilters.dabsGroupBy === "constituency" ? "constituency" : "division";
         STATE.allWorksOverdueOnly = Boolean(mmrFilters.overdueOnly);
         STATE.activePage = "allworks";
         if (typeof renderActivePage === "function") renderActivePage();
@@ -11447,7 +11464,7 @@
 
    function downloadAiExcel(pack) {
      if (pack?.isDabs) {
-       exportAiDabsExcel(pack.dabsRows, pack.title);
+       exportAiDabsExcel(pack.dabsRows, pack.title, pack.dabsGroupBy);
        return;
      }
      const rows = pack?.rows || [];
@@ -11500,7 +11517,7 @@
 
         function downloadAiPdf(pack, btnEl) {
      if (pack?.isDabs) {
-       exportAiDabsPdf(pack.dabsRows, pack.title, pack.filterSummary, pack.workCount, pack.divCount, btnEl);
+       exportAiDabsPdf(pack.dabsRows, pack.title, pack.filterSummary, pack.workCount, pack.divCount, btnEl, pack.dabsGroupBy);
        return;
      }
      const rows = pack?.rows || [];
@@ -11638,32 +11655,51 @@
           `SOUTH ZONE TOTALS: Unique Works (after package grouping)=${tot}, Raw Rows across 21 Sheets=${ds.rawRows.length}, Overdue Works (Status 'P')=${odRows.length}, Estimation To be Sanctioned (ETS)=${etsCnt}, Chronic Overdue (2+ Yrs)=${y2}, (3+ Yrs)=${y3}, (4+ Yrs)=${y4}, BESCOM RR Pending (SCP/TSP Borewell)=${ds.bescomRows.length}`
         ];
 
-        // PRIORITY SECTION: If user asked an MMR-style filtered query (e.g. Moola Andaju 500-1000, Taluk, Status, FY, S/F, etc.)
         if (mmr && mmr.wantsDabs) {
           const rows = (mmr.default17Rows.length > 0 && !mmr.matchedHoas.length) ? mmr.default17Rows : mmr.matchedRows;
-          const dabs = buildAiDabsTableData(rows, ds.divisions.length);
-          const z = dabs.zoneTotalRow;
           const filterDesc = mmr.filterLabels.length ? mmr.filterLabels.join(" | ") : "All Works (South Zone)";
-          const statusSummary = z
-            ? AW_STATUS_COLS.filter((c) => z.status[c] > 0).map((c) => `${c}=${z.status[c]}`).join(", ")
-            : "None";
+          const grpMode = mmr.dabsGroupBy || "";
 
-          const hoaLines = dabs.tableRows
-            .filter((r) => r.rowType === "data" && (dabs.activeDivs.length > 1 ? r.divLabel === "ದಕ್ಷಿಣ ವಲಯ" : true))
-            .map((r) => `- ${r.hoaLabel}: Spillover=${r.cont_cnt} (₹${r.cont_est}L), Fresh=${r.new_cnt} (₹${r.new_est}L), Total=${r.tot_cnt} (₹${r.tot_est}L), Contract=₹${r.contract_amt}L, Revised=₹${r.revised_est}L, Grant26-27=${r.grantExcel}, ExpMar26=₹${r.exp_mar26}L, Exp26-27=₹${r.exp_2627}L, TotExp=₹${r.total_exp}L, PendBill=₹${r.pending_bill}L, Bal=₹${r.bal_to_complete}L | CP=${r.status.CP}, CF=${r.status.CF}, P=${r.status.P}, ETS=${r.status.ETS}`);
+          if (!grpMode) {
+            const divSet = new Set(rows.map((r) => r.division_name).filter(Boolean));
+            const constSet = new Set(rows.map((r) => r.constituency_name).filter((v) => v && v !== UNSPECIFIED_LABEL && v !== UNASSIGNED_LABEL));
+            sections.push(
+              `\nLIVE DABS — MODE SELECTION NEEDED:`,
+              `APPLIED FILTERS: ${filterDesc}`,
+              `MATCHING WORKS READY: 17 MMR H.O.A.s=${mmr.default17Rows.length} | All 21 Sheets=${mmr.matchedRows.length} | Divisions=${divSet.size} | Mathakshethras=${constSet.size}`,
+              `INSTRUCTION: The user requested DABS without choosing Division Wise or Mathakshethra Wise. Briefly confirm the applied filters and matching work count, and ask them to select either 'Division Wise DABS' or 'Mathakshethra Wise DABS' using the two option buttons below. Do NOT dump the full abstract table yet.`
+            );
+          } else {
+            const isConst = grpMode === "constituency";
+            const dabs = buildAiDabsTableData(rows, ds.divisions.length, grpMode);
+            const z = dabs.zoneTotalRow;
+            const statusSummary = z
+              ? AW_STATUS_COLS.filter((c) => z.status[c] > 0).map((c) => `${c}=${z.status[c]}`).join(", ")
+              : "None";
 
-          const divTotLines = dabs.tableRows
-            .filter((r) => r.rowType === "div-total")
-            .map((r) => `- ${r.divLabel} (${kannadaToEnglish(r.divLabel)}): Works=${r.tot_cnt} (S=${r.cont_cnt}, F=${r.new_cnt}), TotEst=₹${r.tot_est}L, Contract=₹${r.contract_amt}L, Revised=₹${r.revised_est}L, Grant26-27=₹${r.grantExcel}L, TotExp=₹${r.total_exp}L, PendBill=₹${r.pending_bill}L, Bal=₹${r.bal_to_complete}L | CP=${r.status.CP}, CF=${r.status.CF}, P=${r.status.P}, ETS=${r.status.ETS}`);
+            const hoaLines = dabs.tableRows
+              .filter((r) => r.rowType === "data" && (dabs.activeDivs.length > 1 ? r.divLabel === "ದಕ್ಷಿಣ ವಲಯ" : true))
+              .slice(0, 25)
+              .map((r) => `- ${r.hoaLabel}: Spillover=${r.cont_cnt} (₹${r.cont_est}L), Fresh=${r.new_cnt} (₹${r.new_est}L), Total=${r.tot_cnt} (₹${r.tot_est}L), Contract=₹${r.contract_amt}L, Revised=₹${r.revised_est}L, Grant26-27=${r.grantExcel}, ExpMar26=₹${r.exp_mar26}L, Exp26-27=₹${r.exp_2627}L, TotExp=₹${r.total_exp}L, PendBill=₹${r.pending_bill}L, Bal=₹${r.bal_to_complete}L | CP=${r.status.CP}, CF=${r.status.CF}, P=${r.status.P}, ETS=${r.status.ETS}`);
 
-          sections.push(
-            `\nLIVE DABS (MMR DIVISION WISE ABSTRACT — 30-COLUMN FORMAT):`,
-            `APPLIED FILTERS: ${filterDesc}`,
-            `MATCHING WORKS: 17 MMR H.O.A.s=${mmr.default17Rows.length} | All 21 Sheets=${mmr.matchedRows.length} | Divisions Shown=${dabs.activeDivs.length}`,
-            z ? `GRAND TOTAL (₹ Lakhs): Spillover=${z.cont_cnt} (₹${z.cont_est}L) | Fresh=${z.new_cnt} (₹${z.new_est}L) | Total Works=${z.tot_cnt} (₹${z.tot_est}L) | Contract Amt=₹${z.contract_amt}L | Revised Est=₹${z.revised_est}L | 2026-27 Grant=₹${z.grantExcel}L | Exp upto Mar 2026=₹${z.exp_mar26}L | Exp 2026-27=₹${z.exp_2627}L | Total Exp=₹${z.total_exp}L | Pending Bills=₹${z.pending_bill}L | Balance to Complete=₹${z.bal_to_complete}L | Statuses: ${statusSummary}` : `GRAND TOTAL: 0 works match these filters.`,
-            `H.O.A.-WISE DABS SUMMARY:\n${hoaLines.join("\n") || "None"}`,
-            `DIVISION-WISE DABS TOTALS:\n${divTotLines.join("\n") || "None"}`
-          );
+            const breakdownLines = isConst
+              ? dabs.constTotals
+                  .sort((a, b) => b.agg.tot_cnt - a.agg.tot_cnt)
+                  .slice(0, 35)
+                  .map((c) => `- ${c.constName} (${kannadaToEnglish(c.constName)}) [Div: ${c.divName}]: Works=${c.agg.tot_cnt} (S=${c.agg.cont_cnt}, F=${c.agg.new_cnt}), TotEst=₹${c.agg.tot_est.toFixed(2)}L, TotExp=₹${c.agg.total_exp.toFixed(2)}L, PendBill=₹${c.agg.pending_bill.toFixed(2)}L, Bal=₹${c.agg.bal_to_complete.toFixed(2)}L | CP=${c.agg.status.CP}, CF=${c.agg.status.CF}, P=${c.agg.status.P}, ETS=${c.agg.status.ETS}`)
+              : dabs.tableRows
+                  .filter((r) => r.rowType === "div-total")
+                  .map((r) => `- ${r.divLabel} (${kannadaToEnglish(r.divLabel)}): Works=${r.tot_cnt} (S=${r.cont_cnt}, F=${r.new_cnt}), TotEst=₹${r.tot_est}L, Contract=₹${r.contract_amt}L, Revised=₹${r.revised_est}L, Grant26-27=₹${r.grantExcel}L, TotExp=₹${r.total_exp}L, PendBill=₹${r.pending_bill}L, Bal=₹${r.bal_to_complete}L | CP=${r.status.CP}, CF=${r.status.CF}, P=${r.status.P}, ETS=${r.status.ETS}`);
+
+            sections.push(
+              `\nLIVE DABS (${isConst ? "MATHAKSHETHRA WISE ABSTRACT — 31 COLUMNS WITH ಮತಕ್ಷೇತ್ರ" : "DIVISION WISE ABSTRACT — 30 COLUMNS"}):`,
+              `APPLIED FILTERS: ${filterDesc}`,
+              `MATCHING WORKS: 17 MMR H.O.A.s=${mmr.default17Rows.length} | All 21 Sheets=${mmr.matchedRows.length} | Divisions=${dabs.activeDivs.length} | Mathakshethras=${dabs.activeConsts.length}`,
+              z ? `GRAND TOTAL (₹ Lakhs): Spillover=${z.cont_cnt} (₹${z.cont_est}L) | Fresh=${z.new_cnt} (₹${z.new_est}L) | Total Works=${z.tot_cnt} (₹${z.tot_est}L) | Contract Amt=₹${z.contract_amt}L | Revised Est=₹${z.revised_est}L | 2026-27 Grant=₹${z.grantExcel}L | Exp upto Mar 2026=₹${z.exp_mar26}L | Exp 2026-27=₹${z.exp_2627}L | Total Exp=₹${z.total_exp}L | Pending Bills=₹${z.pending_bill}L | Balance to Complete=₹${z.bal_to_complete}L | Statuses: ${statusSummary}` : `GRAND TOTAL: 0 works match these filters.`,
+              `H.O.A.-WISE DABS SUMMARY:\n${hoaLines.join("\n") || "None"}`,
+              `${isConst ? "MATHAKSHETHRA-WISE" : "DIVISION-WISE"} DABS TOTALS:\n${breakdownLines.join("\n") || "None"}`
+            );
+          }
         } else if (mmr && mmr.hasNonOfficerMmrFilter) {
           const rows = mmr.default17Rows.length > 0 && !mmr.matchedHoas.length ? mmr.default17Rows : mmr.matchedRows;
           const divAgg = new Map();
@@ -11902,16 +11938,34 @@
           return btns.length ? `<div class="mi-ai-action-row">${btns.join("")}</div>` : "";
         }
 
-        // Case 1B: DABS (MMR Division Wise Abstract 30-Column Format)
+        // Case 1B: DABS (Ask Division Wise vs Mathakshethra Wise first, then deliver selected format)
         if (mmr.wantsDabs) {
           if (!mmr.matchedRows.length) return "";
+          const cleanBaseQ = String(rawQuery || "")
+            .replace(/\b(division|mathakshethra|mathakshetra|matakshetra|constituency)\s*[-]?\s*wise\b/gi, "")
+            .replace(/[,;\s]+$/g, "")
+            .trim() || "DABS";
+
+          // If user hasn't picked Division Wise or Mathakshethra Wise yet, show the two choice buttons
+          if (!mmr.dabsGroupBy) {
+            return `
+              <div class="mi-ai-action-row">
+                <button type="button" class="mi-ai-action-btn" data-ask-query="${esc(cleanBaseQ)}, Division wise">Division Wise DABS →</button>
+                <button type="button" class="mi-ai-action-btn" data-ask-query="${esc(cleanBaseQ)}, Mathakshethra wise">Mathakshethra Wise DABS →</button>
+              </div>
+            `;
+          }
+
+          const isConst = mmr.dabsGroupBy === "constituency";
+          const modeLabel = isConst ? "Mathakshethra Wise" : "Division Wise";
           const primaryRows = (mmr.default17Rows.length > 0 && !mmr.matchedHoas.length) ? mmr.default17Rows : mmr.matchedRows;
           const filterDesc = mmr.filterLabels.length ? mmr.filterLabels.join(" | ") : "All Works (South Zone)";
-          const title = `DABS — ${filterDesc}`;
-          const dabs = buildAiDabsTableData(primaryRows, ds.divisions.length);
+          const title = `DABS (${modeLabel}) — ${filterDesc}`;
+          const dabs = buildAiDabsTableData(primaryRows, ds.divisions.length, mmr.dabsGroupBy);
 
           const modalId = saveResultModalPack({
             mode: "dabs",
+            dabsGroupBy: mmr.dabsGroupBy,
             title,
             filterSummary: filterDesc,
             allRows: mmr.matchedRows,
@@ -11919,6 +11973,7 @@
             mmrFilters: mmr
           });
           const packId = saveDabsExportPack({
+            dabsGroupBy: mmr.dabsGroupBy,
             title,
             filterSummary: filterDesc,
             workCount: primaryRows.length,
@@ -11926,10 +11981,11 @@
             dabsRows: dabs.tableRows
           });
 
-          return buildActionButtonsHtml({
+          const otherModeLabel = isConst ? "Division Wise" : "Mathakshethra Wise";
+          const mainBtns = buildActionButtonsHtml({
             resultModalId: modalId,
             modalCount: primaryRows.length,
-            modalLabel: `View DABS Table Popup (${primaryRows.length} Works) →`,
+            modalLabel: `View ${modeLabel} DABS Popup (${primaryRows.length}) →`,
             mmrAbstractId: modalId,
             packId,
             packCount: primaryRows.length,
@@ -11937,6 +11993,8 @@
             pdfLabel: `Download DABS PDF`,
             xlsxLabel: `Download DABS Excel`
           });
+          const switchBtn = `<button type="button" class="mi-ai-action-btn" data-ask-query="${esc(cleanBaseQ)}, ${otherModeLabel}">Switch to ${otherModeLabel} →</button>`;
+          return mainBtns.replace("</div>", `${switchBtn}</div>`);
         }
         // Case 2: MMR Filtered List Queries (Moola Andaju range, Taluk, District, Constituency, Status, FY, S/F, Division, H.O.A.)
         if (mmr.hasNonOfficerMmrFilter && mmr.matchedRows.length === 0) return "";
