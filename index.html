@@ -9548,6 +9548,9 @@
     // =========================================================================
     // MI DASHBOARD AI ASSISTANT (PROPER INITIALS + NON-BLOCKING PDF + POPUPS)
     // =========================================================================
+    // =========================================================================
+    // MI DASHBOARD AI ASSISTANT (FULL MMR FILTER ENGINE + TABLE POPUP + EXPORTS)
+    // =========================================================================
     (function initMiDashboardAi() {
       const esc = (s) =>
         String(s ?? "")
@@ -9558,6 +9561,7 @@
 
       const chatHistory = [];
       const aiExportPacks = new Map();
+      const aiResultModalPacks = new Map();
       let aiPackSeq = 0;
       let lastContextOfficer = null;
 
@@ -9588,42 +9592,24 @@
         "ೊ": "o", "ೋ": "o", "ೌ": "au"
       };
 
-      // Standard Kannada spellings of A-Z English initials
       const KN_INITIALS = {
-        "ಎ": "A", "ಏ": "A",
-        "ಬಿ": "B", "ಬೀ": "B",
-        "ಸಿ": "C", "ಸೀ": "C",
-        "ಡಿ": "D", "ಡೀ": "D",
-        "ಇ": "E", "ಈ": "E",
-        "ಎಫ್": "F", "ಯಫ್": "F", "ಎಫ": "F",
-        "ಜಿ": "G", "ಜೀ": "G",
-        "ಹೆಚ್": "H", "ಎಚ್": "H", "ಹೆಚ್ಚ್": "H", "ಹೆಚ": "H",
-        "ಐ": "I",
-        "ಜೆ": "J", "ಜೇ": "J",
-        "ಕೆ": "K", "ಕೇ": "K",
+        "ಎ": "A", "ಏ": "A", "ಬಿ": "B", "ಬೀ": "B", "ಸಿ": "C", "ಸೀ": "C",
+        "ಡಿ": "D", "ಡೀ": "D", "ಇ": "E", "ಈ": "E",
+        "ಎಫ್": "F", "ಯಫ್": "F", "ಎಫ": "F", "ಜಿ": "G", "ಜೀ": "G",
+        "ಹೆಚ್": "H", "ಎಚ್": "H", "ಹೆಚ್ಚ್": "H", "ಹೆಚ": "H", "ಐ": "I",
+        "ಜೆ": "J", "ಜೇ": "J", "ಕೆ": "K", "ಕೇ": "K",
         "ಎಲ್": "L", "ಯಲ್": "L", "ಎಲ": "L",
         "ಎಂ": "M", "ಎಮ್": "M", "ಯಂ": "M", "ಯಮ್": "M", "ಎಮ": "M",
-        "ಎನ್": "N", "ಯನ್": "N", "ಎನ": "N",
-        "ಒ": "O", "ಓ": "O",
-        "ಪಿ": "P", "ಪೀ": "P",
-        "ಕ್ಯೂ": "Q", "ಕ್ಯು": "Q",
-        "ಆರ್": "R", "ಆರ": "R",
-        "ಎಸ್": "S", "ಯಸ್": "S", "ಎಸ": "S",
-        "ಟಿ": "T", "ಟೀ": "T",
-        "ಯು": "U", "ಯೂ": "U",
-        "ವಿ": "V", "ವೀ": "V",
+        "ಎನ್": "N", "ಯನ್": "N", "ಎನ": "N", "ಒ": "O", "ಓ": "O",
+        "ಪಿ": "P", "ಪೀ": "P", "ಕ್ಯೂ": "Q", "ಕ್ಯು": "Q",
+        "ಆರ್": "R", "ಆರ": "R", "ಎಸ್": "S", "ಯಸ್": "S", "ಎಸ": "S",
+        "ಟಿ": "T", "ಟೀ": "T", "ಯು": "U", "ಯೂ": "U", "ವಿ": "V", "ವೀ": "V",
         "ಡಬ್ಲ್ಯೂ": "W", "ಡಬ್ಲ್ಯು": "W", "ಡಬಲ್ಯೂ": "W",
-        "ಎಕ್ಸ್": "X",
-        "ವೈ": "Y",
-        "ಝಡ್": "Z", "ಜೆಡ್": "Z"
+        "ಎಕ್ಸ್": "X", "ವೈ": "Y", "ಝಡ್": "Z", "ಜೆಡ್": "Z"
       };
 
       const KN_HONORIFICS = {
-        "ಶ್ರೀ": "Sri",
-        "ಶ್ರೀಮತಿ": "Smt.",
-        "ಕುಮಾರಿ": "Kum.",
-        "ಕು": "Kum.",
-        "ಡಾ": "Dr."
+        "ಶ್ರೀ": "Sri", "ಶ್ರೀಮತಿ": "Smt.", "ಕುಮಾರಿ": "Kum.", "ಕು": "Kum.", "ಡಾ": "Dr."
       };
 
       function normalizeKnRaw(input) {
@@ -9643,15 +9629,9 @@
           const ch = word[i];
           if (KN_CONS[ch]) {
             const next = word[i + 1];
-            if (next === "\u0CCD") {
-              out += KN_CONS[ch];
-              i++;
-            } else if (KN_MATRAS[next]) {
-              out += KN_CONS[ch] + KN_MATRAS[next];
-              i++;
-            } else {
-              out += KN_CONS[ch] + "a";
-            }
+            if (next === "\u0CCD") { out += KN_CONS[ch]; i++; }
+            else if (KN_MATRAS[next]) { out += KN_CONS[ch] + KN_MATRAS[next]; i++; }
+            else { out += KN_CONS[ch] + "a"; }
           } else if (KN_VOWELS[ch]) {
             out += KN_VOWELS[ch];
           } else if (ch === "\u0C82") {
@@ -9666,7 +9646,6 @@
         return out;
       }
 
-      // Converts "ಎ.ಹೆಚ್.ಉಮೇಶ್" -> "A.H. Umesh", "ಮಣಿಕಂಠ ಹೆಚ್ ಜೆ" -> "Manikantha H.J."
       function kannadaToEnglish(input) {
         if (!input) return "";
         const norm = normalizeKnRaw(input).trim();
@@ -9675,26 +9654,18 @@
 
         const rawTokens = norm.split(/[\s.,/()\-]+/).filter(Boolean);
         const parts = [];
-
         rawTokens.forEach((tok) => {
-          if (KN_HONORIFICS[tok]) {
-            parts.push({ type: "word", text: KN_HONORIFICS[tok] });
-          } else if (KN_INITIALS[tok]) {
-            parts.push({ type: "init", text: KN_INITIALS[tok] });
-          } else if (/^[a-zA-Z]$/.test(tok)) {
-            parts.push({ type: "init", text: tok.toUpperCase() });
-          } else if (/[\u0C80-\u0CFF]/.test(tok)) {
+          if (KN_HONORIFICS[tok]) parts.push({ type: "word", text: KN_HONORIFICS[tok] });
+          else if (KN_INITIALS[tok]) parts.push({ type: "init", text: KN_INITIALS[tok] });
+          else if (/^[a-zA-Z]$/.test(tok)) parts.push({ type: "init", text: tok.toUpperCase() });
+          else if (/[\u0C80-\u0CFF]/.test(tok)) {
             const en = transliterateKnWord(tok);
-            parts.push({
-              type: "word",
-              text: en.charAt(0).toUpperCase() + en.slice(1)
-            });
+            parts.push({ type: "word", text: en.charAt(0).toUpperCase() + en.slice(1) });
           } else {
             parts.push({ type: "word", text: tok });
           }
         });
 
-        // Group adjacent initials cleanly: ["A","H","Umesh"] -> "A.H. Umesh"
         const out = [];
         for (let i = 0; i < parts.length; i++) {
           if (parts[i].type === "init") {
@@ -9711,16 +9682,11 @@
         return out.join(" ").trim();
       }
 
-      function titleCaseEn(str) {
-        return String(str || "").replace(/\s+/g, " ").trim();
-      }
-
       function formatBilingualName(raw) {
         const s = String(raw || "").trim();
         if (!s) return "-";
         if (/[\u0C80-\u0CFF]/.test(s)) {
-          const en = kannadaToEnglish(s);
-          return `${esc(s)} <span style="color:#475569;font-weight:600;">(${esc(en)})</span>`;
+          return `${esc(s)} <span style="color:#475569;font-weight:600;">(${esc(kannadaToEnglish(s))})</span>`;
         }
         return esc(s);
       }
@@ -9728,44 +9694,24 @@
       function phoneticFold(str) {
         let s = kannadaToEnglish(str).toLowerCase();
         const placeAliases = [
-          [/\bbangalore\b/g, "bengaluru"],
-          [/\bmysore\b/g, "mysuru"],
-          [/\btumkur\b/g, "tumakuru"],
-          [/\bmangalore\b/g, "mangaluru"],
-          [/\bshimoga\b/g, "shivamogga"],
-          [/\bchikmagalur\b/g, "chikkamagaluru"],
-          [/\bchickballapur\b/g, "chikkaballapura"],
-          [/\bchikkaballapur\b/g, "chikkaballapura"],
-          [/\bramanagar\b/g, "ramanagara"],
-          [/\bchamarajanagar\b/g, "chamarajanagara"],
-          [/\bcoorg\b/g, "kodagu"],
-          [/\bsouth zone\b/g, "dakshina valaya"]
+          [/\bbangalore\b/g, "bengaluru"], [/\bmysore\b/g, "mysuru"],
+          [/\btumkur\b/g, "tumakuru"], [/\bmangalore\b/g, "mangaluru"],
+          [/\bshimoga\b/g, "shivamogga"], [/\bchikmagalur\b/g, "chikkamagaluru"],
+          [/\bchickballapur\b/g, "chikkaballapura"], [/\bchikkaballapur\b/g, "chikkaballapura"],
+          [/\bramanagar\b/g, "ramanagara"], [/\bchamarajanagar\b/g, "chamarajanagara"],
+          [/\bcoorg\b/g, "kodagu"], [/\bsouth zone\b/g, "dakshina valaya"]
         ];
         placeAliases.forEach(([re, rep]) => { s = s.replace(re, rep); });
 
         return s
           .replace(/[^a-z0-9]+/g, " ")
-          .replace(/krush/g, "krish")
-          .replace(/mru/g, "mri")
-          .replace(/sru/g, "sri")
-          .replace(/hru/g, "hri")
-          .replace(/ee|ii/g, "i")
-          .replace(/oo|uu/g, "u")
-          .replace(/aa/g, "a")
-          .replace(/ph/g, "f")
-          .replace(/sh/g, "s")
-          .replace(/chh/g, "ch")
-          .replace(/bh/g, "b")
-          .replace(/dh/g, "d")
-          .replace(/th/g, "t")
-          .replace(/kh/g, "k")
-          .replace(/gh/g, "g")
-          .replace(/jh/g, "j")
-          .replace(/w/g, "v")
-          .replace(/z/g, "j")
-          .replace(/c(?=[ei])/g, "s")
-          .replace(/c(?!h)/g, "k")
-          .replace(/q/g, "k")
+          .replace(/krush/g, "krish").replace(/mru/g, "mri").replace(/sru/g, "sri").replace(/hru/g, "hri")
+          .replace(/ee|ii/g, "i").replace(/oo|uu/g, "u").replace(/aa/g, "a")
+          .replace(/ph/g, "f").replace(/sh/g, "s").replace(/chh/g, "ch")
+          .replace(/bh/g, "b").replace(/dh/g, "d").replace(/th/g, "t")
+          .replace(/kh/g, "k").replace(/gh/g, "g").replace(/jh/g, "j")
+          .replace(/w/g, "v").replace(/z/g, "j")
+          .replace(/c(?=[ei])/g, "s").replace(/c(?!h)/g, "k").replace(/q/g, "k")
           .replace(/jn|gy/g, "gn")
           .replace(/([a-z])\1+/g, "$1")
           .replace(/\b([a-z]{3,})a\b/g, "$1")
@@ -9774,8 +9720,7 @@
       }
 
       function extractInitialLetters(str) {
-        const en = kannadaToEnglish(str);
-        return en
+        return kannadaToEnglish(str)
           .split(/[\s.,/()\-]+/)
           .filter((t) => /^[a-zA-Z]$/.test(t))
           .map((t) => t.toLowerCase());
@@ -9813,7 +9758,7 @@
         });
       }
 
-      // 2. INDEX LIVE DASHBOARD DATA (AE, AEE, TA, AS, DIVISIONS, HOAs, BESCOM)
+      // 2. INDEX ALL LIVE DASHBOARD + MMR COMPLETE ABSTRACT DIMENSIONS
       let _aiIndexCache = { ref: null, len: 0, data: null };
 
       function getAiDataset() {
@@ -9822,24 +9767,35 @@
           return _aiIndexCache.data;
         }
 
-        const collapsed = typeof collapsePackageRows === "function" ? collapsePackageRows(rawRows) : rawRows;
         const todayDt = typeof getTodayIST === "function" ? getTodayIST().dateObj : new Date();
 
-        const enriched = collapsed.map((r) => {
+        const enrichRow = (r) => {
           let odDays = -1;
           if (r.is_overdue && typeof parseIndianDate === "function") {
             const tDt = parseIndianDate(r.target_date);
             if (tDt) odDays = Math.max(0, Math.floor((todayDt - tDt) / 86400000));
           }
+          const costNum = parseFloat(r.est_cost);
           return {
             ...r,
             _odDays: odDays,
-            _costNum: parseFloat(r.est_cost) || 0
+            _costNum: isNaN(costNum) ? 0 : costNum,
+            _hasCost: !isNaN(costNum),
+            _odPeriod: r.od_period || (typeof deriveOverduePeriodFromRow === "function" ? deriveOverduePeriodFromRow(r, todayDt) : ""),
+            _woFy: r.wo_fy || (typeof extractFinancialYear === "function" ? extractFinancialYear(r.start_date) : ""),
+            _statusUp: String(r.status_raw || "").toUpperCase().trim()
           };
-        });
+        };
+
+        const rawEnriched = rawRows.map(enrichRow);
+        const collapsed = (typeof collapsePackageRows === "function" ? collapsePackageRows(rawRows) : rawRows).map(enrichRow);
 
         const officersMap = new Map();
         const divsMap = new Map();
+        const subdivsMap = new Map();
+        const distsMap = new Map();
+        const taluksMap = new Map();
+        const constsMap = new Map();
         const hoasMap = new Map();
 
         const skipNames = new Set([
@@ -9852,7 +9808,8 @@
           ae: { role: "AE", isAee: false, pred: (r, name) => r.so_name === name },
           aee: { role: "AEE", isAee: true, pred: (r, name) => r.aee_name === name },
           ta: { role: "TA", isAee: false, pred: (r, name) => r.ta_name === name },
-          as: { role: "AS", isAee: false, pred: (r, name) => r.as_name === name }
+          as: { role: "AS", isAee: false, pred: (r, name) => r.as_name === name },
+          ee: { role: "EE", isAee: false, pred: (r, name) => r.ee_name === name }
         };
 
         function registerOfficer(name, roleKey, row) {
@@ -9884,37 +9841,49 @@
           if (row.division_name) o.divs.add(row.division_name);
         }
 
-        enriched.forEach((r) => {
+        function registerBucket(map, val, row, minTokLen = 3) {
+          if (!val || skipNames.has(val)) return;
+          if (!map.has(val)) {
+            const f = phoneticFold(val);
+            map.set(val, {
+              raw: val,
+              enName: kannadaToEnglish(val),
+              folded: f,
+              initials: [],
+              tokens: f.split(" ").filter((t) => t.length >= minTokLen),
+              rows: []
+            });
+          }
+          map.get(val).rows.push(row);
+        }
+
+        collapsed.forEach((r) => {
           registerOfficer(r.so_name, "ae", r);
           registerOfficer(r.aee_name, "aee", r);
           registerOfficer(r.ta_name, "ta", r);
           registerOfficer(r.as_name, "as", r);
-
-          if (r.division_name && !skipNames.has(r.division_name)) {
-            if (!divsMap.has(r.division_name)) {
-              const f = phoneticFold(r.division_name);
-              divsMap.set(r.division_name, { raw: r.division_name, folded: f, initials: [], tokens: f.split(" ").filter((t) => t.length >= 3), rows: [] });
-            }
-            divsMap.get(r.division_name).rows.push(r);
-          }
-
-          if (r.hoa && !skipNames.has(r.hoa)) {
-            if (!hoasMap.has(r.hoa)) {
-              const f = phoneticFold(r.hoa);
-              hoasMap.set(r.hoa, { raw: r.hoa, folded: f, initials: [], tokens: f.split(" ").filter((t) => t.length >= 2), rows: [] });
-            }
-            hoasMap.get(r.hoa).rows.push(r);
-          }
+          registerOfficer(r.ee_name, "ee", r);
         });
 
-        const bescomRows = getBescomRowsSafe();
+        rawEnriched.forEach((r) => {
+          registerBucket(divsMap, r.division_name, r, 3);
+          registerBucket(subdivsMap, r.subdivision_name, r, 3);
+          registerBucket(distsMap, r.district_name, r, 3);
+          registerBucket(taluksMap, r.taluk_name, r, 3);
+          registerBucket(constsMap, r.constituency_name, r, 3);
+          registerBucket(hoasMap, r.hoa, r, 2);
+        });
 
         const data = {
-          rawRows,
-          rows: enriched,
-          bescomRows,
+          rawRows: rawEnriched,
+          rows: collapsed,
+          bescomRows: getBescomRowsSafe(),
           officers: Array.from(officersMap.values()),
           divisions: Array.from(divsMap.values()),
+          subdivisions: Array.from(subdivsMap.values()),
+          districts: Array.from(distsMap.values()),
+          taluks: Array.from(taluksMap.values()),
+          constituencies: Array.from(constsMap.values()),
           hoas: Array.from(hoasMap.values())
         };
         _aiIndexCache = { ref: rawRows, len: rawRows.length, data };
@@ -9930,18 +9899,24 @@
         "least", "lowest", "best", "minimum", "min", "overdue", "od", "period", "duration", "work",
         "works", "ets", "bescom", "pending", "reg", "registration", "rr", "no", "borewell", "chronic",
         "year", "years", "yr", "yrs", "month", "months", "day", "days", "cost", "amount", "estimate",
-        "estimated", "expenditure", "bill", "expensive", "big", "biggest", "largest", "ae", "aee",
-        "ta", "as", "officer", "officers", "engineer", "technical", "assistant", "account",
-        "superintendent", "division", "divisions", "subdivision", "hoa", "lekkashirshike", "summary",
-        "overview", "report", "details", "detail", "status", "pct", "percentage", "percent",
-        "south", "zone", "please", "pls", "pdf", "excel", "popup", "pop", "open", "download",
-        "his", "her", "him", "their", "this", "that"
+        "estimated", "expenditure", "bill", "bills", "expensive", "big", "biggest", "largest",
+        "moola", "mula", "andaju", "andaj", "motta", "lakh", "lakhs", "crore", "crores", "cr",
+        "between", "above", "below", "over", "greater", "less", "more", "than", "upto", "range",
+        "ae", "aee", "ta", "as", "ee", "officer", "officers", "engineer", "executive", "technical",
+        "assistant", "account", "superintendent", "division", "divisions", "subdivision", "sub",
+        "district", "districts", "taluk", "taluks", "taluka", "constituency", "constituencies",
+        "mathakshetra", "hoa", "lekkashirshike", "scheme", "sheet", "sheets", "mmr", "complete",
+        "abstract", "summary", "overview", "report", "details", "detail", "status", "pct",
+        "percentage", "percent", "south", "zone", "please", "pls", "pdf", "excel", "popup", "pop",
+        "open", "download", "his", "her", "him", "their", "this", "that", "these", "those", "its",
+        "it", "fresh", "spillover", "continuing", "new", "govt", "government", "order", "fy",
+        "financial", "progress", "completed", "table", "data", "like", "such", "things"
       ]);
 
       function extractQueryTokens(rawQuery) {
         return phoneticFold(rawQuery)
           .split(" ")
-          .filter((t) => t.length >= 2 && !STOPWORDS.has(t));
+          .filter((t) => t.length >= 2 && !STOPWORDS.has(t) && !/^\d+$/.test(t));
       }
 
       function matchItems(queryTokens, items, roleHint = "", rawQueryForInitials = "") {
@@ -9983,14 +9958,269 @@
           }
         });
 
-        scored.sort((a, b) => b.score - a.score || (b.item.odRows?.length || 0) - (a.item.odRows?.length || 0));
+        scored.sort((a, b) => b.score - a.score || (b.item.odRows?.length || b.item.rows?.length || 0) - (a.item.odRows?.length || a.item.rows?.length || 0));
         if (!scored.length) return [];
         const topScore = scored[0].score;
-        const threshold = topScore >= 90 ? 80 : 60;
+        const threshold = topScore >= 90 ? 80 : 62;
         return scored.filter((s) => s.score >= threshold).map((s) => s.item);
       }
 
-      // Detect exact officer(s) mentioned inside Gemini's own reply text
+      function subtractTokens(qTokens, matchedLists) {
+        const used = new Set();
+        matchedLists.forEach((list) => {
+          (list || []).forEach((item) => {
+            if (item.folded) used.add(item.folded);
+            (item.tokens || []).forEach((t) => used.add(t));
+          });
+        });
+        return qTokens.filter((t) => !used.has(t));
+      }
+
+      // 3. SMART MMR FILTER PARSER (COST RANGE, FY, S/F, STATUS, LOCATIONS, H.O.A., OFFICERS)
+      function parseCostRange(rawQuery) {
+        const q = String(rawQuery || "");
+        const hasCostWord = /\b(moola|mula|andaju|andaj|motta|cost|est|estimate|estimated|amount|budget|lakh|lakhs|crore|crores|cr|rs)\b|₹|ಮೂಲ|ಅಂದಾಜು|ಮೊತ್ತ|ಲಕ್ಷ|ಕೋಟಿ/i.test(q);
+
+        // Strip FYs (2023-24) & durations (2-5 years) so they never get mistaken for cost numbers
+        const cleaned = q
+          .replace(/\b20\d{2}\s*[-/]\s*(?:20)?\d{2}\b/g, " ")
+          .replace(/\b\d+(?:\.\d+)?\s*(?:-|–|to|and)\s*\d+(?:\.\d+)?\s*(?:years?|yrs?|months?|mos?|days?)\b/gi, " ")
+          .replace(/\b\d+\s*\+?\s*(?:years?|yrs?|months?|mos?|days?)\b/gi, " ");
+
+        const toLakhs = (numStr, unitStr) => {
+          const n = parseFloat(numStr);
+          if (isNaN(n)) return NaN;
+          return /crore|cr|ಕೋಟಿ/i.test(unitStr || "") ? n * 100 : n;
+        };
+
+        const mapAwBucket = (minVal, maxVal) => {
+          if (minVal === 0 && maxVal === 100) return "Less than 100";
+          if (minVal === 0 && maxVal === 200) return "0-200";
+          if (minVal === 100 && maxVal === 500) return "100-500";
+          if (minVal === 200 && maxVal === 500) return "200-500";
+          if (minVal === 500 && maxVal === 1000) return "500-1000";
+          if (minVal === 1000 && maxVal === 2500) return "1000-2500";
+          if (minVal === 2500 && maxVal === 5000) return "2500-5000";
+          if (minVal === 5000 && maxVal === 10000) return "5000-10000";
+          if (minVal === 10000 && !isFinite(maxVal)) return "More than 10000";
+          return "";
+        };
+
+        // Pattern 1: Range ("between 500 to 1000 lakhs", "500-1000", "5 to 10 crore")
+        const rangeMatch = cleaned.match(/(?:between\s+|from\s+)?(\d+(?:\.\d+)?)\s*(lakhs?|lakh|crores?|crore|cr|ಲಕ್ಷ|ಕೋಟಿ)?\s*(?:to|and|-|–|ರಿಂದ)\s*(\d+(?:\.\d+)?)\s*(lakhs?|lakh|crores?|crore|cr|ಲಕ್ಷ|ಕೋಟಿ)?/i);
+        if (rangeMatch && (hasCostWord || rangeMatch[2] || rangeMatch[4])) {
+          const unit2 = rangeMatch[4] || rangeMatch[2] || "";
+          const unit1 = rangeMatch[2] || unit2;
+          const v1 = toLakhs(rangeMatch[1], unit1);
+          const v2 = toLakhs(rangeMatch[3], unit2);
+          if (!isNaN(v1) && !isNaN(v2) && v2 >= v1) {
+            return {
+              min: v1, max: v2, strictMin: false, strictMax: false,
+              label: `${v1}–${v2} Lakhs`,
+              awBucket: mapAwBucket(v1, v2)
+            };
+          }
+        }
+
+        // Pattern 2: Above / More than
+        const aboveMatch = cleaned.match(/(?:above|over|more\s+than|greater\s+than|exceeding|at\s+least|>=|>)\s*(?:rs\.?|₹)?\s*(\d+(?:\.\d+)?)\s*(lakhs?|lakh|crores?|crore|cr|ಲಕ್ಷ|ಕೋಟಿ)?/i);
+        if (aboveMatch && (hasCostWord || aboveMatch[2])) {
+          const v = toLakhs(aboveMatch[1], aboveMatch[2]);
+          if (!isNaN(v)) {
+            return {
+              min: v, max: Infinity, strictMin: !/>=|at\s+least/i.test(aboveMatch[0]), strictMax: false,
+              label: `> ${v} Lakhs`,
+              awBucket: mapAwBucket(v, Infinity)
+            };
+          }
+        }
+
+        // Pattern 3: Below / Less than
+        const belowMatch = cleaned.match(/(?:below|under|less\s+than|up\s*to|upto|<=|<)\s*(?:rs\.?|₹)?\s*(\d+(?:\.\d+)?)\s*(lakhs?|lakh|crores?|crore|cr|ಲಕ್ಷ|ಕೋಟಿ)?/i);
+        if (belowMatch && (hasCostWord || belowMatch[2])) {
+          const v = toLakhs(belowMatch[1], belowMatch[2]);
+          if (!isNaN(v)) {
+            return {
+              min: 0, max: v, strictMin: false, strictMax: !/<=|up\s*to|upto/i.test(belowMatch[0]),
+              label: `< ${v} Lakhs`,
+              awBucket: mapAwBucket(0, v)
+            };
+          }
+        }
+        return null;
+      }
+
+      function parseMmrQueryFilters(rawQuery, ds) {
+        const qRaw = String(rawQuery || "").trim();
+        const qLower = qRaw.toLowerCase();
+        const qTokens = extractQueryTokens(qRaw);
+
+        // 1. Cost range (Moola Andaju)
+        const costRange = parseCostRange(qRaw);
+
+        // 2. Financial Year (e.g. 2023-24 or 2023-2024)
+        let goFy = "", woFy = "", anyFy = "";
+        const fyMatches = qRaw.match(/\b(20\d{2})\s*[-/]\s*(?:20)?(\d{2})\b/g) || [];
+        if (fyMatches.length) {
+          const m = fyMatches[0].match(/(20\d{2})\s*[-/]\s*(?:20)?(\d{2})/);
+          if (m) {
+            const normFy = `${m[1]}-${parseInt(m[1], 10) + 1}`;
+            if (/\b(work\s*order|wo)\b|ಕಾರ್ಯಾದೇಶ/i.test(qLower)) woFy = normFy;
+            else if (/\b(govt|government|go)\b|ಸರ್ಕಾರದ\s*ಆದೇಶ/i.test(qLower)) goFy = normFy;
+            else anyFy = normFy;
+          }
+        }
+
+        // 3. Work Type (S = Spillover/Continuing, F = Fresh/New)
+        let sf = "";
+        if (/\b(fresh|new\s+works?)\b|ಹೊಸ/i.test(qLower)) sf = "F";
+        else if (/\b(spillover|spill\s*over|continuing)\b|ಮುಂದುವರೆದ/i.test(qLower)) sf = "S";
+
+        // 4. Progress Status codes & Overdue Only
+        const statuses = [];
+        const statusCodes = ["CP", "CF", "TBS", "TP", "ETS", "OTH", "CBW", "CEF", "PBW", "CBWPM", "RRR", "BWF"];
+        statusCodes.forEach((code) => {
+          if (new RegExp(`\\b${code}\\b`, "i").test(qRaw)) statuses.push(code);
+        });
+        if (/\bstatus\s*[:=]?\s*p\b|\bin\s+progress\b|\bongoing\b/i.test(qLower)) statuses.push("P");
+
+        const overdueOnly = /\b(overdue|od|chronic)\b|ಬಾಕಿ\s*ಅವಧಿ/i.test(qLower);
+
+        // 5. Overdue Period
+        let odPeriod = "";
+        let minOdDays = 0;
+        if (/\bmore\s+than\s+10\s*y|>\s*10\s*y|10\+\s*y/i.test(qLower)) odPeriod = "More than 10 years";
+        else if (/\b5\s*[-–to]+\s*10\s*y/i.test(qLower)) odPeriod = "5-10 Years";
+        else if (/\b2\s*[-–to]+\s*5\s*y/i.test(qLower)) odPeriod = "2-5 Years";
+        else if (/\b(?:<|less\s+than|under)\s*2\s*y/i.test(qLower)) odPeriod = "<2 Years";
+        else if (/\b4\+\s*y|more\s+than\s+4\s*y|above\s+4\s*y/i.test(qLower)) minOdDays = 1460;
+        else if (/\b3\+\s*y|more\s+than\s+3\s*y|above\s+3\s*y/i.test(qLower)) minOdDays = 1095;
+        else if (/\b2\+\s*y|chronic/i.test(qLower)) minOdDays = 730;
+
+        // 6. H.O.A. matching (direct substring + phonetic)
+        const matchedHoas = ds.hoas.filter((h) => {
+          const hLow = h.raw.toLowerCase();
+          if (qRaw.includes(h.raw)) return true;
+          if (hLow.length >= 2 && new RegExp(`\\b${hLow.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(qRaw)) return true;
+          return false;
+        });
+
+        // 7. Smart Location Matching (avoid double-filtering Division + Taluk on same word)
+        const hasDivWord = /\bdivisions?\b|ವಿಭಾಗ/i.test(qLower);
+        const hasSubWord = /\bsub[-\s]?divisions?\b|ಉಪ\s*ವಿಭಾಗ/i.test(qLower);
+        const hasDistWord = /\bdistricts?\b|ಜಿಲ್ಲೆ/i.test(qLower);
+        const hasTalukWord = /\btaluks?|talukas?\b|ತಾಲ್ಲೂಕು|ತಾಲೂಕು/i.test(qLower);
+        const hasConstWord = /\bconstituenc|mathakshetra/i.test(qLower) || /ಮತಕ್ಷೇತ್ರ/.test(qRaw);
+
+        let divisions = [], subdivisions = [], districts = [], taluks = [], constituencies = [];
+        let remTokens = subtractTokens(qTokens, [matchedHoas]);
+
+        if (hasConstWord) {
+          constituencies = matchItems(remTokens, ds.constituencies).slice(0, 1);
+          remTokens = subtractTokens(remTokens, [constituencies]);
+        }
+        if (hasTalukWord) {
+          taluks = matchItems(remTokens, ds.taluks).slice(0, 1);
+          remTokens = subtractTokens(remTokens, [taluks]);
+        }
+        if (hasSubWord) {
+          subdivisions = matchItems(remTokens, ds.subdivisions).slice(0, 1);
+          remTokens = subtractTokens(remTokens, [subdivisions]);
+        }
+        if (hasDistWord) {
+          districts = matchItems(remTokens, ds.districts).slice(0, 1);
+          remTokens = subtractTokens(remTokens, [districts]);
+        }
+        if (hasDivWord || (!hasConstWord && !hasTalukWord && !hasSubWord && !hasDistWord)) {
+          divisions = matchItems(remTokens, ds.divisions).slice(0, 1);
+          remTokens = subtractTokens(remTokens, [divisions]);
+        }
+        // Fallback if user wrote a taluk/constituency/subdivision name without the keyword
+        if (!divisions.length && !subdivisions.length && !districts.length && !taluks.length && !constituencies.length && remTokens.length) {
+          const tryTaluk = matchItems(remTokens, ds.taluks).slice(0, 1);
+          const tryConst = !tryTaluk.length ? matchItems(remTokens, ds.constituencies).slice(0, 1) : [];
+          const trySub = (!tryTaluk.length && !tryConst.length) ? matchItems(remTokens, ds.subdivisions).slice(0, 1) : [];
+          taluks = tryTaluk;
+          constituencies = tryConst;
+          subdivisions = trySub;
+          remTokens = subtractTokens(remTokens, [taluks, constituencies, subdivisions]);
+        }
+
+        // 8. Officer Role Hint & Officer Matching on remaining tokens
+        let roleHint = "";
+        if (/\baee\b|assistant executive/i.test(qLower)) roleHint = "AEE";
+        else if (/\bee\b|executive engineer/i.test(qLower)) roleHint = "EE";
+        else if (/\bae\b|assistant engineer/i.test(qLower)) roleHint = "AE";
+        else if (/\bta\b|technical assistant/i.test(qLower)) roleHint = "TA";
+        else if (/\b(as|account superintendent|accounts superintendent)\b/i.test(qLower)) roleHint = "AS";
+
+        const officers = matchItems(remTokens, ds.officers, roleHint, qRaw);
+
+        const hasNonOfficerMmrFilter = Boolean(
+          costRange || goFy || woFy || anyFy || sf || statuses.length || odPeriod || minOdDays ||
+          matchedHoas.length || divisions.length || subdivisions.length || districts.length || taluks.length || constituencies.length
+        );
+        const hasAnyFilter = hasNonOfficerMmrFilter || officers.length > 0 || overdueOnly;
+
+        // Run the exact filter against ALL raw rows (identical to MMR Complete Abstract!)
+        const matchesFilter = (r) => {
+          if (costRange) {
+            if (!r._hasCost) return false;
+            if (costRange.strictMin ? r._costNum <= costRange.min : r._costNum < costRange.min) return false;
+            if (isFinite(costRange.max)) {
+              if (costRange.strictMax ? r._costNum >= costRange.max : r._costNum > costRange.max) return false;
+            }
+          }
+          if (goFy && r.go_fy !== goFy) return false;
+          if (woFy && r._woFy !== woFy) return false;
+          if (anyFy && r.go_fy !== anyFy && r._woFy !== anyFy) return false;
+          if (sf && (r.is_new_work ? "F" : "S") !== sf) return false;
+          if (statuses.length && !statuses.includes(r._statusUp)) return false;
+          if ((overdueOnly || odPeriod || minOdDays) && !r.is_overdue) return false;
+          if (odPeriod && r._odPeriod !== odPeriod) return false;
+          if (minOdDays && r._odDays <= minOdDays) return false;
+          if (matchedHoas.length && !matchedHoas.some((h) => h.raw === r.hoa)) return false;
+          if (divisions.length && !divisions.some((d) => d.raw === r.division_name)) return false;
+          if (subdivisions.length && !subdivisions.some((s) => s.raw === r.subdivision_name)) return false;
+          if (districts.length && !districts.some((d) => d.raw === r.district_name)) return false;
+          if (taluks.length && !taluks.some((t) => t.raw === r.taluk_name)) return false;
+          if (constituencies.length && !constituencies.some((c) => c.raw === r.constituency_name)) return false;
+          if (officers.length && !officers[0].rowPred(r, officers[0].raw)) return false;
+          return true;
+        };
+
+        const matchedRows = hasAnyFilter ? ds.rawRows.filter(matchesFilter) : [];
+        const default17Rows = (typeof isDefaultAwHoa === "function" && !matchedHoas.length)
+          ? matchedRows.filter((r) => isDefaultAwHoa(r.hoa))
+          : matchedRows;
+
+        // Human-readable filter summary chips
+        const filterLabels = [];
+        if (costRange) filterLabels.push(`Moola Andaju: ${costRange.label}`);
+        if (divisions.length) filterLabels.push(`Division: ${divisions[0].raw}`);
+        if (subdivisions.length) filterLabels.push(`Sub-division: ${subdivisions[0].raw}`);
+        if (districts.length) filterLabels.push(`District: ${districts[0].raw}`);
+        if (taluks.length) filterLabels.push(`Taluk: ${taluks[0].raw}`);
+        if (constituencies.length) filterLabels.push(`Constituency: ${constituencies[0].raw}`);
+        if (matchedHoas.length) filterLabels.push(`H.O.A.: ${matchedHoas.map((h) => h.raw).join(", ")}`);
+        if (sf) filterLabels.push(`Type: ${sf === "F" ? "Fresh (F)" : "Spillover (S)"}`);
+        if (statuses.length) filterLabels.push(`Status: ${statuses.join(", ")}`);
+        if (overdueOnly) filterLabels.push(`Overdue Only`);
+        if (odPeriod) filterLabels.push(`Overdue Period: ${odPeriod}`);
+        if (minOdDays) filterLabels.push(`Overdue > ${Math.round(minOdDays / 365)} Yrs`);
+        if (goFy) filterLabels.push(`Govt Order FY: ${goFy}`);
+        if (woFy) filterLabels.push(`Work Order FY: ${woFy}`);
+        if (anyFy) filterLabels.push(`FY: ${anyFy}`);
+        if (officers.length) filterLabels.push(`${officers[0].role}: ${officers[0].raw}`);
+
+        return {
+          costRange, goFy, woFy, anyFy, sf, statuses, overdueOnly, odPeriod, minOdDays,
+          matchedHoas, divisions, subdivisions, districts, taluks, constituencies, officers, roleHint,
+          hasNonOfficerMmrFilter, hasAnyFilter,
+          matchedRows, default17Rows, filterLabels
+        };
+      }
+
       function findOfficersInReply(replyText, officers, preferredRole = "") {
         const text = String(replyText || "");
         if (!text) return [];
@@ -10019,15 +10249,290 @@
         });
       }
 
-      // 3. NON-BLOCKING EXPORT HELPERS (DEDICATED PRINT TAB + PER-MESSAGE PACKS)
+      // 4. FULL-SCREEN AI FILTERED WORKS MODAL (REUSES EXISTING .odm-* MODAL STYLING)
+      let AI_MODAL_STATE = {
+        title: "Filtered Works",
+        filterSummary: "",
+        allRows: [],
+        def17Rows: [],
+        activeTab: "def17", // "def17" | "all" | "overdue" | "ets"
+        showAllRendered: false
+      };
+
+      function ensureAiResultsModalDom() {
+        let modal = document.getElementById("ai-results-modal");
+        if (modal) return modal;
+
+        modal = document.createElement("div");
+        modal.id = "ai-results-modal";
+        modal.className = "odm-overlay";
+        modal.setAttribute("aria-hidden", "true");
+        modal.innerHTML = `
+          <div class="odm-dialog" role="dialog" aria-modal="true" aria-labelledby="arm-title">
+            <div class="odm-header">
+              <h2 id="arm-title" class="odm-title">MI AI — Filtered Works</h2>
+              <button type="button" id="arm-close-btn" class="odm-close-btn">✕ Close</button>
+            </div>
+            <div id="arm-summary-bar" class="odm-summary-bar"></div>
+            <div class="odm-toolbar">
+              <div class="odm-tabs" id="arm-tabs"></div>
+              <input type="search" id="arm-search" class="odm-chart-search" style="max-width:280px;" placeholder="🔍 Filter work, AE, division, H.O.A...." />
+              <div class="odm-actions">
+                <button type="button" id="arm-dl-xlsx-btn" class="btn-primary">Download Excel (.xlsx)</button>
+                <button type="button" id="arm-dl-pdf-btn" class="btn-primary">Download PDF (.pdf)</button>
+              </div>
+            </div>
+            <div id="arm-body" class="odm-body"></div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+
+        document.getElementById("arm-close-btn")?.addEventListener("click", closeAiResultsModal);
+        modal.addEventListener("click", (e) => {
+          if (e.target.id === "ai-results-modal") closeAiResultsModal();
+        });
+        document.getElementById("arm-search")?.addEventListener("input", () => {
+          AI_MODAL_STATE.showAllRendered = false;
+          renderAiResultsModalBody();
+        });
+        document.getElementById("arm-dl-xlsx-btn")?.addEventListener("click", () => {
+          const rows = getAiModalFilteredRows();
+          downloadAiExcel({ title: AI_MODAL_STATE.title, rows: toExportRows(rows, false) });
+        });
+        document.getElementById("arm-dl-pdf-btn")?.addEventListener("click", (e) => {
+          const rows = getAiModalFilteredRows();
+          downloadAiPdf({ title: AI_MODAL_STATE.title, rows: toExportRows(rows, false) }, e.currentTarget);
+        });
+        return modal;
+      }
+
+      function getAiModalBaseRows() {
+        const { allRows, def17Rows, activeTab } = AI_MODAL_STATE;
+        if (activeTab === "def17") return def17Rows;
+        if (activeTab === "overdue") return allRows.filter((r) => r.is_overdue);
+        if (activeTab === "ets") return allRows.filter((r) => r.is_status_ets);
+        return allRows;
+      }
+
+      function getAiModalFilteredRows() {
+        const base = getAiModalBaseRows();
+        const q = (document.getElementById("arm-search")?.value || "").trim().toLowerCase();
+        if (!q) return base;
+        return base.filter((r) =>
+          String(r.work_name || "").toLowerCase().includes(q) ||
+          String(r.division_name || "").toLowerCase().includes(q) ||
+          String(r.subdivision_name || "").toLowerCase().includes(q) ||
+          String(r.taluk_name || "").toLowerCase().includes(q) ||
+          String(r.hoa || "").toLowerCase().includes(q) ||
+          String(r.so_name || "").toLowerCase().includes(q) ||
+          String(r.aee_name || "").toLowerCase().includes(q) ||
+          String(r.status_raw || "").toLowerCase().includes(q)
+        );
+      }
+
+      function renderAiResultsModalBody() {
+        const { allRows, def17Rows, activeTab, filterSummary } = AI_MODAL_STATE;
+        const hasDiff17 = def17Rows.length !== allRows.length && def17Rows.length > 0;
+        const odCnt = allRows.filter((r) => r.is_overdue).length;
+        const etsCnt = allRows.filter((r) => r.is_status_ets).length;
+
+        const rows = getAiModalFilteredRows();
+        const totEst = rows.reduce((s, r) => s + (r._costNum || 0), 0);
+        const totExp = rows.reduce((s, r) => s + (Number(r.total_exp) || 0), 0);
+        const totPend = rows.reduce((s, r) => s + (Number(r.pending_bill) || 0), 0);
+        const divCnt = new Set(rows.map((r) => r.division_name).filter(Boolean)).size;
+
+        const sumEl = document.getElementById("arm-summary-bar");
+        if (sumEl) {
+          sumEl.innerHTML = `
+            <div class="odm-chip-row">
+              <span class="odm-chip"><span class="odm-chip-label">Applied Filter:</span> ${esc(filterSummary || "Live Query")}</span>
+              <span class="odm-chip"><span class="odm-chip-label">Works Shown:</span> ${rows.length.toLocaleString("en-IN")}</span>
+              <span class="odm-chip"><span class="odm-chip-label">Divisions:</span> ${divCnt}</span>
+            </div>
+            <div class="odm-chip-row">
+              <span class="odm-chip"><span class="odm-chip-label">Total Moola Andaju:</span> ₹${totEst.toLocaleString("en-IN", { maximumFractionDigits: 2 })} Lakhs</span>
+              <span class="odm-chip"><span class="odm-chip-label">Total Expenditure:</span> ₹${totExp.toLocaleString("en-IN", { maximumFractionDigits: 2 })} Lakhs</span>
+              <span class="odm-chip"><span class="odm-chip-label">Pending Bills:</span> ₹${totPend.toLocaleString("en-IN", { maximumFractionDigits: 2 })} Lakhs</span>
+              <span class="odm-chip"><span class="odm-chip-label">Overdue ('P'):</span> ${rows.filter((r) => r.is_overdue).length}</span>
+            </div>
+          `;
+        }
+
+        const tabsEl = document.getElementById("arm-tabs");
+        if (tabsEl) {
+          const tabs = [];
+          if (hasDiff17) {
+            tabs.push({ id: "def17", label: `17 MMR H.O.A.s (${def17Rows.length})` });
+            tabs.push({ id: "all", label: `All 21 Sheets (${allRows.length})` });
+          } else {
+            tabs.push({ id: "all", label: `All Matching (${allRows.length})` });
+          }
+          tabs.push({ id: "overdue", label: `Overdue (${odCnt})`, isOd: true });
+          tabs.push({ id: "ets", label: `ETS (${etsCnt})` });
+
+          tabsEl.innerHTML = tabs.map((t) => {
+            const cls = activeTab === t.id ? (t.isOd ? "odm-tab-btn active-od" : "odm-tab-btn active") : "odm-tab-btn";
+            return `<button type="button" class="${cls}" data-arm-tab="${t.id}">${t.label}</button>`;
+          }).join("");
+
+          tabsEl.querySelectorAll("[data-arm-tab]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              AI_MODAL_STATE.activeTab = btn.getAttribute("data-arm-tab");
+              AI_MODAL_STATE.showAllRendered = false;
+              renderAiResultsModalBody();
+            });
+          });
+        }
+
+        const bodyEl = document.getElementById("arm-body");
+        if (!bodyEl) return;
+        if (!rows.length) {
+          bodyEl.innerHTML = `<div style="padding:24px;text-align:center;font-weight:700;color:#475569;">No works found for this filter.</div>`;
+          return;
+        }
+
+        const limit = AI_MODAL_STATE.showAllRendered ? rows.length : Math.min(rows.length, 300);
+        const slice = rows.slice(0, limit);
+
+        const tbodyHtml = slice.map((r, i) => {
+          const odCls = r.is_overdue ? "odm-red-text" : "";
+          return `
+            <tr>
+              <td>${i + 1}</td>
+              <td class="odm-work-col">${esc(r.work_name || "-")}</td>
+              <td>${esc(r.hoa || "-")}</td>
+              <td>${esc(r.division_name || "-")}</td>
+              <td>${esc(r.subdivision_name || "-")}</td>
+              <td>${esc(r.taluk_name || "-")}</td>
+              <td>${esc(r.so_name || "-")}</td>
+              <td>${esc(r.aee_name || "-")}</td>
+              <td>${r.is_new_work ? "F" : "S"}</td>
+              <td><b>${esc(r.status_raw || "-")}</b></td>
+              <td style="white-space:nowrap;font-weight:800;color:#1E3A8A;">${r._hasCost ? r._costNum.toLocaleString("en-IN", { maximumFractionDigits: 2 }) : "-"}</td>
+              <td style="white-space:nowrap;">${Number(r.total_exp || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</td>
+              <td class="${odCls}">${esc(r.target_date || "-")}</td>
+              <td class="${odCls}">${esc(r.overdue_by || "-")}</td>
+            </tr>
+          `;
+        }).join("");
+
+        const showMoreHtml = rows.length > limit
+          ? `<div style="text-align:center;padding:12px;"><button type="button" id="arm-show-all-btn" class="btn-primary" style="width:auto;padding:8px 18px;">Show All ${rows.length.toLocaleString("en-IN")} Rows (Currently showing ${limit})</button></div>`
+          : "";
+
+        bodyEl.innerHTML = `
+          <table class="odm-table">
+            <thead>
+              <tr>
+                <th>Sl. No.</th>
+                <th>Work Name</th>
+                <th>H.O.A.</th>
+                <th>Division</th>
+                <th>Sub-division</th>
+                <th>Taluk</th>
+                <th>Assistant Engineer</th>
+                <th>AEE</th>
+                <th>S/F</th>
+                <th>Status</th>
+                <th>Moola Andaju (L)</th>
+                <th>Total Exp. (L)</th>
+                <th>Target Date</th>
+                <th>Overdue By</th>
+              </tr>
+            </thead>
+            <tbody>${tbodyHtml}</tbody>
+          </table>
+          ${showMoreHtml}
+        `;
+        bodyEl.scrollTop = 0;
+
+        document.getElementById("arm-show-all-btn")?.addEventListener("click", () => {
+          AI_MODAL_STATE.showAllRendered = true;
+          renderAiResultsModalBody();
+        });
+      }
+
+      function openAiResultsModal(pack) {
+        if (!pack || !pack.allRows || !pack.allRows.length) return;
+        const modal = ensureAiResultsModalDom();
+        const hasDiff17 = pack.def17Rows && pack.def17Rows.length !== pack.allRows.length && pack.def17Rows.length > 0;
+        AI_MODAL_STATE = {
+          title: pack.title || "Filtered Works",
+          filterSummary: pack.filterSummary || "",
+          allRows: pack.allRows,
+          def17Rows: pack.def17Rows || pack.allRows,
+          activeTab: hasDiff17 ? "def17" : "all",
+          showAllRendered: false
+        };
+        const titleEl = document.getElementById("arm-title");
+        if (titleEl) titleEl.textContent = AI_MODAL_STATE.title;
+        const searchEl = document.getElementById("arm-search");
+        if (searchEl) searchEl.value = "";
+        renderAiResultsModalBody();
+        modal.classList.add("open");
+        modal.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+      }
+
+      function closeAiResultsModal() {
+        const modal = document.getElementById("ai-results-modal");
+        if (!modal) return;
+        modal.classList.remove("open");
+        modal.setAttribute("aria-hidden", "true");
+        if (!document.querySelector(".odm-overlay.open")) {
+          document.body.style.overflow = "";
+        }
+      }
+
+      function openInMmrAbstract(mmrFilters) {
+        if (typeof STATE === "undefined" || !STATE.awFilters) return;
+        // Reset MMR filters, then apply parsed query filters
+        Object.keys(STATE.awFilters).forEach((k) => { STATE.awFilters[k] = []; });
+        STATE.awHoaDefaultApplied = false;
+
+        if (mmrFilters.divisions?.length) STATE.awFilters.div = mmrFilters.divisions.map((x) => x.raw);
+        if (mmrFilters.subdivisions?.length) STATE.awFilters.subdiv = mmrFilters.subdivisions.map((x) => x.raw);
+        if (mmrFilters.districts?.length) STATE.awFilters.district = mmrFilters.districts.map((x) => x.raw);
+        if (mmrFilters.taluks?.length) STATE.awFilters.taluk = mmrFilters.taluks.map((x) => x.raw);
+        if (mmrFilters.constituencies?.length) STATE.awFilters.constituency = mmrFilters.constituencies.map((x) => x.raw);
+        if (mmrFilters.matchedHoas?.length) {
+          STATE.awFilters.hoa = mmrFilters.matchedHoas.map((x) => x.raw);
+          STATE.awHoaDefaultApplied = true;
+        }
+        if (mmrFilters.costRange?.awBucket) STATE.awFilters.cost = [mmrFilters.costRange.awBucket];
+        if (mmrFilters.goFy) STATE.awFilters.go = [mmrFilters.goFy];
+        if (mmrFilters.woFy) STATE.awFilters.wo = [mmrFilters.woFy];
+        if (mmrFilters.sf) STATE.awFilters.sf = [mmrFilters.sf];
+        if (mmrFilters.statuses?.length) STATE.awFilters.status = [...mmrFilters.statuses];
+        if (mmrFilters.odPeriod) STATE.awFilters.period = [mmrFilters.odPeriod];
+        if (mmrFilters.officers?.length) {
+          const o = mmrFilters.officers[0];
+          if (o.role === "AE") STATE.awFilters.ae = [o.raw];
+          else if (o.role === "AEE") STATE.awFilters.aee = [o.raw];
+          else if (o.role === "EE") STATE.awFilters.ee = [o.raw];
+          else if (o.role === "TA") STATE.awFilters.ta = [o.raw];
+          else if (o.role === "AS") STATE.awFilters.as = [o.raw];
+        }
+
+        STATE.allWorksOverdueOnly = Boolean(mmrFilters.overdueOnly);
+        STATE.activePage = "allworks";
+        if (typeof renderActivePage === "function") renderActivePage();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+
+      // 5. NON-BLOCKING EXPORT HELPERS (DEDICATED PRINT TAB + PER-MESSAGE PACKS)
       function saveExportPack(title, rows, isBescom = false) {
         const id = `pack_${++aiPackSeq}`;
         aiExportPacks.set(id, { title, rows, isBescom });
-        // Keep last 15 packs in memory
-        if (aiExportPacks.size > 15) {
-          const firstKey = aiExportPacks.keys().next().value;
-          aiExportPacks.delete(firstKey);
-        }
+        if (aiExportPacks.size > 15) aiExportPacks.delete(aiExportPacks.keys().next().value);
+        return id;
+      }
+
+      function saveResultModalPack(pack) {
+        const id = `modal_${++aiPackSeq}`;
+        aiResultModalPacks.set(id, pack);
+        if (aiResultModalPacks.size > 15) aiResultModalPacks.delete(aiResultModalPacks.keys().next().value);
         return id;
       }
 
@@ -10048,13 +10553,18 @@
           "Work Name": r.work_name || "-",
           "H.O.A.": r.hoa || "-",
           "Division": r.division_name || "-",
+          "Sub-division": r.subdivision_name || "-",
+          "Taluk": r.taluk_name || "-",
           "AE": r.so_name || "-",
           "AEE": r.aee_name || "-",
           "TA": r.ta_name || "-",
+          "S/F": r.is_new_work ? "F" : "S",
           "Status": r.status_raw || "-",
+          "Moola Andaju (Lakhs)": r._hasCost ? r._costNum : (r.est_cost || "-"),
+          "Total Exp. (Lakhs)": Number(r.total_exp || 0),
+          "Pending Bill (Lakhs)": Number(r.pending_bill || 0),
           "Target Date": r.target_date || "-",
-          "Overdue By": r.overdue_by || "-",
-          "Est. Cost (L)": r.est_cost || "-"
+          "Overdue By": r.overdue_by || "-"
         }));
       }
 
@@ -10077,16 +10587,10 @@
           alert("No rows available to export to PDF.");
           return;
         }
-
         const origTxt = btnEl ? btnEl.textContent : "";
-        if (btnEl) {
-          btnEl.disabled = true;
-          btnEl.textContent = "Opening PDF...";
-        }
+        if (btnEl) { btnEl.disabled = true; btnEl.textContent = "Opening PDF..."; }
 
-        // Open a dedicated print tab immediately (inside click gesture so popup blocker allows it)
         const printWin = window.open("", "_blank");
-
         setTimeout(() => {
           try {
             const cols = Object.keys(rows[0]);
@@ -10113,59 +10617,39 @@
             }
 
             const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>${esc(safeTitle)}</title>
-  <style>
-    @page { size: A4 landscape; margin: 7mm; }
-    * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    body { margin: 12px; font-family: "Segoe UI", "Nirmala UI", Arial, sans-serif; color: #0F172A; background: #FFFFFF; }
-    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: #1E3A8A; color: #FFFFFF; padding: 10px 14px; border-radius: 6px; margin-bottom: 10px; }
-    .print-controls { display: flex; gap: 8px; }
-    .print-btn { background: #10B981; color: #FFFFFF; border: none; border-radius: 6px; padding: 7px 14px; font-weight: 700; cursor: pointer; font-size: 13px; }
-    .close-btn { background: rgba(255,255,255,0.2); color: #FFFFFF; border: 1px solid rgba(255,255,255,0.4); border-radius: 6px; padding: 7px 12px; font-weight: 700; cursor: pointer; font-size: 13px; }
-    @media print {
-      body { margin: 0; }
-      .print-controls { display: none !important; }
-    }
-    table { width: 100%; border-collapse: collapse; font-size: 8pt; }
-    thead { display: table-header-group; }
-    th { background: #DCE8F7; border: 1px solid #64748B; padding: 5px 4px; text-align: center; font-weight: 700; }
-    td { border: 1px solid #94A3B8; padding: 4px 5px; text-align: center; vertical-align: middle; }
-    td.wk { text-align: left; max-width: 280px; white-space: normal; }
-    tbody tr:nth-child(even) { background: #F8FAFC; }
-  </style>
-</head>
-<body>
+<html lang="en"><head><meta charset="UTF-8"><title>${esc(safeTitle)}</title>
+<style>
+  @page { size: A4 landscape; margin: 6mm; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  body { margin: 12px; font-family: "Segoe UI", "Nirmala UI", Arial, sans-serif; color: #0F172A; background: #FFFFFF; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: #1E3A8A; color: #FFFFFF; padding: 10px 14px; border-radius: 6px; margin-bottom: 10px; }
+  .print-controls { display: flex; gap: 8px; }
+  .print-btn { background: #10B981; color: #FFFFFF; border: none; border-radius: 6px; padding: 7px 14px; font-weight: 700; cursor: pointer; font-size: 13px; }
+  .close-btn { background: rgba(255,255,255,0.2); color: #FFFFFF; border: 1px solid rgba(255,255,255,0.4); border-radius: 6px; padding: 7px 12px; font-weight: 700; cursor: pointer; font-size: 13px; }
+  @media print { body { margin: 0; } .print-controls { display: none !important; } }
+  table { width: 100%; border-collapse: collapse; font-size: 7pt; }
+  thead { display: table-header-group; }
+  th { background: #DCE8F7; border: 1px solid #64748B; padding: 4px 3px; text-align: center; font-weight: 700; }
+  td { border: 1px solid #94A3B8; padding: 3.5px 4px; text-align: center; vertical-align: middle; }
+  td.wk { text-align: left; max-width: 240px; white-space: normal; }
+  tbody tr:nth-child(even) { background: #F8FAFC; }
+</style></head><body>
   <div class="topbar">
-    <div>
-      <div style="font-size:12pt;font-weight:700;">${esc(pack.title)} (${rows.length.toLocaleString("en-IN")} Works)</div>
-      <div style="font-size:8.5pt;opacity:0.9;">Generated: ${esc(nowStr)}</div>
-    </div>
+    <div><div style="font-size:11.5pt;font-weight:700;">${esc(pack.title)} (${rows.length.toLocaleString("en-IN")} Works)</div><div style="font-size:8pt;opacity:0.9;">Generated: ${esc(nowStr)}</div></div>
     <div class="print-controls">
       <button class="print-btn" onclick="window.print()">Save / Print PDF</button>
       <button class="close-btn" onclick="window.close()">Close</button>
     </div>
   </div>
-  <table>
-    <thead><tr>${ths}</tr></thead>
-    <tbody>${rowChunks.join("")}</tbody>
-  </table>
-  <script>
-    window.addEventListener("load", function () {
-      setTimeout(function () { window.print(); }, 250);
-    });
-  <\/script>
-</body>
-</html>`;
+  <table><thead><tr>${ths}</tr></thead><tbody>${rowChunks.join("")}</tbody></table>
+  <script>window.addEventListener("load", function(){ setTimeout(function(){ window.print(); }, 250); });<\/script>
+</body></html>`;
 
             if (printWin && !printWin.closed) {
               printWin.document.open();
               printWin.document.write(html);
               printWin.document.close();
             } else {
-              // Popup blocked fallback: avoid freezing the main tab on giant tables
               if (rows.length > 600) {
                 alert(`This report has ${rows.length} rows. Please allow popups for this site to print PDF, or use Download Excel (.xlsx).`);
                 return;
@@ -10179,23 +10663,22 @@
               iframe.contentWindow.document.open();
               iframe.contentWindow.document.write(html);
               iframe.contentWindow.document.close();
-              setTimeout(() => {
-                iframe.contentWindow.focus();
-                iframe.contentWindow.print();
-                setTimeout(() => iframe.remove(), 30000);
-              }, 300);
+              setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => iframe.remove(), 30000); }, 300);
             }
           } finally {
-            if (btnEl) {
-              btnEl.disabled = false;
-              btnEl.textContent = origTxt;
-            }
+            if (btnEl) { btnEl.disabled = false; btnEl.textContent = origTxt; }
           }
         }, 30);
       }
 
       function buildActionButtonsHtml(opts = {}) {
         const btns = [];
+        if (opts.resultModalId && opts.modalCount > 0) {
+          btns.push(`<button type="button" class="mi-ai-action-btn" data-open-ai-modal="${esc(opts.resultModalId)}">View All ${opts.modalCount} Works (Table Popup) →</button>`);
+        }
+        if (opts.mmrAbstractId) {
+          btns.push(`<button type="button" class="mi-ai-action-btn" data-open-mmr-abstract="${esc(opts.mmrAbstractId)}">Open in MMR Abstract →</button>`);
+        }
         if (opts.bescomAe) {
           btns.push(`<button type="button" class="mi-ai-action-btn" data-open-bescom="${esc(opts.bescomAe)}">Open ${esc(opts.bescomAe)} BESCOM Popup →</button>`);
         }
@@ -10203,407 +10686,21 @@
           btns.push(`<button type="button" class="mi-ai-action-btn" data-open-officer="${esc(opts.officerName)}" data-is-aee="${opts.isAee ? "1" : "0"}">Open Full Works Popup →</button>`);
         }
         if (opts.packId && opts.packCount > 0) {
-          btns.push(`<button type="button" class="mi-ai-action-btn pdf-btn" data-ai-export="pdf" data-pack-id="${esc(opts.packId)}">Download PDF (${opts.packCount})</button>`);
+          if (opts.packCount <= 600) {
+            btns.push(`<button type="button" class="mi-ai-action-btn pdf-btn" data-ai-export="pdf" data-pack-id="${esc(opts.packId)}">Download PDF (${opts.packCount})</button>`);
+          }
           btns.push(`<button type="button" class="mi-ai-action-btn xlsx-btn" data-ai-export="xlsx" data-pack-id="${esc(opts.packId)}">Download Excel (${opts.packCount})</button>`);
         }
         return btns.length ? `<div class="mi-ai-action-row">${btns.join("")}</div>` : "";
       }
 
-      function renderWorkCard(row, accentClass = "") {
-        const costTxt = row._costNum > 0 ? `₹${row._costNum.toLocaleString("en-IN")} Lakhs` : "-";
-        return `
-          <div class="mi-ai-card ${accentClass}">
-            <div style="font-weight:800;color:#0F172A;margin-bottom:4px;">${esc(row.work_name || "-")}</div>
-            <div><b>Overdue By:</b> <span style="color:#DC2626;font-weight:800;">${esc(row.overdue_by || "-")}</span> &nbsp;|&nbsp; <b>Target:</b> ${esc(row.target_date || "-")}</div>
-            <div><b>Division:</b> ${formatBilingualName(row.division_name)} &nbsp;|&nbsp; <b>H.O.A.:</b> ${esc(row.hoa || "-")}</div>
-            <div><b>AE:</b> ${formatBilingualName(row.so_name)} &nbsp;|&nbsp; <b>Est. Cost:</b> ${costTxt}</div>
-          </div>
-        `;
-      }
-
-      // 4. LOCAL FALLBACK ENGINE (AE, AEE, TA, AS, BESCOM, DIVISIONS, HOAs)
-      function answerQuestion(rawQuery) {
-        const ds = getAiDataset();
-        if (!ds.rows.length) {
-          return `Data is still syncing from the cloud snapshot. Please ask again in a few seconds.`;
-        }
-
-        const qLower = String(rawQuery || "").toLowerCase();
-        const isKn = /[\u0C80-\u0CFF]/.test(rawQuery);
-        const tokens = extractQueryTokens(rawQuery);
-
-        let roleHint = "";
-        if (/\baee\b|assistant executive/.test(qLower)) roleHint = "AEE";
-        else if (/\bae\b|assistant engineer/.test(qLower)) roleHint = "AE";
-        else if (/\bta\b|technical assistant/.test(qLower)) roleHint = "TA";
-        else if (/\b(as|account superintendent|accounts superintendent)\b/.test(qLower)) roleHint = "AS";
-
-        const wantsHighest = /\b(highest|longest|oldest|most|max|maximum|worst|top|largest|biggest)\b|ಅತಿ\s*ಹೆಚ್ಚು|ಹೆಚ್ಚು/.test(qLower);
-        const wantsLowest = /\b(lowest|least|best|min|minimum|fewest)\b|ಕಡಿಮೆ/.test(qLower);
-        const wantsCost = /\b(cost|amount|expensive|lakhs|crore|budget|estimate|estimated|expenditure|pending bill|bill)\b|ಮೊತ್ತ|ಅಂದಾಜು|ವೆಚ್ಚ|ಬಿಲ್/.test(qLower);
-        const wantsBescom = /\b(bescom|rr\s*no|registration|borewell)\b|ಬೆಸ್ಕಾಂ/.test(qLower);
-        const wantsEts = /\bets\b/.test(qLower);
-        const wantsChronic = /\b(chronic|2\+|3\+|4\+|5\+|more than \d|older than)\b/.test(qLower);
-        const wantsDivRanking = /\bdivisions?\b|ವಿಭಾಗ/.test(qLower) && (wantsHighest || wantsLowest || /\btop\b/.test(qLower));
-        const wantsPeriodWork = /\b(period|duration|oldest|longest|work|which work)\b|ಕಾಮಗಾರಿ/.test(qLower);
-        const wantsAllWorksList = /\b(all works|list works|show works|works list)\b/.test(qLower);
-
-        const matchedOfficers = matchItems(tokens, ds.officers, roleHint, rawQuery);
-        const matchedDivs = matchItems(tokens, ds.divisions);
-        const matchedHoas = matchItems(tokens, ds.hoas);
-
-        // --- A. BESCOM PENDING QUERIES ---
-        if (wantsBescom) {
-          const allBescom = ds.bescomRows;
-
-          if (matchedOfficers.length > 0) {
-            const off = matchedOfficers[0];
-            lastContextOfficer = off;
-            const offBescom = allBescom.filter((r) => off.rowPred(r, off.raw));
-            const cf = offBescom.filter((r) => String(r.status_raw).toUpperCase().trim() === "CF").length;
-            const cp = offBescom.filter((r) => String(r.status_raw).toUpperCase().trim() === "CP").length;
-            const packId = saveExportPack(`BESCOM_Pending_${off.enName || off.raw}`, toExportRows(offBescom, true), true);
-
-            const miniRows = offBescom.slice(0, 6).map((r, i) => `
-              <tr>
-                <td>${i + 1}</td>
-                <td>${esc(r.work_name || "-")}</td>
-                <td><b>${esc(String(r.status_raw || "").toUpperCase())}</b></td>
-                <td>${esc(r.sheet_name || "-")}</td>
-              </tr>
-            `).join("");
-
-            return `
-              <div><b>BESCOM Registration Pending — ${formatBilingualName(off.raw)} (${off.role})</b></div>
-              <div class="mi-ai-stat-grid">
-                <div class="mi-ai-stat-box red">Total Pending<b>${offBescom.length}</b></div>
-                <div class="mi-ai-stat-box">CF / CP Split<b>${cf} CF • ${cp} CP</b></div>
-              </div>
-              ${offBescom.length ? `<table class="mi-ai-mini-table"><thead><tr><th>#</th><th>Work Name</th><th>Status</th><th>Sheet</th></tr></thead><tbody>${miniRows}</tbody></table>` : ""}
-              ${buildActionButtonsHtml({
-                bescomAe: off.role === "AE" ? off.raw : "",
-                officerName: off.role === "AE" || off.role === "AEE" ? off.raw : "",
-                isAee: off.role === "AEE",
-                packId,
-                packCount: offBescom.length
-              })}
-            `;
-          }
-
-          const byAe = new Map();
-          allBescom.forEach((r) => {
-            const k = r.so_name || "Unassigned";
-            if (!byAe.has(k)) byAe.set(k, { ae: k, cf: 0, cp: 0, total: 0, rows: [] });
-            const g = byAe.get(k);
-            const st = String(r.status_raw || "").toUpperCase().trim();
-            if (st === "CF") g.cf++;
-            if (st === "CP") g.cp++;
-            g.total++;
-            g.rows.push(r);
-          });
-          const sortedBescomAEs = Array.from(byAe.values()).sort((a, b) => b.total - a.total);
-          const totalCf = allBescom.filter((r) => String(r.status_raw).toUpperCase().trim() === "CF").length;
-          const totalCp = allBescom.filter((r) => String(r.status_raw).toUpperCase().trim() === "CP").length;
-
-          // If asking specifically for the highest BESCOM AE, scope export to that AE!
-          if (wantsHighest && sortedBescomAEs.length > 0) {
-            const top = sortedBescomAEs[0];
-            const packId = saveExportPack(`BESCOM_Pending_${kannadaToEnglish(top.ae) || top.ae}`, toExportRows(top.rows, true), true);
-            return `
-              <div><b>Highest BESCOM RR Pending AE</b></div>
-              <div class="mi-ai-card amber">
-                <div><b>AE:</b> ${formatBilingualName(top.ae)}</div>
-                <div><b>Total Pending:</b> <span style="color:#DC2626;font-weight:800;">${top.total}</span> (${top.cf} CF • ${top.cp} CP)</div>
-              </div>
-              ${buildActionButtonsHtml({ bescomAe: top.ae, packId, packCount: top.rows.length })}
-            `;
-          }
-
-          const packId = saveExportPack("BESCOM_Registration_Pending", toExportRows(allBescom, true), true);
-          const topRowsHtml = sortedBescomAEs.slice(0, 6).map((g, i) => `
-            <tr>
-              <td>${i + 1}</td>
-              <td>${formatBilingualName(g.ae)}</td>
-              <td>${g.cf}</td>
-              <td>${g.cp}</td>
-              <td><b>${g.total}</b></td>
-            </tr>
-          `).join("");
-
-          return `
-            <div><b>BESCOM Registration Pending Details (SCP &amp; TSP Borewell)</b></div>
-            <div class="mi-ai-stat-grid">
-              <div class="mi-ai-stat-box red">Total Pending<b>${allBescom.length.toLocaleString("en-IN")}</b></div>
-              <div class="mi-ai-stat-box">AEs with Pending<b>${sortedBescomAEs.length}</b></div>
-              <div class="mi-ai-stat-box">CF Works<b>${totalCf.toLocaleString("en-IN")}</b></div>
-              <div class="mi-ai-stat-box">CP Works<b>${totalCp.toLocaleString("en-IN")}</b></div>
-            </div>
-            <table class="mi-ai-mini-table">
-              <thead><tr><th>#</th><th>AE Name</th><th>CF</th><th>CP</th><th>Total</th></tr></thead>
-              <tbody>${topRowsHtml}</tbody>
-            </table>
-            <div class="mi-ai-action-row">
-              ${sortedBescomAEs.slice(0, 2).map((g) => `<button type="button" class="mi-ai-action-btn" data-open-bescom="${esc(g.ae)}">Open ${esc(g.ae)} BESCOM Popup →</button>`).join("")}
-              <button type="button" class="mi-ai-action-btn xlsx-btn" data-ai-export="xlsx" data-pack-id="${esc(packId)}">Download All Excel (${allBescom.length})</button>
-            </div>
-          `;
-        }
-
-        // --- B. SPECIFIC OFFICER MATCH (AE, AEE, TA, AS) ---
-        if (matchedOfficers.length > 0) {
-          const primary = matchedOfficers[0];
-          lastContextOfficer = primary;
-          const others = matchedOfficers.slice(1, 6);
-
-          const sortedOd = [...primary.odRows].sort((a, b) => b._odDays - a._odDays);
-          const sortedCost = [...primary.rows].sort((a, b) => b._costNum - a._costNum);
-          const totEst = primary.rows.reduce((s, r) => s + r._costNum, 0);
-          const totPendBill = primary.rows.reduce((s, r) => s + (Number(r.pending_bill) || 0), 0);
-          const pct = primary.rows.length > 0 ? ((primary.odRows.length / primary.rows.length) * 100).toFixed(1) : "0.0";
-          const divList = Array.from(primary.divs).slice(0, 3).map(formatBilingualName).join(", ") || "-";
-
-          const exportSource = wantsAllWorksList ? primary.rows : (sortedOd.length ? sortedOd : primary.rows);
-          const packId = saveExportPack(`${primary.role}_${primary.enName || primary.raw}`, toExportRows(exportSource, false), false);
-
-          let bodyHtml = `
-            <div><b>${formatBilingualName(primary.raw)}</b> <span style="color:#1E40AF;font-weight:800;">(${primary.role})</span></div>
-            <div style="font-size:0.74rem;color:#475569;margin-top:2px;">Division: ${divList}</div>
-          `;
-
-          if (wantsCost) {
-            bodyHtml += `
-              <div class="mi-ai-stat-grid">
-                <div class="mi-ai-stat-box">Total Est. Cost<b>₹${totEst.toLocaleString("en-IN", { maximumFractionDigits: 1 })} L</b></div>
-                <div class="mi-ai-stat-box">Pending Bills<b>₹${totPendBill.toLocaleString("en-IN", { maximumFractionDigits: 1 })} L</b></div>
-              </div>
-              ${sortedCost.length ? `<div style="margin-top:7px;font-weight:700;">Highest Estimated Cost Work:</div>${renderWorkCard(sortedCost[0], "info")}` : ""}
-            `;
-          } else if (wantsHighest || wantsPeriodWork) {
-            if (sortedOd.length > 0) {
-              bodyHtml += `
-                <div style="margin-top:7px;font-weight:700;">${isKn ? "ಅತಿ ಹೆಚ್ಚು ಬಾಕಿ ಅವಧಿಯ ಕಾಮಗಾರಿ:" : "Highest Overdue Period Work:"}</div>
-                ${renderWorkCard(sortedOd[0])}
-                <div style="margin-top:6px;font-size:0.75rem;color:#334155;">
-                  Summary: <b>${primary.odRows.length} Overdue</b> (${pct}%) • <b>${primary.etsRows.length} ETS</b> • <b>${primary.rows.length} Total</b>
-                </div>
-              `;
-            } else {
-              bodyHtml += `<div class="mi-ai-card info">No overdue works found (0 Overdue out of ${primary.rows.length} total works).</div>`;
-            }
-          } else {
-            const chronicCnt = primary.odRows.filter((r) => r._odDays > 730).length;
-            bodyHtml += `
-              <div class="mi-ai-stat-grid">
-                <div class="mi-ai-stat-box red">Overdue ('P')<b>${primary.odRows.length} (${pct}%)</b></div>
-                <div class="mi-ai-stat-box green">ETS Works<b>${primary.etsRows.length}</b></div>
-                <div class="mi-ai-stat-box">Total Works<b>${primary.rows.length}</b></div>
-                <div class="mi-ai-stat-box">Chronic (&gt;2 Yrs)<b>${chronicCnt}</b></div>
-              </div>
-              ${sortedOd.length > 0 ? `<div style="margin-top:7px;font-size:0.75rem;font-weight:700;">Longest Overdue Work:</div>${renderWorkCard(sortedOd[0])}` : ""}
-            `;
-          }
-
-          bodyHtml += buildActionButtonsHtml({
-            officerName: (primary.role === "AE" || primary.role === "AEE") ? primary.raw : "",
-            isAee: primary.role === "AEE",
-            packId,
-            packCount: exportSource.length
-          });
-
-          if (others.length > 0) {
-            bodyHtml += `
-              <div style="margin-top:9px;padding-top:7px;border-top:1px dashed #CBD5E1;font-size:0.72rem;color:#475569;">
-                <b>Other matching officers (AE / AEE / TA / AS):</b>
-                <div class="mi-ai-action-row" style="margin-top:5px;">
-                  ${others.map((o) => `
-                    <button type="button" class="mi-ai-action-btn" data-ask-query="${esc(o.raw)} (${o.role}) details">
-                      ${esc(o.raw)} (${o.role} • ${o.odRows.length} OD)
-                    </button>
-                  `).join("")}
-                </div>
-              </div>
-            `;
-          }
-          return bodyHtml;
-        }
-
-        // --- C. DIVISION / H.O.A. SPECIFIC QUERY ---
-        if ((matchedDivs.length > 0 || matchedHoas.length > 0) && !wantsDivRanking) {
-          let subset = ds.rows;
-          const labels = [];
-          if (matchedDivs.length > 0) {
-            const dName = matchedDivs[0].raw;
-            subset = subset.filter((r) => r.division_name === dName);
-            labels.push(`Division: ${formatBilingualName(dName)}`);
-          }
-          if (matchedHoas.length > 0) {
-            const hName = matchedHoas[0].raw;
-            subset = subset.filter((r) => r.hoa === hName);
-            labels.push(`H.O.A.: ${esc(hName)}`);
-          }
-
-          const odRows = subset.filter((r) => r.is_overdue).sort((a, b) => b._odDays - a._odDays);
-          const etsCnt = subset.filter((r) => r.is_status_ets).length;
-          const totEst = subset.reduce((s, r) => s + r._costNum, 0);
-          const pct = subset.length > 0 ? ((odRows.length / subset.length) * 100).toFixed(1) : "0.0";
-          const expRows = odRows.length ? odRows : subset;
-          const packId = saveExportPack(labels.join("_").replace(/<[^>]+>/g, ""), toExportRows(expRows, false), false);
-
-          return `
-            <div><b>${labels.join(" • ")}</b></div>
-            <div class="mi-ai-stat-grid">
-              <div class="mi-ai-stat-box">Total Works<b>${subset.length.toLocaleString("en-IN")}</b></div>
-              <div class="mi-ai-stat-box red">Overdue ('P')<b>${odRows.length.toLocaleString("en-IN")} (${pct}%)</b></div>
-              <div class="mi-ai-stat-box green">ETS Works<b>${etsCnt.toLocaleString("en-IN")}</b></div>
-              <div class="mi-ai-stat-box">Total Est. Cost<b>₹${totEst.toLocaleString("en-IN", { maximumFractionDigits: 1 })} L</b></div>
-            </div>
-            ${odRows.length > 0 ? `<div style="margin-top:8px;font-size:0.75rem;font-weight:700;">Longest Overdue Work Here:</div>${renderWorkCard(odRows[0])}` : ""}
-            ${buildActionButtonsHtml({ packId, packCount: expRows.length })}
-          `;
-        }
-
-        // --- D. TOP DIVISIONS RANKING ---
-        if (wantsDivRanking) {
-          const rankedDivs = ds.divisions.map((d) => {
-            const od = d.rows.filter((r) => r.is_overdue).length;
-            const ets = d.rows.filter((r) => r.is_status_ets).length;
-            const pct = d.rows.length > 0 ? ((od / d.rows.length) * 100).toFixed(1) : "0.0";
-            return { raw: d.raw, total: d.rows.length, od, ets, pct };
-          }).sort((a, b) => wantsLowest ? (a.od - b.od) : (b.od - a.od)).slice(0, 5);
-
-          return `
-            <div><b>Top 5 Divisions — ${wantsLowest ? "Least" : "Highest"} Overdue Works</b></div>
-            <div class="mi-ai-card info">
-              ${rankedDivs.map((d, i) => `
-                <div style="padding:3px 0;border-bottom:1px solid #E2E8F0;">
-                  <b>${i + 1}.</b> ${formatBilingualName(d.raw)} — <span style="color:#DC2626;font-weight:800;">${d.od} OD</span> (${d.pct}%) • ${d.ets} ETS / ${d.total} Total
-                </div>
-              `).join("")}
-            </div>
-          `;
-        }
-
-        // --- E. LONGEST OVERDUE WORK OVERALL ---
-        if ((wantsHighest || wantsPeriodWork) && /\b(work|period|oldest|longest)\b|ಕಾಮಗಾರಿ/.test(qLower) && !/\b(who|officer|officers|ae|aee|ta|as)\b/.test(qLower)) {
-          const topOld = ds.rows.filter((r) => r.is_overdue && r._odDays >= 0).sort((a, b) => b._odDays - a._odDays).slice(0, 2);
-          if (!topOld.length) return `No overdue works found in the current snapshot.`;
-          const packId = saveExportPack("Longest_Overdue_Works", toExportRows(topOld, false), false);
-          return `
-            <div><b>Longest Overdue Works Across South Zone</b></div>
-            ${topOld.map((r) => renderWorkCard(r)).join("")}
-            ${buildActionButtonsHtml({ packId, packCount: topOld.length })}
-          `;
-        }
-
-        // --- F. TOP / LEAST OFFICERS RANKING (AE, AEE, TA, AS) ---
-        if (wantsHighest || wantsLowest || /\b(who|rank|leader|top|ta|as)\b/.test(qLower)) {
-          const targetRole = roleHint || "AE";
-          const byPct = /\b(pct|percent|percentage|%)\b/.test(qLower);
-          const pool = ds.officers
-            .filter((o) => o.role === targetRole && (wantsLowest ? o.odRows.length > 0 : true))
-            .map((o) => ({
-              ...o,
-              od: o.odRows.length,
-              ets: o.etsRows.length,
-              tot: o.rows.length,
-              pct: o.rows.length > 0 ? (o.odRows.length / o.rows.length) * 100 : 0
-            }))
-            .sort((a, b) => {
-              if (wantsEts) return wantsLowest ? (a.ets - b.ets) : (b.ets - a.ets);
-              if (byPct) return wantsLowest ? (a.pct - b.pct) : (b.pct - a.pct);
-              return wantsLowest ? (a.od - b.od) : (b.od - a.od);
-            })
-            .slice(0, 5);
-
-          const metricTitle = wantsEts ? "ETS Works" : (byPct ? "Overdue %" : "Overdue Works");
-          return `
-            <div><b>Top 5 ${targetRole}s — ${wantsLowest ? "Least" : "Highest"} ${metricTitle}</b></div>
-            <div class="mi-ai-card info">
-              ${pool.map((o, i) => `
-                <div style="padding:4px 0;border-bottom:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;">
-                  <span><b>${i + 1}.</b> ${formatBilingualName(o.raw)}</span>
-                  <span style="color:#DC2626;font-weight:800;">${o.od} OD (${o.pct.toFixed(1)}%) • ${o.ets} ETS</span>
-                </div>
-              `).join("")}
-            </div>
-            <div class="mi-ai-action-row">
-              ${pool.slice(0, 3).map((o) => `
-                <button type="button" class="mi-ai-action-btn" data-ask-query="${esc(o.raw)} (${o.role}) details">
-                  ${esc(o.raw)} (${o.role}) →
-                </button>
-              `).join("")}
-            </div>
-          `;
-        }
-
-        // --- G. CHRONIC OVERDUE BREAKDOWN ---
-        if (wantsChronic) {
-          const odRows = ds.rows.filter((r) => r.is_overdue);
-          const y2 = odRows.filter((r) => r._odDays > 730).length;
-          const y3 = odRows.filter((r) => r._odDays > 1095).length;
-          const y4 = odRows.filter((r) => r._odDays > 1460).length;
-          const y5 = odRows.filter((r) => r._odDays > 1825).length;
-          return `
-            <div><b>Chronic Overdue Breakdown (South Zone)</b></div>
-            <div class="mi-ai-stat-grid">
-              <div class="mi-ai-stat-box red">2+ Years Overdue<b>${y2.toLocaleString("en-IN")}</b></div>
-              <div class="mi-ai-stat-box red">3+ Years Overdue<b>${y3.toLocaleString("en-IN")}</b></div>
-              <div class="mi-ai-stat-box red">4+ Years Overdue<b>${y4.toLocaleString("en-IN")}</b></div>
-              <div class="mi-ai-stat-box red">5+ Years Overdue<b>${y5.toLocaleString("en-IN")}</b></div>
-            </div>
-          `;
-        }
-
-        // --- H. OVERALL SUMMARY ---
-        if (/\b(summary|overview|overall|total|south|zone|status|hello|hi|namaste|help)\b|ಒಟ್ಟು|ನಮಸ್ಕಾರ/.test(qLower)) {
-          const tot = ds.rows.length;
-          const od = ds.rows.filter((r) => r.is_overdue).length;
-          const ets = ds.rows.filter((r) => r.is_status_ets).length;
-          const chronic = ds.rows.filter((r) => r.is_overdue && r._odDays > 730).length;
-          const pct = tot > 0 ? ((od / tot) * 100).toFixed(1) : "0.0";
-          return `
-            <div><b>South Zone Live Dashboard Summary</b> <span style="color:#64748B;font-size:0.74rem;">(${esc(STATE.todayStr || "")})</span></div>
-            <div class="mi-ai-stat-grid">
-              <div class="mi-ai-stat-box">Total Works<b>${tot.toLocaleString("en-IN")}</b></div>
-              <div class="mi-ai-stat-box red">Overdue ('P')<b>${od.toLocaleString("en-IN")} (${pct}%)</b></div>
-              <div class="mi-ai-stat-box green">ETS Works<b>${ets.toLocaleString("en-IN")}</b></div>
-              <div class="mi-ai-stat-box">Chronic (&gt;2 Yrs)<b>${chronic.toLocaleString("en-IN")}</b></div>
-              <div class="mi-ai-stat-box">BESCOM Pending<b>${ds.bescomRows.length.toLocaleString("en-IN")}</b></div>
-            </div>
-          `;
-        }
-
-        return `
-          I couldn't match a specific officer, TA, division, or head for <b>"${esc(rawQuery)}"</b>.<br><br>
-          Try asking things like:
-          <ul style="margin:6px 0 0 16px;padding:0;font-size:0.78rem;line-height:1.6;">
-            <li><i>"What is the highest overdue period work Sunil has?"</i></li>
-            <li><i>"Who is the AE with highest BESCOM pending?"</i></li>
-            <li><i>"Manikanta H J details"</i></li>
-            <li><i>"Top 5 TAs by overdue works"</i></li>
-          </ul>
-        `;
-      }
-
-      // 5. BUILD CONTEXT FOR GEMINI (/api/chat) WITH CLEAN INITIALS & ALL BESCOM AEs
-      function getOfficerQueryTokens(qTokens, matchedDivs) {
-        if (!matchedDivs.length) return qTokens;
-        const divTokenSet = new Set();
-        matchedDivs.forEach((d) => {
-          divTokenSet.add(d.folded);
-          (d.tokens || []).forEach((t) => divTokenSet.add(t));
-        });
-        return qTokens.filter((t) => !divTokenSet.has(t));
-      }
-
-      // 5. BUILD CONTEXT FOR GEMINI (/api/chat) WITH CLEAN INITIALS & DIVISION-TAGGED BESCOM AEs
-      function buildLiveContextForGemini(rawQuery) {
+      // 6. BUILD LIVE CONTEXT FOR GEMINI (INCLUDES EXACT PRE-FILTERED MMR QUERY RESULT)
+      function buildLiveContextForGemini(rawQuery, mmr) {
         const ds = getAiDataset();
         if (!ds.rows.length) return "Data not loaded yet.";
 
         const qRaw = String(rawQuery || "").trim();
         const qLower = qRaw.toLowerCase();
-        const qFold = phoneticFold(qRaw);
 
         const tot = ds.rows.length;
         const odRows = ds.rows.filter((r) => r.is_overdue);
@@ -10612,28 +10709,89 @@
         const y3 = odRows.filter((r) => r._odDays > 1095).length;
         const y4 = odRows.filter((r) => r._odDays > 1460).length;
 
-        const hoaStats = new Map();
-        ds.rows.forEach((r) => {
-          const h = String(r.hoa || "").trim() || "(Blank)";
-          if (!hoaStats.has(h)) hoaStats.set(h, { hoa: h, total: 0, od: 0, ets: 0, sheets: new Set() });
-          const st = hoaStats.get(h);
-          st.total += 1;
-          if (r.is_overdue) st.od += 1;
-          if (r.is_status_ets) st.ets += 1;
-          if (r.sheet_name) st.sheets.add(r.sheet_name);
-        });
-        const hoaSummaryLines = Array.from(hoaStats.values())
-          .sort((a, b) => b.od - a.od)
-          .map((h) => `${h.hoa} [Sheets: ${Array.from(h.sheets).join(", ")}] => Tot=${h.total}, OD=${h.od}, ETS=${h.ets}`);
+        const sections = [
+          `TODAY: ${STATE.todayStr || "-"}`,
+          `SOUTH ZONE TOTALS (Dashboard Collapsed): TotalWorks=${tot}, Overdue(P)=${odRows.length}, ETS=${etsCnt}, Chronic2Yr+=${y2}, Chronic3Yr+=${y3}, Chronic4Yr+=${y4}, TotalRawWorks=${ds.rawRows.length}`
+        ];
 
-        const matchedHoaList = Array.from(hoaStats.values()).filter((h) => {
-          const hLow = h.hoa.toLowerCase();
-          const hFold = phoneticFold(h.hoa);
-          if (h.hoa !== "(Blank)" && (qRaw.includes(h.hoa) || (hLow.length >= 2 && qLower.includes(hLow)))) return true;
-          if (hFold && qFold && (qFold.includes(hFold) || hFold.includes(qFold))) return hFold.length >= 3;
-          return Array.from(h.sheets).some((sh) => qLower.includes(String(sh).toLowerCase()));
+        // PRIORITY SECTION: If user asked an MMR-style filtered query (e.g. Moola Andaju 500-1000, Taluk, Status, FY, S/F, etc.)
+        if (mmr && mmr.hasNonOfficerMmrFilter) {
+          const rows = mmr.default17Rows.length > 0 && !mmr.matchedHoas.length ? mmr.default17Rows : mmr.matchedRows;
+          const divAgg = new Map();
+          const hoaAgg = new Map();
+          const stAgg = new Map();
+          let totEst = 0, totExp = 0, totPend = 0, odCnt = 0, etsCount = 0;
+
+          rows.forEach((r) => {
+            totEst += r._costNum || 0;
+            totExp += Number(r.total_exp || 0);
+            totPend += Number(r.pending_bill || 0);
+            if (r.is_overdue) odCnt++;
+            if (r.is_status_ets) etsCount++;
+            divAgg.set(r.division_name, (divAgg.get(r.division_name) || 0) + 1);
+            hoaAgg.set(r.hoa, (hoaAgg.get(r.hoa) || 0) + 1);
+            stAgg.set(r._statusUp || "-", (stAgg.get(r._statusUp || "-") || 0) + 1);
+          });
+
+          const divBreak = Array.from(divAgg.entries()).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} (${kannadaToEnglish(k)}): ${v}`).join(", ");
+          const hoaBreak = Array.from(hoaAgg.entries()).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}: ${v}`).join(", ");
+          const stBreak = Array.from(stAgg.entries()).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}: ${v}`).join(", ");
+
+          const sampleLines = [...rows]
+            .sort((a, b) => (b._costNum - a._costNum) || (b._odDays - a._odDays))
+            .slice(0, 28)
+            .map((r, i) => `${i + 1}. Work: ${r.work_name || "-"} | MoolaAndaju: ${r._costNum}L | Exp: ${Number(r.total_exp || 0).toFixed(2)}L | HOA: ${r.hoa} | Div: ${r.division_name} (${kannadaToEnglish(r.division_name)}) | Taluk: ${r.taluk_name || "-"} | AE: ${r.so_name} (${kannadaToEnglish(r.so_name)}) | Status: ${r.status_raw} | S/F: ${r.is_new_work ? "F" : "S"} | Target: ${r.target_date} | OverdueBy: ${r.overdue_by}`);
+
+          sections.push(
+            `\nLIVE FILTERED QUERY RESULT (MMR COMPLETE ABSTRACT ENGINE):`,
+            `APPLIED FILTERS: ${mmr.filterLabels.join(" | ")}`,
+            `EXACT MATCHING WORKS (Default 17 MMR H.O.A.s): ${mmr.default17Rows.length} | ALL 21 SHEETS: ${mmr.matchedRows.length}`,
+            `FINANCIAL TOTALS (for ${rows.length} works): Total Moola Andaju = ₹${totEst.toFixed(2)} Lakhs | Total Expenditure = ₹${totExp.toFixed(2)} Lakhs | Pending Bills = ₹${totPend.toFixed(2)} Lakhs | Overdue('P') = ${odCnt} | ETS = ${etsCount}`,
+            `DIVISION-WISE COUNT: ${divBreak || "None"}`,
+            `H.O.A.-WISE COUNT: ${hoaBreak || "None"}`,
+            `STATUS-WISE COUNT: ${stBreak || "None"}`,
+            `SAMPLE MATCHING WORKS (Top ${sampleLines.length} of ${rows.length} — user has a Table Popup & Excel/PDF buttons below to view all ${rows.length}):\n${sampleLines.join("\n") || "None"}`
+          );
+        }
+
+        // BESCOM Summary (Division-wise + All AEs tagged with Division)
+        const bescomCf = ds.bescomRows.filter((r) => String(r.status_raw).toUpperCase().trim() === "CF").length;
+        const bescomCp = ds.bescomRows.filter((r) => String(r.status_raw).toUpperCase().trim() === "CP").length;
+        const bescomByDiv = new Map();
+        const bescomByAe = new Map();
+        ds.bescomRows.forEach((r) => {
+          const div = r.division_name || "Unknown";
+          const ae = r.so_name || "Unassigned";
+          const st = String(r.status_raw || "").toUpperCase().trim();
+          if (!bescomByDiv.has(div)) bescomByDiv.set(div, { cf: 0, cp: 0, tot: 0, aes: new Set() });
+          const dg = bescomByDiv.get(div);
+          if (st === "CF") dg.cf++; if (st === "CP") dg.cp++; dg.tot++; dg.aes.add(ae);
+
+          const aeKey = `${div}||${ae}`;
+          if (!bescomByAe.has(aeKey)) bescomByAe.set(aeKey, { ae, div, cf: 0, cp: 0, tot: 0 });
+          const ag = bescomByAe.get(aeKey);
+          if (st === "CF") ag.cf++; if (st === "CP") ag.cp++; ag.tot++;
         });
 
+        const bescomDivLines = Array.from(bescomByDiv.entries())
+          .sort((a, b) => b[1].tot - a[1].tot)
+          .map(([div, g]) => `- ${div} (${kannadaToEnglish(div)}): ${g.aes.size} AEs, Total=${g.tot} (CF=${g.cf}, CP=${g.cp})`);
+        const bescomAeLines = Array.from(bescomByAe.values())
+          .sort((a, b) => b.tot - a.tot)
+          .map((g) => `- AE ${g.ae} (${kannadaToEnglish(g.ae)}) [Div: ${g.div} (${kannadaToEnglish(g.div)})]: Total=${g.tot} (CF=${g.cf}, CP=${g.cp})`);
+
+        if (/\bbescom\b|\brr\b|ಬೆಸ್ಕಾಂ/.test(qLower) || !mmr?.hasNonOfficerMmrFilter) {
+          sections.push(
+            `\nBESCOM RR NO. PENDING (ONLY SCP Borewell & TSP Borewell, Non-Overdue CF & CP): Total=${ds.bescomRows.length} (CF=${bescomCf}, CP=${bescomCp})`,
+            `BY DIVISION:\n${bescomDivLines.join("\n") || "None"}`,
+            `BY AE (ALL ${bescomAeLines.length} AEs WITH DIVISION):\n${bescomAeLines.join("\n") || "None"}`
+          );
+        }
+
+        // H.O.A. & Division summaries
+        const hoaSummaryLines = ds.hoas
+          .map((h) => `${h.raw} => Tot=${h.rows.length}, OD=${h.rows.filter((r) => r.is_overdue).length}, ETS=${h.rows.filter((r) => r.is_status_ets).length}`)
+          .sort();
         const divLines = ds.divisions.map((d) => {
           const od = d.rows.filter((r) => r.is_overdue).length;
           const ets = d.rows.filter((r) => r.is_status_ets).length;
@@ -10641,16 +10799,11 @@
           return `${d.raw} (${kannadaToEnglish(d.raw)}): Total=${d.rows.length}, OD=${od}, ETS=${ets}, EstLakhs=${cost}`;
         });
 
-        const qTokens = extractQueryTokens(qRaw);
-        const matchedDivs = matchItems(qTokens, ds.divisions);
-        const offTokens = getOfficerQueryTokens(qTokens, matchedDivs);
-        const matchedOffs = matchItems(offTokens, ds.officers, "", qRaw);
-
-        // Put matched officers first, then top officers by OD across AE/AEE/TA/AS
+        const matchedOffs = mmr?.officers || [];
         const rankedOffs = [
           ...matchedOffs,
           ...ds.officers.filter((o) => !matchedOffs.includes(o)).sort((a, b) => b.odRows.length - a.odRows.length)
-        ].slice(0, 140);
+        ].slice(0, mmr?.hasNonOfficerMmrFilter ? 50 : 130);
 
         const offLines = rankedOffs.map((o) => {
           const worst = [...o.odRows].sort((a, b) => b._odDays - a._odDays)[0];
@@ -10658,87 +10811,190 @@
           return `${o.role} ${o.raw} (${o.enName}) [${Array.from(o.divs).join("/")}] => Tot=${o.rows.length}, OD=${o.odRows.length}, ETS=${o.etsRows.length}${worstTxt}`;
         });
 
-        // BESCOM: Division-wise summary + ALL AEs tagged with their Division & AEE
-        const bescomCf = ds.bescomRows.filter((r) => String(r.status_raw).toUpperCase().trim() === "CF").length;
-        const bescomCp = ds.bescomRows.filter((r) => String(r.status_raw).toUpperCase().trim() === "CP").length;
-
-        const bescomByDiv = new Map();
-        const bescomByAe = new Map();
-        ds.bescomRows.forEach((r) => {
-          const div = r.division_name || "Unknown";
-          const ae = r.so_name || "Unassigned";
-          const st = String(r.status_raw || "").toUpperCase().trim();
-
-          if (!bescomByDiv.has(div)) bescomByDiv.set(div, { cf: 0, cp: 0, tot: 0, aes: new Set() });
-          const dg = bescomByDiv.get(div);
-          if (st === "CF") dg.cf++;
-          if (st === "CP") dg.cp++;
-          dg.tot++;
-          dg.aes.add(ae);
-
-          const aeKey = `${div}||${ae}`;
-          if (!bescomByAe.has(aeKey)) bescomByAe.set(aeKey, { ae, div, aees: new Set(), cf: 0, cp: 0, tot: 0 });
-          const ag = bescomByAe.get(aeKey);
-          if (st === "CF") ag.cf++;
-          if (st === "CP") ag.cp++;
-          ag.tot++;
-          if (r.aee_name && r.aee_name !== "-") ag.aees.add(r.aee_name);
-        });
-
-        const bescomDivLines = Array.from(bescomByDiv.entries())
-          .sort((a, b) => b[1].tot - a[1].tot)
-          .map(([div, g]) => `- ${div} (${kannadaToEnglish(div)}): ${g.aes.size} AEs, Total=${g.tot} (CF=${g.cf}, CP=${g.cp})`);
-
-        const bescomAeLines = Array.from(bescomByAe.values())
-          .sort((a, b) => b.tot - a.tot)
-          .map((g) => `- AE ${g.ae} (${kannadaToEnglish(g.ae)}) [Div: ${g.div} (${kannadaToEnglish(g.div)})]: Total=${g.tot} (CF=${g.cf}, CP=${g.cp})`);
-
-        let detailedWorks = [];
-        if (/\bbescom\b|\brr\b|ಬೆಸ್ಕಾಂ/.test(qLower)) {
-          const bPool = matchedDivs.length
-            ? ds.bescomRows.filter((r) => r.division_name === matchedDivs[0].raw)
-            : ds.bescomRows;
-          detailedWorks.push(...bPool.slice(0, 25));
-        }
-        if (matchedHoaList.length) {
-          const targetHoas = new Set(matchedHoaList.map((x) => x.hoa));
-          detailedWorks.push(
-            ...ds.rows.filter((r) => targetHoas.has(String(r.hoa || "").trim() || "(Blank)")).sort((a, b) => b._odDays - a._odDays).slice(0, 20)
-          );
-        }
-        matchedOffs.slice(0, 4).forEach((o) => {
-          detailedWorks.push(...[...o.odRows].sort((a, b) => b._odDays - a._odDays).slice(0, 10));
-          if (!o.odRows.length) detailedWorks.push(...o.rows.slice(0, 5));
-        });
-        if (!detailedWorks.length && matchedDivs.length) {
-          detailedWorks.push(...matchedDivs[0].rows.filter((r) => r.is_overdue).sort((a, b) => b._odDays - a._odDays).slice(0, 15));
-        }
-        detailedWorks.push(...[...odRows].sort((a, b) => b._odDays - a._odDays).slice(0, 10));
-
-        const seen = new Set();
-        const uniqueWorkLines = [];
-        for (const r of detailedWorks) {
-          const key = `${r.division_name}|${r.so_name}|${r.work_name}`;
-          if (seen.has(key)) continue;
-          seen.add(key);
-          uniqueWorkLines.push(
-            `- Work: ${r.work_name || "-"} | HOA: ${r.hoa || "-"} | Sheet: ${r.sheet_name || "-"} | Div: ${r.division_name} | Taluk: ${r.taluk_name || "-"} | AE: ${r.so_name} (${kannadaToEnglish(r.so_name)}) | AEE: ${r.aee_name} | TA: ${r.ta_name || "-"} | AS: ${r.as_name || "-"} | Status: ${r.status_raw} | Target: ${r.target_date} | OverdueBy: ${r.overdue_by} | EstLakhs: ${r.est_cost || "-"}`
-          );
-          if (uniqueWorkLines.length >= 45) break;
-        }
-
-        return [
-          `TODAY: ${STATE.todayStr || "-"}`,
-          `SOUTH ZONE TOTALS: TotalWorks=${tot}, Overdue(P)=${odRows.length}, ETS=${etsCnt}, Chronic2Yr+=${y2}, Chronic3Yr+=${y3}, Chronic4Yr+=${y4}, BESCOM_Pending=${ds.bescomRows.length} (CF=${bescomCf}, CP=${bescomCp})`,
-          `\nBESCOM RR NO. PENDING BY DIVISION — ONLY SCP (Borewell) & TSP (Borewell), Non-Overdue CF & CP:\n${bescomDivLines.join("\n") || "None"}`,
-          `\nBESCOM RR NO. PENDING BY AE (ALL ${bescomAeLines.length} AEs WITH DIVISION):\n${bescomAeLines.join("\n") || "None"}`,
+        sections.push(
           `\nLEKKASHIRSHIKE (H.O.A.) SUMMARY:\n${hoaSummaryLines.join("\n")}`,
           `\nDIVISIONS:\n${divLines.join("\n")}`,
-          `\nOFFICERS (AE, AEE, TA, AS):\n${offLines.join("\n")}`,
-          `\nRELEVANT & LONGEST OVERDUE WORKS:\n${uniqueWorkLines.join("\n")}`
-        ].join("\n");
+          `\nOFFICERS (AE, AEE, TA, AS, EE):\n${offLines.join("\n")}`
+        );
+
+        // If no MMR filter ran, attach officer works + top 10 oldest overdue works
+        if (!mmr?.hasNonOfficerMmrFilter) {
+          const detailed = [];
+          matchedOffs.slice(0, 3).forEach((o) => {
+            detailed.push(...[...o.odRows].sort((a, b) => b._odDays - a._odDays).slice(0, 10));
+            if (!o.odRows.length) detailed.push(...o.rows.slice(0, 5));
+          });
+          detailed.push(...[...odRows].sort((a, b) => b._odDays - a._odDays).slice(0, 10));
+          const seen = new Set();
+          const lines = [];
+          for (const r of detailed) {
+            const k = `${r.division_name}|${r.so_name}|${r.work_name}`;
+            if (seen.has(k)) continue;
+            seen.add(k);
+            lines.push(`- Work: ${r.work_name || "-"} | MoolaAndaju: ${r.est_cost || "-"}L | HOA: ${r.hoa || "-"} | Div: ${r.division_name} | AE: ${r.so_name} (${kannadaToEnglish(r.so_name)}) | AEE: ${r.aee_name} | Status: ${r.status_raw} | Target: ${r.target_date} | OverdueBy: ${r.overdue_by}`);
+            if (lines.length >= 35) break;
+          }
+          sections.push(`\nRELEVANT & LONGEST OVERDUE WORKS:\n${lines.join("\n")}`);
+        }
+
+        return sections.join("\n");
       }
-      // 6. UI SETUP + SMART POPUP & EXPORT BUTTONS (CHECKS BOTH QUESTION & REPLY)
+
+      // 7. LOCAL FALLBACK SUMMARY IF GEMINI API IS OFFLINE
+      function buildLocalFallbackReply(rawQuery, mmr) {
+        const ds = getAiDataset();
+        if (!ds.rows.length) return `Data is still syncing from the cloud snapshot. Please ask again in a few seconds.`;
+
+        if (mmr && mmr.hasNonOfficerMmrFilter) {
+          const useRows = mmr.default17Rows.length > 0 && !mmr.matchedHoas.length ? mmr.default17Rows : mmr.matchedRows;
+          const totEst = useRows.reduce((s, r) => s + (r._costNum || 0), 0);
+          const odCnt = useRows.filter((r) => r.is_overdue).length;
+          const modalId = saveResultModalPack({
+            title: `Filtered Works — ${mmr.filterLabels.join(" | ")}`,
+            filterSummary: mmr.filterLabels.join(" | "),
+            allRows: mmr.matchedRows,
+            def17Rows: mmr.default17Rows,
+            mmrFilters: mmr
+          });
+          const packId = saveExportPack(`MMR_${mmr.filterLabels[0] || "Works"}`, toExportRows(useRows, false), false);
+          return `
+            <div><b>Filtered Works Summary</b></div>
+            <div style="font-size:0.74rem;color:#475569;margin-top:2px;">${esc(mmr.filterLabels.join(" • "))}</div>
+            <div class="mi-ai-stat-grid">
+              <div class="mi-ai-stat-box">17 MMR H.O.A.s<b>${mmr.default17Rows.length.toLocaleString("en-IN")}</b></div>
+              <div class="mi-ai-stat-box">All 21 Sheets<b>${mmr.matchedRows.length.toLocaleString("en-IN")}</b></div>
+              <div class="mi-ai-stat-box">Total Moola Andaju<b>₹${totEst.toLocaleString("en-IN", { maximumFractionDigits: 1 })} L</b></div>
+              <div class="mi-ai-stat-box red">Overdue ('P')<b>${odCnt}</b></div>
+            </div>
+            ${buildActionButtonsHtml({ resultModalId: modalId, modalCount: useRows.length, mmrAbstractId: modalId, packId, packCount: useRows.length })}
+          `;
+        }
+
+        const tot = ds.rows.length;
+        const od = ds.rows.filter((r) => r.is_overdue).length;
+        const ets = ds.rows.filter((r) => r.is_status_ets).length;
+        return `
+          <div><b>South Zone Live Summary</b></div>
+          <div class="mi-ai-stat-grid">
+            <div class="mi-ai-stat-box">Total Works<b>${tot.toLocaleString("en-IN")}</b></div>
+            <div class="mi-ai-stat-box red">Overdue ('P')<b>${od.toLocaleString("en-IN")}</b></div>
+            <div class="mi-ai-stat-box green">ETS Works<b>${ets.toLocaleString("en-IN")}</b></div>
+            <div class="mi-ai-stat-box">BESCOM Pending<b>${ds.bescomRows.length.toLocaleString("en-IN")}</b></div>
+          </div>
+        `;
+      }
+
+      // 8. SMART ACTION BUTTONS (MATCHES MMR FILTERS, BESCOM, OR OFFICER — NEVER RANDOM!)
+      function attachGeminiActionButtons(rawQuery, replyText, mmr) {
+        const ds = getAiDataset();
+        const qLower = String(rawQuery || "").trim().toLowerCase();
+
+        if (/^(hi|hello|hey|namaste|namaskara|thanks|thank you|ok|okay|bye|good morning|good afternoon|good evening|ನಮಸ್ಕಾರ)[!.,?\s]*$/i.test(qLower)) {
+          return "";
+        }
+
+        const wantsBescom = /\b(bescom|rr\s*no|rr\s*number|rr\s*pending|registration|borewell)\b|ಬೆಸ್ಕಾಂ/.test(qLower);
+
+        // Case 1: BESCOM Queries
+        if (wantsBescom) {
+          const divMatch = mmr.divisions?.[0];
+          const bescomPool = divMatch
+            ? ds.bescomRows.filter((r) => r.division_name === divMatch.raw)
+            : ds.bescomRows;
+
+          const validBescomAEs = new Set(bescomPool.map((r) => r.so_name).filter(Boolean));
+          const replyOffs = !mmr.officers.length && replyText ? findOfficersInReply(replyText, ds.officers, "AE") : [];
+          const namedAe = (mmr.officers.length ? mmr.officers : replyOffs)
+            .find((o) => o.role === "AE" && validBescomAEs.has(o.raw));
+
+          const isMultiDivList = Boolean(divMatch) && !mmr.officers.length &&
+            replyOffs.filter((o) => o.role === "AE" && validBescomAEs.has(o.raw)).length !== 1;
+
+          if (namedAe && !isMultiDivList) {
+            lastContextOfficer = namedAe;
+            const subset = bescomPool.filter((r) => r.so_name === namedAe.raw);
+            const packId = saveExportPack(`BESCOM_Pending_${namedAe.enName || namedAe.raw}`, toExportRows(subset, true), true);
+            return buildActionButtonsHtml({ bescomAe: namedAe.raw, packId, packCount: subset.length });
+          }
+
+          const exportTitle = divMatch ? `BESCOM_Pending_${divMatch.enName || divMatch.raw}` : "BESCOM_Pending_All";
+          const exportRows = toExportRows(bescomPool, true);
+          const packId = exportRows.length ? saveExportPack(exportTitle, exportRows, true) : "";
+          const btns = [];
+          if (divMatch) {
+            Array.from(validBescomAEs).slice(0, 5).forEach((ae) => {
+              btns.push(`<button type="button" class="mi-ai-action-btn" data-open-bescom="${esc(ae)}">Open ${esc(ae)} BESCOM Popup →</button>`);
+            });
+          }
+          if (packId && exportRows.length > 0) {
+            if (exportRows.length <= 600) btns.push(`<button type="button" class="mi-ai-action-btn pdf-btn" data-ai-export="pdf" data-pack-id="${esc(packId)}">Download PDF (${exportRows.length})</button>`);
+            btns.push(`<button type="button" class="mi-ai-action-btn xlsx-btn" data-ai-export="xlsx" data-pack-id="${esc(packId)}">Download Excel (${exportRows.length})</button>`);
+          }
+          return btns.length ? `<div class="mi-ai-action-row">${btns.join("")}</div>` : "";
+        }
+
+        // Case 2: MMR Filtered List Queries (Moola Andaju range, Taluk, District, Constituency, Status, FY, S/F, Division, H.O.A.)
+        if (mmr.hasNonOfficerMmrFilter && mmr.matchedRows.length > 0) {
+          const primaryRows = (mmr.default17Rows.length > 0 && !mmr.matchedHoas.length) ? mmr.default17Rows : mmr.matchedRows;
+          const title = `Filtered Works — ${mmr.filterLabels.join(" | ")}`;
+          const modalId = saveResultModalPack({
+            title,
+            filterSummary: mmr.filterLabels.join(" | "),
+            allRows: mmr.matchedRows,
+            def17Rows: mmr.default17Rows,
+            mmrFilters: mmr
+          });
+          const packId = saveExportPack(title, toExportRows(primaryRows, false), false);
+          const canOpenMmr = Boolean(!mmr.costRange || mmr.costRange.awBucket);
+          return buildActionButtonsHtml({
+            resultModalId: modalId,
+            modalCount: primaryRows.length,
+            mmrAbstractId: canOpenMmr ? modalId : "",
+            packId,
+            packCount: primaryRows.length
+          });
+        }
+
+        // Case 3: Officer-Specific Query (or "who has highest..." officer ranking question)
+        const askingAboutOfficer = /\b(who|ae|aee|ta|as|ee|officer|engineer|him|her|his)\b/.test(qLower);
+        let pickedOff = mmr.officers[0] || null;
+        if (!pickedOff && askingAboutOfficer && replyText) {
+          pickedOff = findOfficersInReply(replyText, ds.officers, mmr.roleHint)[0] || null;
+        }
+        if (!pickedOff && lastContextOfficer && /\b(him|her|his|their|pdf|excel|popup)\b/.test(qLower)) {
+          pickedOff = lastContextOfficer;
+        }
+
+        if (pickedOff) {
+          lastContextOfficer = pickedOff;
+          const src = pickedOff.odRows.length ? [...pickedOff.odRows].sort((a, b) => b._odDays - a._odDays) : pickedOff.rows;
+          const packId = saveExportPack(`${pickedOff.role}_${pickedOff.enName || pickedOff.raw}`, toExportRows(src, false), false);
+          return buildActionButtonsHtml({
+            officerName: (pickedOff.role === "AE" || pickedOff.role === "AEE") ? pickedOff.raw : "",
+            isAee: pickedOff.role === "AEE",
+            packId,
+            packCount: src.length
+          });
+        }
+
+        // Case 4: General Longest Overdue / Chronic Works query
+        if (/\b(longest|oldest|chronic|overdue\s+works)\b/.test(qLower)) {
+          const topOd = ds.rows.filter((r) => r.is_overdue).sort((a, b) => b._odDays - a._odDays).slice(0, 25);
+          const modalId = saveResultModalPack({
+            title: "Top 25 Longest Overdue Works — South Zone",
+            filterSummary: "South Zone • Longest Overdue",
+            allRows: topOd,
+            def17Rows: topOd,
+            mmrFilters: null
+          });
+          const packId = saveExportPack("South_Zone_Top_Overdue_Works", toExportRows(topOd, false), false);
+          return buildActionButtonsHtml({ resultModalId: modalId, modalCount: topOd.length, packId, packCount: topOd.length });
+        }
+
+        return "";
+      }
+
+      // 9. FLOATING LAUNCHER + CHAT PANEL UI
       const BOT_SVG = `<svg class="mi-ai-bot-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>`;
       const SEND_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
 
@@ -10766,7 +11022,7 @@
           <div class="mi-ai-msg-row bot">
             <div class="mi-ai-avatar">${BOT_SVG.replace('class="mi-ai-bot-svg"', 'width="16" height="16"')}</div>
             <div class="mi-ai-bubble">
-              Hello <b>Chief Engineer</b> I am your MI AI BOT powered by <b>Gemini 3.5 Flash Lite</b>. Ask me any question regarding Progress Report.
+              Namaste! I am your <b>Minor Irrigation Dashboard Assistant</b>. Ask me about any AE/AEE/TA/AS/EE, <b>Moola Andaju</b> cost ranges (e.g. 500–1000 lakhs), divisions, taluks, H.O.A.s, or BESCOM pending works.
             </div>
           </div>
         </div>
@@ -10774,9 +11030,9 @@
         <div class="mi-ai-suggestions" id="mi-ai-suggestions">
           <div class="mi-ai-sug-title">Suggested Questions:</div>
           <div class="mi-ai-sug-list">
-            <button type="button" class="mi-ai-sug-chip">Who has the highest overdue works?</button>
+            <button type="button" class="mi-ai-sug-chip">List works with Moola Andaju between 500 to 1000 lakhs</button>
             <button type="button" class="mi-ai-sug-chip">Who is the AE with highest BESCOM RR pending?</button>
-            <button type="button" class="mi-ai-sug-chip">Which work has the longest overdue period?</button>
+            <button type="button" class="mi-ai-sug-chip">Who has the highest overdue works?</button>
             <button type="button" class="mi-ai-sug-chip">Top 5 divisions by overdue works</button>
             <button type="button" class="mi-ai-sug-chip">Give me overall South Zone summary</button>
           </div>
@@ -10784,7 +11040,7 @@
 
         <div class="mi-ai-footer-wrap">
           <form class="mi-ai-input-row" id="mi-ai-form">
-            <input type="text" id="mi-ai-input" placeholder="Ask about any AE, TA, division, BESCOM..." autocomplete="off" />
+            <input type="text" id="mi-ai-input" placeholder="Ask about Moola Andaju, AE, TA, division, BESCOM..." autocomplete="off" />
             <button type="submit" id="mi-ai-send" title="Send">${SEND_SVG}</button>
           </form>
           <div class="mi-ai-footnote">
@@ -10822,135 +11078,7 @@
         bodyEl.appendChild(row);
         bodyEl.scrollTop = bodyEl.scrollHeight;
       }
-        function attachGeminiActionButtons(rawQuery, replyText) {
-        const ds = getAiDataset();
-        const qLower = String(rawQuery || "").trim().toLowerCase();
 
-        // Never show download/popup buttons for greetings or casual chat
-        if (/^(hi|hello|hey|namaste|namaskara|thanks|thank you|ok|okay|bye|good morning|good afternoon|good evening|ನಮಸ್ಕಾರ)[!.,?\s]*$/i.test(qLower)) {
-          return "";
-        }
-
-        // Only detect BESCOM from the USER'S question (not Gemini's greeting/help text)
-        const wantsBescom = /\b(bescom|rr\s*no|rr\s*number|rr\s*pending|registration|borewell)\b|ಬೆಸ್ಕಾಂ/.test(qLower);
-
-        const isDashboardQuery = wantsBescom ||
-          /\b(overdue|od|ets|chronic|work|works|division|divisions|subdivision|hoa|lekkashirshike|scheme|sheet|ae|aee|ta|as|officer|officers|engineer|pending|status|summary|report|cost|amount|estimate|lakhs|pdf|excel|popup|highest|longest|oldest|top|least|rank|count|total)\b|ಕಾಮಗಾರಿ|ವಿಭಾಗ|ಬಾಕಿ|ಲೆಕ್ಕಶೀರ್ಷಿಕೆ|ಅತಿ|ಹೆಚ್ಚು|ಕಡಿಮೆ|ಒಟ್ಟು/.test(qLower);
-
-        let roleHint = "";
-        if (/\baee\b|assistant executive/.test(qLower)) roleHint = "AEE";
-        else if (/\bae\b|assistant engineer/.test(qLower) || wantsBescom) roleHint = "AE";
-        else if (/\bta\b|technical assistant/.test(qLower)) roleHint = "TA";
-        else if (/\b(as|account superintendent)\b/.test(qLower)) roleHint = "AS";
-
-        const qTokens = extractQueryTokens(rawQuery);
-        const matchedDivs = matchItems(qTokens, ds.divisions);
-        const matchedHoas = matchItems(qTokens, ds.hoas);
-        const offTokens = getOfficerQueryTokens(qTokens, matchedDivs);
-
-        // 1. Officers explicitly named in the user's question
-        let targetOfficers = matchItems(offTokens, ds.officers, roleHint, rawQuery);
-
-        // 2. If it's a dashboard query without a name ("who has highest..."), check Gemini's reply
-        const replyOfficers = (isDashboardQuery && !targetOfficers.length && replyText)
-          ? findOfficersInReply(replyText, ds.officers, roleHint)
-          : [];
-
-        // 3. Follow-up pronoun support ("give me his pdf", "open popup")
-        if (!targetOfficers.length && !replyOfficers.length && !matchedDivs.length && lastContextOfficer && /\b(him|her|his|their|pdf|excel|popup)\b/.test(qLower)) {
-          targetOfficers = [lastContextOfficer];
-        }
-
-        // If the question has nothing to do with MI dashboard data, show NO buttons
-        if (!isDashboardQuery && !targetOfficers.length && !matchedDivs.length && !matchedHoas.length) {
-          return "";
-        }
-
-        let popupOpts = {};
-        let exportRows = [];
-        let exportTitle = "MI_AI_Report";
-
-        if (wantsBescom) {
-          const bescomPool = matchedDivs.length
-            ? ds.bescomRows.filter((r) => r.division_name === matchedDivs[0].raw)
-            : ds.bescomRows;
-
-          const validBescomAEs = new Set(bescomPool.map((r) => r.so_name).filter(Boolean));
-          const namedAe = (targetOfficers.length ? targetOfficers : replyOfficers)
-            .find((o) => o.role === "AE" && validBescomAEs.has(o.raw));
-
-          const isMultiDivList = matchedDivs.length > 0 && !targetOfficers.length &&
-            replyOfficers.filter((o) => o.role === "AE" && validBescomAEs.has(o.raw)).length !== 1;
-
-          if (namedAe && !isMultiDivList) {
-            lastContextOfficer = namedAe;
-            const subset = bescomPool.filter((r) => r.so_name === namedAe.raw);
-            popupOpts.bescomAe = namedAe.raw;
-            exportTitle = `BESCOM_Pending_${namedAe.enName || namedAe.raw}`;
-            exportRows = toExportRows(subset, true);
-            if (exportRows.length > 0) {
-              popupOpts.packId = saveExportPack(exportTitle, exportRows, true);
-              popupOpts.packCount = exportRows.length;
-            }
-            return buildActionButtonsHtml(popupOpts);
-          }
-
-          exportTitle = matchedDivs.length
-            ? `BESCOM_Pending_${kannadaToEnglish(matchedDivs[0].raw) || matchedDivs[0].raw}`
-            : "BESCOM_Pending_All";
-          exportRows = toExportRows(bescomPool, true);
-          const packId = exportRows.length ? saveExportPack(exportTitle, exportRows, true) : "";
-
-          const aeListInPool = Array.from(validBescomAEs).slice(0, 5);
-          const btns = [];
-          if (matchedDivs.length) {
-            aeListInPool.forEach((ae) => {
-              btns.push(`<button type="button" class="mi-ai-action-btn" data-open-bescom="${esc(ae)}">Open ${esc(ae)} BESCOM Popup →</button>`);
-            });
-          }
-          if (packId && exportRows.length > 0) {
-            if (exportRows.length <= 600) {
-              btns.push(`<button type="button" class="mi-ai-action-btn pdf-btn" data-ai-export="pdf" data-pack-id="${esc(packId)}">Download PDF (${exportRows.length})</button>`);
-            }
-            btns.push(`<button type="button" class="mi-ai-action-btn xlsx-btn" data-ai-export="xlsx" data-pack-id="${esc(packId)}">Download Excel (${exportRows.length})</button>`);
-          }
-          return btns.length ? `<div class="mi-ai-action-row">${btns.join("")}</div>` : "";
-        }
-
-        const pickedOff = targetOfficers[0] || (!matchedDivs.length ? replyOfficers[0] : null);
-        if (pickedOff) {
-          lastContextOfficer = pickedOff;
-          if (pickedOff.role === "AE" || pickedOff.role === "AEE") {
-            popupOpts.officerName = pickedOff.raw;
-            popupOpts.isAee = pickedOff.role === "AEE";
-          }
-          const src = pickedOff.odRows.length ? [...pickedOff.odRows].sort((a, b) => b._odDays - a._odDays) : pickedOff.rows;
-          exportTitle = `${pickedOff.role}_${pickedOff.enName || pickedOff.raw}`;
-          exportRows = toExportRows(src, false);
-        } else if (matchedDivs.length > 0) {
-          const d = matchedDivs[0];
-          const src = d.rows.filter((r) => r.is_overdue).sort((a, b) => b._odDays - a._odDays);
-          exportTitle = `Division_${kannadaToEnglish(d.raw) || d.raw}`;
-          exportRows = toExportRows(src.length ? src : d.rows, false);
-        } else if (matchedHoas.length > 0) {
-          const h = matchedHoas[0];
-          const src = h.rows.filter((r) => r.is_overdue).sort((a, b) => b._odDays - a._odDays);
-          exportTitle = `HOA_${h.raw}`;
-          exportRows = toExportRows(src.length ? src : h.rows, false);
-        } else if (/\b(overdue|longest|oldest|chronic|pdf|excel|download|summary|report)\b/.test(qLower)) {
-          const topOd = ds.rows.filter((r) => r.is_overdue).sort((a, b) => b._odDays - a._odDays).slice(0, 25);
-          exportTitle = "South_Zone_Top_Overdue_Works";
-          exportRows = toExportRows(topOd, false);
-        } else {
-          return "";
-        }
-
-        if (exportRows.length > 0) {
-          popupOpts.packId = saveExportPack(exportTitle, exportRows, false);
-          popupOpts.packCount = exportRows.length;
-        }
-        return buildActionButtonsHtml(popupOpts);
-      }
       async function handleAsk(question) {
         const q = String(question || "").trim();
         if (!q) return;
@@ -10961,13 +11089,16 @@
         typingRow.className = "mi-ai-msg-row bot";
         typingRow.innerHTML = `
           <div class="mi-ai-avatar">${BOT_SVG.replace('class="mi-ai-bot-svg"', 'width="16" height="16"')}</div>
-          <div class="mi-ai-bubble" style="color:#64748B;">Thinking with live MI data...</div>
+          <div class="mi-ai-bubble" style="color:#64748B;">Filtering live MI data...</div>
         `;
         bodyEl.appendChild(typingRow);
         bodyEl.scrollTop = bodyEl.scrollHeight;
 
+        const ds = getAiDataset();
+        const mmr = parseMmrQueryFilters(q, ds);
+
         try {
-          const context = buildLiveContextForGemini(q);
+          const context = buildLiveContextForGemini(q, mmr);
           const resp = await fetch("/api/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -10975,18 +11106,16 @@
           });
 
           const data = await resp.json();
-          if (!resp.ok || !data.reply) {
-            throw new Error(data?.error || "API unavailable");
-          }
+          if (!resp.ok || !data.reply) throw new Error(data?.error || "API unavailable");
 
           typingRow.remove();
           chatHistory.push({ role: "user", text: q }, { role: "assistant", text: data.reply });
-          const actionBtns = attachGeminiActionButtons(q, data.reply);
+          const actionBtns = attachGeminiActionButtons(q, data.reply, mmr);
           appendMessage("bot", formatAiMarkdown(data.reply) + actionBtns);
         } catch (err) {
           console.warn("Gemini API fallback to local engine:", err);
           typingRow.remove();
-          appendMessage("bot", answerQuestion(q));
+          appendMessage("bot", buildLocalFallbackReply(q, mmr));
         }
       }
 
@@ -11006,6 +11135,18 @@
       });
 
       bodyEl?.addEventListener("click", (e) => {
+        const aiModalBtn = e.target.closest("[data-open-ai-modal]");
+        if (aiModalBtn) {
+          const pack = aiResultModalPacks.get(aiModalBtn.getAttribute("data-open-ai-modal"));
+          if (pack) { togglePanel(false); openAiResultsModal(pack); }
+          return;
+        }
+        const mmrBtn = e.target.closest("[data-open-mmr-abstract]");
+        if (mmrBtn) {
+          const pack = aiResultModalPacks.get(mmrBtn.getAttribute("data-open-mmr-abstract"));
+          if (pack?.mmrFilters) { togglePanel(false); openInMmrAbstract(pack.mmrFilters); }
+          return;
+        }
         const offBtn = e.target.closest("[data-open-officer]");
         if (offBtn && typeof openOfficerDetailsModal === "function") {
           togglePanel(false);
@@ -11021,27 +11162,25 @@
         const expBtn = e.target.closest("[data-ai-export]");
         if (expBtn) {
           const pack = aiExportPacks.get(expBtn.getAttribute("data-pack-id"));
-          if (!pack) {
-            alert("Export data expired—please ask the question again.");
-            return;
-          }
+          if (!pack) { alert("Export data expired—please ask the question again."); return; }
           if (expBtn.getAttribute("data-ai-export") === "pdf") downloadAiPdf(pack, expBtn);
           else downloadAiExcel(pack);
           return;
         }
         const askBtn = e.target.closest("[data-ask-query]");
-        if (askBtn) {
-          handleAsk(askBtn.getAttribute("data-ask-query"));
-        }
+        if (askBtn) handleAsk(askBtn.getAttribute("data-ask-query"));
       });
 
       window.addEventListener("keydown", (e) => {
-        if (e.key === "Escape" && panel.classList.contains("open")) {
-          togglePanel(false);
+        if (e.key === "Escape") {
+          if (document.getElementById("ai-results-modal")?.classList.contains("open")) {
+            closeAiResultsModal();
+          } else if (panel.classList.contains("open")) {
+            togglePanel(false);
+          }
         }
       });
     })();
-    
   </script>
 </body>
 </html>
