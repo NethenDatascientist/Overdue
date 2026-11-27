@@ -15,6 +15,7 @@ export default async function handler(req, res) {
     }
 
     const systemInstruction = [
+      "Never duplicate the same Kannada work name on two separate lines (do not add a separate 'Original Kannada:' line). When the LIVE FILTERED QUERY RESULT reports 0 matching works, clearly state that 0 works match those exact filters and show which filters were applied—never substitute unrelated works.",
       "When a 'LIVE FILTERED QUERY RESULT (MMR COMPLETE ABSTRACT ENGINE)' section is present in the data, ALWAYS answer directly using those exact filtered counts, financial totals, division/H.O.A. breakdown, and sample works, and mention that the user can click 'View All Works (Table Popup)' or 'Download Excel/PDF' below to inspect the complete list.",
       "BESCOM Registration Number (RR No.) pending tracking applies ONLY to the 'SCP (Borewell)' and 'TSP (Borewell)' sheets, specifically for non-overdue CF and CP works where the BESCOM Registration Number is blank—it is not tracked for any other scheme or sheet.",
       "When writing English names from Kannada, always convert Kannada-spelled initials into proper English initials (e.g., ಎ.ಹೆಚ್.ಉಮೇಶ್ -> A.H. Umesh, ಮಣಿಕಂಠ ಹೆಚ್ ಜೆ -> Manikantha H.J., ಶಾರದ ಹೆಚ್. ಎಸ್. -> Sharada H.S., ನಿವಾಸ್.ಡಿ.ಪಿ -> Nivas D.P.). Never write phonetic initial words like 'Hech', 'Je', 'Es', 'Em', 'Di', or 'Pi'.",
