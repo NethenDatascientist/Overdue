@@ -10384,28 +10384,27 @@
         "ಲೆಕ್ಕಶೀರ್ಷಿಕೆ",
         "ಕಾಮಗಾರಿ ಹೆಸರು",
         "S /F",
-        "ಮೂಲ ಅಂದಾಜು ಮೊತ್ತ",
+        "ಮೂಲ ಅಂದಾಜು ಮೊತ್ತ (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)",
         "ಅಚ್ಚುಕಟ್ಟು(ಸೃಷ್ಟಿಸಿದ/ ಸ್ಥಿರೀಕರಿಸಿದ) (ಹೆಕ್ಟೇರ್ ಗಳಲ್ಲಿ)",
         "ಅನುಮೋದಿತ ಸರ್ಕಾರದ ಆದೇಶ ಸಂಖ್ಯೆ",
         "ಸರ್ಕಾರದ ಆದೇಶ ದಿನಾಂಕ",
         "ತಾಂತ್ರಿಕ ಮಂಜೂರಾತಿ ಸಂಖ್ಯೆ",
         "ತಾಂತ್ರಿಕ ಮಂಜೂರಾತಿ ದಿನಾಂಕ",
-        "ಗುತ್ತಿಗೆ ಮೊತ್ತ (ಜಿ.ಎಸ್.ಟಿ ಸೇರಿದಂತೆ)",
+        "ಗುತ್ತಿಗೆ ಮೊತ್ತ (ಜಿ.ಎಸ್.ಟಿ ಸೇರಿದಂತೆ) (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)",
         "ಗುತ್ತಿಗೆದಾರರ ಹೆಸರು",
-        "ಪರಿಷ್ಕೃತ ಅಂದಾಜು ಮೊತ್ತ",
+        "ಪರಿಷ್ಕೃತ ಅಂದಾಜು ಮೊತ್ತ (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)",
         "ಯೋಜನೆಗೆ ನಿಗಧಿಪಡಿಸಿದ ಕಾಲಾವಧಿ (ತಿಂಗಳು)",
         "ಕಾರ್ಯದೇಶ ನೀಡಿದ ದಿನಾಂಕ",
         "ಕಾಮಗಾರಿ ಪ್ರಾರಂಭಿಸಿದ ದಿನಾಂಕ",
         "ಕಾಮಗಾರಿ ಮುಕ್ತಾಯಗೊಳಿಸಬೇಕಾದ ದಿನಾಂಕ",
-        "ಮಾರ್ಚ್ 2026 ವರೆಗಿನ ವೆಚ್ಚ",
-        "ಒಟ್ಟಾರೆ ವೆಚ್ಚ",
-        "ಬಾಕಿ ಬಿಲ್ಲಿನ ಮೊತ್ತ",
+        "ಮಾರ್ಚ್ 2026 ವರೆಗಿನ ವೆಚ್ಚ (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)",
+        "ಒಟ್ಟಾರೆ ವೆಚ್ಚ (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)",
+        "ಬಾಕಿ ಬಿಲ್ಲಿನ ಮೊತ್ತ (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)",
         "Progress status (cp/cf/p)",
         "ಅನುಮೋದನೆಯಾದ ವರ್ಷ",
         "ಶಾಖಾಧಿಕಾರಿಯ ಹೆಸರು",
         "ಸಹಾಯಕ ಕಾರ್ಯಪಾಲಕ ಇಂಜಿನಿಯರ್ ಹೆಸರು"
       ];
-
       function cleanAiCell(v) {
         const s = String(v ?? "").trim();
         if (!s || s === UNSPECIFIED_LABEL || s === UNASSIGNED_LABEL) return "-";
@@ -10664,29 +10663,28 @@
           "ಲೆಕ್ಕಶೀರ್ಷಿಕೆ": cleanAiCell(r.hoa),
           "ಕಾಮಗಾರಿ ಹೆಸರು": cleanAiCell(r.work_name),
           "S /F": r.is_new_work ? "F" : "S",
-          "ಮೂಲ ಅಂದಾಜು ಮೊತ್ತ": r._hasCost ? fmtAiAmt(r._costNum) : "-",
+          "ಮೂಲ ಅಂದಾಜು ಮೊತ್ತ (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)": r._hasCost ? fmtAiAmt(r._costNum) : "-",
           "ಅಚ್ಚುಕಟ್ಟು(ಸೃಷ್ಟಿಸಿದ/ ಸ್ಥಿರೀಕರಿಸಿದ) (ಹೆಕ್ಟೇರ್ ಗಳಲ್ಲಿ)": cleanAiCell(r.achukattu),
           "ಅನುಮೋದಿತ ಸರ್ಕಾರದ ಆದೇಶ ಸಂಖ್ಯೆ": cleanAiCell(r.go_no),
           "ಸರ್ಕಾರದ ಆದೇಶ ದಿನಾಂಕ": cleanAiCell(r.go_date_str || r.go_fy),
           "ತಾಂತ್ರಿಕ ಮಂಜೂರಾತಿ ಸಂಖ್ಯೆ": cleanAiCell(r.ts_no),
           "ತಾಂತ್ರಿಕ ಮಂಜೂರಾತಿ ದಿನಾಂಕ": cleanAiCell(r.ts_date),
-          "ಗುತ್ತಿಗೆ ಮೊತ್ತ (ಜಿ.ಎಸ್.ಟಿ ಸೇರಿದಂತೆ)": fmtAiAmt(r.contract_amt),
+          "ಗುತ್ತಿಗೆ ಮೊತ್ತ (ಜಿ.ಎಸ್.ಟಿ ಸೇರಿದಂತೆ) (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)": fmtAiAmt(r.contract_amt),
           "ಗುತ್ತಿಗೆದಾರರ ಹೆಸರು": cleanAiCell(r.contractor_name),
-          "ಪರಿಷ್ಕೃತ ಅಂದಾಜು ಮೊತ್ತ": fmtAiAmt(r.revised_est),
+          "ಪರಿಷ್ಕೃತ ಅಂದಾಜು ಮೊತ್ತ (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)": fmtAiAmt(r.revised_est),
           "ಯೋಜನೆಗೆ ನಿಗಧಿಪಡಿಸಿದ ಕಾಲಾವಧಿ (ತಿಂಗಳು)": cleanAiCell(r.project_duration),
           "ಕಾರ್ಯದೇಶ ನೀಡಿದ ದಿನಾಂಕ": cleanAiCell(r.wo_date_str || r._woFy),
           "ಕಾಮಗಾರಿ ಪ್ರಾರಂಭಿಸಿದ ದಿನಾಂಕ": cleanAiCell(r.start_date),
           "ಕಾಮಗಾರಿ ಮುಕ್ತಾಯಗೊಳಿಸಬೇಕಾದ ದಿನಾಂಕ": cleanAiCell(r.target_date),
-          "ಮಾರ್ಚ್ 2026 ವರೆಗಿನ ವೆಚ್ಚ": fmtAiAmt(r.exp_mar26),
-          "ಒಟ್ಟಾರೆ ವೆಚ್ಚ": fmtAiAmt(r.total_exp),
-          "ಬಾಕಿ ಬಿಲ್ಲಿನ ಮೊತ್ತ": fmtAiAmt(r.pending_bill),
+          "ಮಾರ್ಚ್ 2026 ವರೆಗಿನ ವೆಚ್ಚ (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)": fmtAiAmt(r.exp_mar26),
+          "ಒಟ್ಟಾರೆ ವೆಚ್ಚ (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)": fmtAiAmt(r.total_exp),
+          "ಬಾಕಿ ಬಿಲ್ಲಿನ ಮೊತ್ತ (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)": fmtAiAmt(r.pending_bill),
           "Progress status (cp/cf/p)": cleanAiCell(r.status_raw),
           "ಅನುಮೋದನೆಯಾದ ವರ್ಷ": cleanAiCell(r.approved_year || r.go_fy),
           "ಶಾಖಾಧಿಕಾರಿಯ ಹೆಸರು": cleanAiCell(r.so_name),
           "ಸಹಾಯಕ ಕಾರ್ಯಪಾಲಕ ಇಂಜಿನಿಯರ್ ಹೆಸರು": cleanAiCell(r.aee_name)
         }));
       }
-
       function downloadAiExcel(pack) {
         const rows = pack?.rows || [];
         if (!rows.length || typeof XLSX === "undefined") {
@@ -11005,7 +11003,7 @@
           const totEst = useRows.reduce((s, r) => s + (r._costNum || 0), 0);
           const odCnt = useRows.filter((r) => r.is_overdue).length;
           const modalId = saveResultModalPack({
-            title: `Filtered Works — ${mmr.filterLabels.join(" | ")}`,
+            title: `Filtered Works - ${mmr.filterLabels.join(" | ")}`,
             filterSummary: mmr.filterLabels.join(" | "),
             allRows: mmr.matchedRows,
             def17Rows: mmr.default17Rows,
