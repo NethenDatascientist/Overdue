@@ -9848,6 +9848,28 @@
         "ಶ್ರೀ": "Sri", "ಶ್ರೀಮತಿ": "Smt.", "ಕುಮಾರಿ": "Kum.", "ಕು": "Kum.", "ಡಾ": "Dr."
       };
 
+      const KN_PLACE_SPELLING = {
+        "ಮೈಸೂರು": "Mysuru",
+        "ಹಾಸನ": "Hassan",
+        "ಬೆಂಗಳೂರು": "Bengaluru",
+        "ಮಂಗಳೂರು": "Mangaluru",
+        "ತುಮಕೂರು": "Tumakuru",
+        "ಕೋಲಾರ": "Kolar",
+        "ಚಿಕ್ಕಮಗಳೂರು": "Chikkamagaluru",
+        "ಚಿಕ್ಕಬಳ್ಳಾಪುರ": "Chikkaballapura",
+        "ಚಿತ್ರದುರ್ಗ": "Chitradurga",
+        "ಮಂಡ್ಯ": "Mandya",
+        "ಶಿವಮೊಗ್ಗ": "Shivamogga",
+        "ರಾಮನಗರ": "Ramanagara",
+        "ಚಾಮರಾಜನಗರ": "Chamarajanagara",
+        "ಕೊಡಗು": "Kodagu",
+        "ಉಡುಪಿ": "Udupi",
+        "ದಾವಣಗೆರೆ": "Davanagere",
+        "ದಕ್ಷಿಣ": "Dakshina",
+        "ಉತ್ತರ": "Uttara",
+        "ಕೃಷ್ಣ": "Krishna"
+      };
+
       function normalizeKnRaw(input) {
         return String(input || "")
           .normalize("NFC")
@@ -9897,6 +9919,7 @@
         const parts = [];
         rawTokens.forEach((tok) => {
           if (KN_HONORIFICS[tok]) parts.push({ type: "word", text: KN_HONORIFICS[tok] });
+          else if (KN_PLACE_SPELLING[tok]) parts.push({ type: "word", text: KN_PLACE_SPELLING[tok] });
           else if (KN_INITIALS[tok]) parts.push({ type: "init", text: KN_INITIALS[tok] });
           else if (/^[a-zA-Z]$/.test(tok)) parts.push({ type: "init", text: tok.toUpperCase() });
           else if (/[\u0C80-\u0CFF]/.test(tok)) {
@@ -11321,21 +11344,33 @@
         });
 
         const matchedOffs = mmr?.officers || [];
-        const rankedOffs = [
-          ...matchedOffs,
-          ...ds.officers.filter((o) => !matchedOffs.includes(o)).sort((a, b) => b.odRows.length - a.odRows.length)
-        ].slice(0, mmr?.hasNonOfficerMmrFilter ? 50 : 130);
-
-        const offLines = rankedOffs.map((o) => {
+        const fmtOff = (o) => {
           const worst = [...o.odRows].sort((a, b) => b._odDays - a._odDays)[0];
           const worstTxt = worst ? ` | LongestOD=${worst.overdue_by} (${worst.target_date})` : "";
           return `${o.role} ${o.raw} (${o.enName}) [${Array.from(o.divs).join("/")}] => Tot=${o.rows.length}, OD=${o.odRows.length}, ETS=${o.etsRows.length}${worstTxt}`;
-        });
+        };
+
+        const aeList = [
+          ...matchedOffs.filter((o) => o.role === "AE"),
+          ...ds.officers.filter((o) => o.role === "AE" && !matchedOffs.includes(o)).sort((a, b) => b.odRows.length - a.odRows.length)
+        ].slice(0, mmr?.hasNonOfficerMmrFilter ? 25 : 65);
+
+        const aeeList = [
+          ...matchedOffs.filter((o) => o.role === "AEE"),
+          ...ds.officers.filter((o) => o.role === "AEE" && !matchedOffs.includes(o)).sort((a, b) => b.odRows.length - a.odRows.length)
+        ].slice(0, mmr?.hasNonOfficerMmrFilter ? 20 : 45);
+
+        const otherCadreList = [
+          ...matchedOffs.filter((o) => o.role === "TA" || o.role === "AS" || o.role === "EE"),
+          ...ds.officers.filter((o) => (o.role === "TA" || o.role === "AS" || o.role === "EE") && !matchedOffs.includes(o)).sort((a, b) => b.odRows.length - a.odRows.length)
+        ].slice(0, 25);
 
         sections.push(
           `\nLEKKASHIRSHIKE (H.O.A.) SUMMARY:\n${hoaSummaryLines.join("\n")}`,
           `\nDIVISIONS:\n${divLines.join("\n")}`,
-          `\nOFFICERS (AE, AEE, TA, AS, EE):\n${offLines.join("\n")}`
+          `\nASSISTANT ENGINEERS (AE) — RANKED BY OVERDUE WORKS:\n${aeList.map(fmtOff).join("\n")}`,
+          `\nASSISTANT EXECUTIVE ENGINEERS (AEE) — RANKED BY OVERDUE WORKS:\n${aeeList.map(fmtOff).join("\n")}`,
+          `\nOTHER CADRES (TA, AS, EE — ONLY use if the user specifically asks about TA, AS, or EE):\n${otherCadreList.map(fmtOff).join("\n")}`
         );
 
         // If no MMR filter ran, attach officer works + top 10 oldest overdue works
@@ -11477,11 +11512,37 @@
           });
         }
 
-        // Case 3: Officer-Specific Query (or "who has highest..." officer ranking question)
+        // Case 3: Officer-Specific Query (AE/AEE priority + AE/AEE choice buttons when unspecified)
+        const isGenericOdRank = !mmr.officers.length && !mmr.roleHint &&
+          /\b(who|highest|most|top|least|lowest|rank)\b/.test(qLower) &&
+          /\b(overdue|od)\b/.test(qLower) &&
+          !/\b(division|divisions|period|longest|oldest|which\s+work)\b/.test(qLower);
+
+        if (isGenericOdRank) {
+          const topAe = ds.officers.filter((o) => o.role === "AE").sort((a, b) => b.odRows.length - a.odRows.length)[0];
+          const topAee = ds.officers.filter((o) => o.role === "AEE").sort((a, b) => b.odRows.length - a.odRows.length)[0];
+          const isLeast = /\b(least|lowest|min|minimum|fewest)\b/.test(qLower);
+          const qWord = isLeast ? "least" : "highest";
+          const btns = [
+            `<button type="button" class="mi-ai-action-btn" data-ask-query="Which AE has the ${qWord} overdue works?">Check AE Wise →</button>`,
+            `<button type="button" class="mi-ai-action-btn" data-ask-query="Which AEE has the ${qWord} overdue works?">Check AEE Wise →</button>`
+          ];
+          if (!isLeast && topAe) {
+            btns.push(`<button type="button" class="mi-ai-action-btn" data-open-officer="${esc(topAe.raw)}" data-is-aee="0">Open Top AE Popup (${topAe.odRows.length} OD) →</button>`);
+          }
+          if (!isLeast && topAee) {
+            btns.push(`<button type="button" class="mi-ai-action-btn" data-open-officer="${esc(topAee.raw)}" data-is-aee="1">Open Top AEE Popup (${topAee.odRows.length} OD) →</button>`);
+          }
+          return `<div class="mi-ai-action-row">${btns.join("")}</div>`;
+        }
+
         const askingAboutOfficer = /\b(who|ae|aee|ta|as|ee|officer|engineer|him|her|his)\b/.test(qLower);
         let pickedOff = mmr.officers[0] || null;
         if (!pickedOff && askingAboutOfficer && replyText) {
-          pickedOff = findOfficersInReply(replyText, ds.officers, mmr.roleHint)[0] || null;
+          const replyPool = mmr.roleHint
+            ? ds.officers.filter((o) => o.role === mmr.roleHint)
+            : ds.officers.filter((o) => o.role === "AE" || o.role === "AEE");
+          pickedOff = findOfficersInReply(replyText, replyPool, mmr.roleHint)[0] || null;
         }
         if (!pickedOff && lastContextOfficer && /\b(him|her|his|their|pdf|excel|popup)\b/.test(qLower)) {
           pickedOff = lastContextOfficer;
@@ -11498,7 +11559,6 @@
             packCount: src.length
           });
         }
-
         // Case 4: General Longest Overdue / Chronic Works query
         if (/\b(longest|oldest|chronic|overdue\s+works)\b/.test(qLower)) {
           const topOd = ds.rows.filter((r) => r.is_overdue).sort((a, b) => b._odDays - a._odDays).slice(0, 25);
