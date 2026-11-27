@@ -9735,9 +9735,6 @@
       setTimeout(() => updateOnScroll(false), 1400);
     })();
     // =========================================================================
-    // MI DASHBOARD AI ASSISTANT (PROPER INITIALS + NON-BLOCKING PDF + POPUPS)
-    // =========================================================================
-    // =========================================================================
     // MI DASHBOARD AI ASSISTANT (FULL MMR FILTER ENGINE + TABLE POPUP + EXPORTS)
     // =========================================================================
     (function initMiDashboardAi() {
@@ -9753,6 +9750,7 @@
       const aiResultModalPacks = new Map();
       let aiPackSeq = 0;
       let lastContextOfficer = null;
+      let lastResultActionOpts = null;
 
       function formatAiMarkdown(text) {
         return esc(text)
@@ -10563,7 +10561,10 @@
         };
 
         
-        const matchedRows = (hasAnyFilter || wantsDabs) ? ds.rawRows.filter(matchesFilter) : [];
+        const wantsAllWorks = !hasAnyFilter && !wantsDabs &&
+       !/\b(bescom|rr\s*no|rr\s*number|summary|overview|how\s+many|count)\b/i.test(qLower) &&
+       /\b(all\s+works|complete\s+(?:details|list|data|works|table)|entire\s+(?:list|works|data)|full\s+(?:list|details|works|table)|every\s+work|list\s+of\s+all|show\s+all\s+works|export\s+all|download\s+all)\b/i.test(qLower);
+     const matchedRows = (hasAnyFilter || wantsDabs || wantsAllWorks) ? ds.rawRows.filter(matchesFilter) : [];
         const default17Rows = (typeof isDefaultAwHoa === "function" && !matchedHoas.length)
           ? matchedRows.filter((r) => isDefaultAwHoa(r.hoa))
           : matchedRows;
@@ -10594,7 +10595,7 @@
         if (officers.length) filterLabels.push(`${officers[0].role}: ${officers[0].raw}`);
 
         return {
-          wantsDabs, dabsGroupBy, costRange, goFyFilter, woFyFilter, anyFyFilter, sf, statuses, excludedStatuses,
+          wantsDabs, dabsGroupBy, wantsAllWorks, costRange, goFyFilter, woFyFilter, anyFyFilter, sf, statuses, excludedStatuses,
           overdueOnly, odPeriod, minOdDays,
           matchedHoas, excludedHoas, divisions, excludedDivisions,
           subdivisions, excludedSubdivisions, districts, excludedDistricts,
@@ -11700,7 +11701,7 @@
               `${isConst ? "MATHAKSHETHRA-WISE" : "DIVISION-WISE"} DABS TOTALS:\n${breakdownLines.join("\n") || "None"}`
             );
           }
-        } else if (mmr && mmr.hasNonOfficerMmrFilter) {
+        } else if (mmr && (mmr.hasNonOfficerMmrFilter || mmr.wantsAllWorks)) {
           const rows = mmr.default17Rows.length > 0 && !mmr.matchedHoas.length ? mmr.default17Rows : mmr.matchedRows;
           const divAgg = new Map();
           const hoaAgg = new Map();
@@ -11736,7 +11737,7 @@
 
           sections.push(
             `\nLIVE FILTERED QUERY RESULT (MMR COMPLETE ABSTRACT ENGINE):`,
-            `APPLIED FILTERS: ${mmr.filterLabels.join(" | ")}`,
+            `APPLIED FILTERS: ${mmr.filterLabels.length ? mmr.filterLabels.join(" | ") : "All Works (South Zone)"}`,
             `EXACT MATCHING WORKS (Default 17 MMR H.O.A.s): ${mmr.default17Rows.length} | ALL 21 SHEETS: ${mmr.matchedRows.length}`,
             `FINANCIAL TOTALS (for ${rows.length} works): Total Moola Andaju = ₹${totEst.toFixed(2)} Lakhs | Total Expenditure = ₹${totExp.toFixed(2)} Lakhs | Pending Bills = ₹${totPend.toFixed(2)} Lakhs | Overdue('P') = ${odCnt} | ETS = ${etsCount}`,
             `DIVISION-WISE COUNT: ${divBreak || "None"}`,
@@ -11996,29 +11997,30 @@
           const switchBtn = `<button type="button" class="mi-ai-action-btn" data-ask-query="${esc(cleanBaseQ)}, ${otherModeLabel}">Switch to ${otherModeLabel} →</button>`;
           return mainBtns.replace("</div>", `${switchBtn}</div>`);
         }
-        // Case 2: MMR Filtered List Queries (Moola Andaju range, Taluk, District, Constituency, Status, FY, S/F, Division, H.O.A.)
+        // Case 2: MMR Filtered List Queries OR "All Works" Complete List Requests
         if (mmr.hasNonOfficerMmrFilter && mmr.matchedRows.length === 0) return "";
-        if (mmr.hasNonOfficerMmrFilter && mmr.matchedRows.length > 0) {
+        if ((mmr.hasNonOfficerMmrFilter || mmr.wantsAllWorks) && mmr.matchedRows.length > 0) {
           const primaryRows = (mmr.default17Rows.length > 0 && !mmr.matchedHoas.length) ? mmr.default17Rows : mmr.matchedRows;
-          const title = `Filtered Works — ${mmr.filterLabels.join(" | ")}`;
+          const filterDesc = mmr.filterLabels.length ? mmr.filterLabels.join(" | ") : "All Works (South Zone)";
+          const title = mmr.filterLabels.length ? `Filtered Works — ${filterDesc}` : "All Works — South Zone";
           const modalId = saveResultModalPack({
             title,
-            filterSummary: mmr.filterLabels.join(" | "),
+            filterSummary: filterDesc,
             allRows: mmr.matchedRows,
             def17Rows: mmr.default17Rows,
             mmrFilters: mmr
           });
           const packId = saveExportPack(title, toExportRows(primaryRows, false), false);
-          const canOpenMmr = true;
-          return buildActionButtonsHtml({
+          const actionOpts = {
             resultModalId: modalId,
             modalCount: primaryRows.length,
-            mmrAbstractId: canOpenMmr ? modalId : "",
+            mmrAbstractId: modalId,
             packId,
             packCount: primaryRows.length
-          });
+          };
+          lastResultActionOpts = actionOpts;
+          return buildActionButtonsHtml(actionOpts);
         }
-
         // Case 3: Officer-Specific Query (AE/AEE priority + AE/AEE choice buttons when unspecified)
         const isGenericOdRank = !mmr.officers.length && !mmr.roleHint &&
           /\b(who|highest|most|top|least|lowest|rank)\b/.test(qLower) &&
@@ -12093,7 +12095,28 @@
           const packId = saveExportPack("South_Zone_Top_Overdue_Works", toExportRows(topOd, false), false);
           return buildActionButtonsHtml({ resultModalId: modalId, modalCount: topOd.length, packId, packCount: topOd.length });
         }
-
+          // Case 5: Direct "table popup" / "open table" / "view all works" follow-up requests
+        if (/\b(table\s*popup|open\s*popup|show\s*table|open\s*table|view\s*all\s*works)\b/.test(qLower)) {
+          if (lastResultActionOpts) return buildActionButtonsHtml(lastResultActionOpts);
+          const allDef17 = typeof isDefaultAwHoa === "function" ? ds.rawRows.filter((r) => isDefaultAwHoa(r.hoa)) : ds.rawRows;
+          const primaryRows = allDef17.length ? allDef17 : ds.rawRows;
+          const modalId = saveResultModalPack({
+            title: "All Works — South Zone",
+            filterSummary: "All Works (South Zone)",
+            allRows: ds.rawRows,
+            def17Rows: allDef17,
+            mmrFilters: mmr
+          });
+          const packId = saveExportPack("All_Works_South_Zone", toExportRows(primaryRows, false), false);
+          lastResultActionOpts = {
+            resultModalId: modalId,
+            modalCount: primaryRows.length,
+            mmrAbstractId: modalId,
+            packId,
+            packCount: primaryRows.length
+          };
+          return buildActionButtonsHtml(lastResultActionOpts);
+        }
         return "";
       }
 
