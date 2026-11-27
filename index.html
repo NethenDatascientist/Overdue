@@ -4028,7 +4028,19 @@
         });
       }
 
-      if (map.work_name === undefined) {
+        headers.forEach((col, idx) => {
+        if (map.rrr_col !== undefined) return;
+        const norm = cleanKnHdr(col);
+        const compact = norm.replace(/[\s.\-_()\/]+/g, "");
+        if (
+          compact.includes("ಬೆಸ್ಕಾಂವತಿಯಿಂದವಿದ್ಯುತ್ತೀಕರಣ") ||
+          (compact.includes("ವಿದ್ಯುತ್ತೀಕರಣ") && (compact.includes("ಆರ್ಆರ್") || compact.includes("ಸ್ವೀಕೃತ"))) ||
+          (compact.includes("ಆರ್ಆರ್ನಂಬರ್") && compact.includes("ಸ್ವೀಕೃತ"))
+        ) {
+          map.rrr_col = idx;
+        }
+      });
+        if (map.work_name === undefined) {
         const used = new Set(Object.values(map));
         headers.forEach((col, idx) => {
           const norm = cleanKnHdr(col);
@@ -4148,6 +4160,9 @@
           const hoaRaw = colMap.hoa !== undefined ? normalizeText(r[colMap.hoa]) : "";
           const hoa = hoaRaw || target;
           const bescomReg = colMap.bescom_reg !== undefined ? normalizeText(r[colMap.bescom_reg]) : "";
+          const targetLow = String(target || "").toLowerCase();
+          const isBorewellSheet = (targetLow.includes("scp") && targetLow.includes("borewell")) || (targetLow.includes("tsp") && targetLow.includes("borewell"));
+          const isRrrReceived = (isBorewellSheet && colMap.rrr_col !== undefined && normalizeText(r[colMap.rrr_col]) !== "") ? 1 : 0;
 
           
           const fmtDateOrText = (cell) => formatDateObj(parseIndianDate(cell)) || normalizeText(cell);
@@ -4264,7 +4279,8 @@
             contractor_name: contractorName,
             project_duration: projectDuration,
             wo_date_str: woDateStr,
-            approved_year: approvedYear
+            approved_year: approvedYear,
+            is_rrr: isRrrReceived
           });
         }
 
@@ -4483,7 +4499,8 @@
         getStrId(row.contractor_name),
         getStrId(row.project_duration),
         getStrId(row.wo_date_str),
-        getStrId(row.approved_year)
+        getStrId(row.approved_year),
+        row.is_rrr ? 1 : 0
       ]);
 
       const rawJson = JSON.stringify({
@@ -4558,7 +4575,8 @@
           contractor_name: arr[40] !== undefined ? (s[arr[40]] || "") : "",
           project_duration: arr[41] !== undefined ? (s[arr[41]] || "") : "",
           wo_date_str: arr[42] !== undefined ? (s[arr[42]] || "") : "",
-          approved_year: arr[43] !== undefined ? (s[arr[43]] || "") : ""
+          approved_year: arr[43] !== undefined ? (s[arr[43]] || "") : "",
+          is_rrr: arr[44] ? 1 : 0
         };
         if (!rowObj.od_period && rowObj.is_overdue) {
           rowObj.od_period = deriveOverduePeriodFromRow(rowObj, todayDt);
@@ -5859,6 +5877,7 @@
        is_overdue: anyOverdue ? 1 : 0,
        is_status_ets: anyEts ? 1 : 0,
        is_package: true,
+       is_rrr: members.some((m) => m.is_rrr) ? 1 : 0,
        package_code: grp.code,
        package_count: works.length,
        package_works: works,
@@ -6980,7 +6999,8 @@
       agg.bal_to_complete += Number(r.bal_to_complete) || 0;
 
       const st = String(r.status_raw || "").toUpperCase().trim();
-      if (agg.status[st] !== undefined) agg.status[st] += 1;
+      if (st !== "RRR" && agg.status[st] !== undefined) agg.status[st] += 1;
+      if (r.is_rrr) agg.status["RRR"] += 1;
     }
 
     function buildAggRowObject(slNo, divLabel, hoaLabel, agg, grantInfo, rowType, constLabel = "") {
