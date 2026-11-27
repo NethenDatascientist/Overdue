@@ -10092,7 +10092,7 @@
               rowPred: meta.pred,
               folded,
               initials: extractInitialLetters(name),
-              tokens: folded.split(" ").filter((t) => t.length >= 2 && !["sri", "srimati", "smt", "mr", "ms", "dr", "kum"].includes(t)),
+              tokens: folded.split(" ").filter((t) => t.length >= 2 && !["sri", "srimati", "smt", "mr", "ms", "dr", "kum", "ae", "aee", "ai", "ee", "ta", "as", "sa", "ka", "im"].includes(t)),
               rows: [],
               odRows: [],
               etsRows: [],
@@ -10182,8 +10182,11 @@
       ]);
 
       function extractQueryTokens(rawQuery) {
-        return phoneticFold(rawQuery)
-          .split(" ")
+        return String(rawQuery || "")
+          .split(/[\s,.;:!?()/\-]+/)
+          .map((w) => w.trim())
+          .filter((w) => w.length >= 2 && !STOPWORDS.has(w.toLowerCase()) && !/^\d+$/.test(w))
+          .flatMap((w) => phoneticFold(w).split(" "))
           .filter((t) => t.length >= 2 && !STOPWORDS.has(t) && !/^\d+$/.test(t));
       }
 
