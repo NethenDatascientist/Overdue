@@ -9628,6 +9628,10 @@
 
       function formatAiMarkdown(text) {
         return esc(text)
+          .replace(/^###\s+(.+)$/gm, '<div style="font-weight:800;color:#0F172A;margin:8px 0 3px 0;font-size:0.84rem;">$1</div>')
+          .replace(/^##\s+(.+)$/gm, '<div style="font-weight:800;color:#1E3A8A;margin:9px 0 4px 0;font-size:0.88rem;">$1</div>')
+          .replace(/^---$/gm, '<hr style="border:none;border-top:1px solid #CBD5E1;margin:8px 0;">')
+          .replace(/^[-*]\s+/gm, "• ")
           .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
           .replace(/\*(.+?)\*/g, "<i>$1</i>")
           .replace(/\n/g, "<br>");
@@ -9709,9 +9713,14 @@
 
       function kannadaToEnglish(input) {
         if (!input) return "";
-        const norm = normalizeKnRaw(input).trim();
+        let norm = normalizeKnRaw(input).trim();
         if (!norm) return "";
         if (!/[\u0C80-\u0CFF]/.test(norm)) return norm;
+
+        norm = norm
+          .replace(/ಸ\.\s*ಕಾ\.\s*ಇಂ\.?/g, " AEE ")
+          .replace(/ಸ\.\s*ಇಂ\.?/g, " AE ")
+          .replace(/ಕಾ\.\s*ಇಂ\.?/g, " EE ");
 
         const rawTokens = norm.split(/[\s.,/()\-]+/).filter(Boolean);
         const parts = [];
@@ -9961,8 +9970,11 @@
         "works", "ets", "bescom", "pending", "reg", "registration", "rr", "no", "borewell", "chronic",
         "year", "years", "yr", "yrs", "month", "months", "day", "days", "cost", "amount", "estimate",
         "estimated", "expenditure", "bill", "bills", "expensive", "big", "biggest", "largest",
-        "moola", "mula", "andaju", "andaj", "motta", "lakh", "lakhs", "crore", "crores", "cr",
+        "moola", "mula", "andaju", "andaj", "motta", "mottha", "lakh", "lakhs", "crore", "crores", "cr",
         "between", "above", "below", "over", "greater", "less", "more", "than", "upto", "range",
+        "after", "before", "since", "onwards", "until", "only", "exclude", "excluding", "excluded",
+        "except", "without", "other", "not", "apart", "leave", "out", "filter", "filters",
+        "sarkara", "sarkaradha", "sarkarada", "aadesha", "adesha", "dinanka", "karyadesha", "karyadhesha",
         "ae", "aee", "ta", "as", "ee", "officer", "officers", "engineer", "executive", "technical",
         "assistant", "account", "superintendent", "division", "divisions", "subdivision", "sub",
         "district", "districts", "taluk", "taluks", "taluka", "constituency", "constituencies",
@@ -9971,7 +9983,7 @@
         "percentage", "percent", "south", "zone", "please", "pls", "pdf", "excel", "popup", "pop",
         "open", "download", "his", "her", "him", "their", "this", "that", "these", "those", "its",
         "it", "fresh", "spillover", "continuing", "new", "govt", "government", "order", "fy",
-        "financial", "progress", "completed", "table", "data", "like", "such", "things"
+        "financial", "progress", "completed", "table", "data", "like", "such", "things", "date"
       ]);
 
       function extractQueryTokens(rawQuery) {
@@ -10037,14 +10049,14 @@
         return qTokens.filter((t) => !used.has(t));
       }
 
-      // 3. SMART MMR FILTER PARSER (COST RANGE, FY, S/F, STATUS, LOCATIONS, H.O.A., OFFICERS)
+      // 3. SMART MMR FILTER PARSER (EXCLUSIONS, COST RANGE, FY COMPARISONS, STATUS, LOCATIONS)
       function parseCostRange(rawQuery) {
         const q = String(rawQuery || "");
-        const hasCostWord = /\b(moola|mula|andaju|andaj|motta|cost|est|estimate|estimated|amount|budget|lakh|lakhs|crore|crores|cr|rs)\b|₹|ಮೂಲ|ಅಂದಾಜು|ಮೊತ್ತ|ಲಕ್ಷ|ಕೋಟಿ/i.test(q);
+        const hasCostWord = /\b(moola|mula|andaju|andaj|motta|mottha|cost|est|estimate|estimated|amount|budget|lakh|lakhs|crore|crores|cr|rs)\b|₹|ಮೂಲ|ಅಂದಾಜು|ಮೊತ್ತ|ಲಕ್ಷ|ಕೋಟಿ/i.test(q);
 
-        // Strip FYs (2023-24) & durations (2-5 years) so they never get mistaken for cost numbers
         const cleaned = q
           .replace(/\b20\d{2}\s*[-/]\s*(?:20)?\d{2}\b/g, " ")
+          .replace(/\b(?:after|before|from|since|upto|in|fy|financial\s+year)\s+20\d{2}\b/gi, " ")
           .replace(/\b\d+(?:\.\d+)?\s*(?:-|–|to|and)\s*\d+(?:\.\d+)?\s*(?:years?|yrs?|months?|mos?|days?)\b/gi, " ")
           .replace(/\b\d+\s*\+?\s*(?:years?|yrs?|months?|mos?|days?)\b/gi, " ");
 
@@ -10067,7 +10079,6 @@
           return "";
         };
 
-        // Pattern 1: Range ("between 500 to 1000 lakhs", "500-1000", "5 to 10 crore")
         const rangeMatch = cleaned.match(/(?:between\s+|from\s+)?(\d+(?:\.\d+)?)\s*(lakhs?|lakh|crores?|crore|cr|ಲಕ್ಷ|ಕೋಟಿ)?\s*(?:to|and|-|–|ರಿಂದ)\s*(\d+(?:\.\d+)?)\s*(lakhs?|lakh|crores?|crore|cr|ಲಕ್ಷ|ಕೋಟಿ)?/i);
         if (rangeMatch && (hasCostWord || rangeMatch[2] || rangeMatch[4])) {
           const unit2 = rangeMatch[4] || rangeMatch[2] || "";
@@ -10075,77 +10086,147 @@
           const v1 = toLakhs(rangeMatch[1], unit1);
           const v2 = toLakhs(rangeMatch[3], unit2);
           if (!isNaN(v1) && !isNaN(v2) && v2 >= v1) {
-            return {
-              min: v1, max: v2, strictMin: false, strictMax: false,
-              label: `${v1}–${v2} Lakhs`,
-              awBucket: mapAwBucket(v1, v2)
-            };
+            return { min: v1, max: v2, strictMin: false, strictMax: false, label: `${v1}–${v2} Lakhs`, awBucket: mapAwBucket(v1, v2) };
           }
         }
 
-        // Pattern 2: Above / More than
         const aboveMatch = cleaned.match(/(?:above|over|more\s+than|greater\s+than|exceeding|at\s+least|>=|>)\s*(?:rs\.?|₹)?\s*(\d+(?:\.\d+)?)\s*(lakhs?|lakh|crores?|crore|cr|ಲಕ್ಷ|ಕೋಟಿ)?/i);
         if (aboveMatch && (hasCostWord || aboveMatch[2])) {
           const v = toLakhs(aboveMatch[1], aboveMatch[2]);
           if (!isNaN(v)) {
-            return {
-              min: v, max: Infinity, strictMin: !/>=|at\s+least/i.test(aboveMatch[0]), strictMax: false,
-              label: `> ${v} Lakhs`,
-              awBucket: mapAwBucket(v, Infinity)
-            };
+            return { min: v, max: Infinity, strictMin: !/>=|at\s+least/i.test(aboveMatch[0]), strictMax: false, label: `> ${v} Lakhs`, awBucket: mapAwBucket(v, Infinity) };
           }
         }
 
-        // Pattern 3: Below / Less than
         const belowMatch = cleaned.match(/(?:below|under|less\s+than|up\s*to|upto|<=|<)\s*(?:rs\.?|₹)?\s*(\d+(?:\.\d+)?)\s*(lakhs?|lakh|crores?|crore|cr|ಲಕ್ಷ|ಕೋಟಿ)?/i);
         if (belowMatch && (hasCostWord || belowMatch[2])) {
           const v = toLakhs(belowMatch[1], belowMatch[2]);
           if (!isNaN(v)) {
-            return {
-              min: 0, max: v, strictMin: false, strictMax: !/<=|up\s*to|upto/i.test(belowMatch[0]),
-              label: `< ${v} Lakhs`,
-              awBucket: mapAwBucket(0, v)
-            };
+            return { min: 0, max: v, strictMin: false, strictMax: !/<=|up\s*to|upto/i.test(belowMatch[0]), label: `< ${v} Lakhs`, awBucket: mapAwBucket(0, v) };
           }
         }
+        return null;
+      }
+
+      // Extracts a 4-digit FY start year from "2025-2026", "15-06-2025", or "2025"
+      function getRowFyStartYear(fyStr, dateStr, fallbackStr) {
+        const tryFy = (val) => {
+          const s = String(val || "").trim();
+          const m = s.match(/(20\d{2})\s*[-/]\s*(?:20)?(\d{2})/);
+          if (m) return parseInt(m[1], 10);
+          return NaN;
+        };
+        let y = tryFy(fyStr);
+        if (!isNaN(y)) return y;
+        if (dateStr && typeof extractFinancialYear === "function") {
+          y = tryFy(extractFinancialYear(dateStr));
+          if (!isNaN(y)) return y;
+        }
+        y = tryFy(fallbackStr);
+        if (!isNaN(y)) return y;
+        const singleYr = String(fallbackStr || dateStr || "").match(/\b(20\d{2})\b/);
+        return singleYr ? parseInt(singleYr[1], 10) : NaN;
+      }
+
+      function parseFyConditionFromClause(clause) {
+        const c = String(clause || "");
+        // 1. Between two years/FYs: "between 2022 and 2025" or "from 2022-23 to 2025-26"
+        const bet = c.match(/(?:between|from)\s+(?:fy|financial\s+year)?\s*(20\d{2})(?:\s*[-/]\s*(?:20)?\d{2})?\s+(?:to|and|-|–)\s+(?:fy|financial\s+year)?\s*(20\d{2})(?:\s*[-/]\s*(?:20)?\d{2})?/i);
+        if (bet) {
+          const y1 = parseInt(bet[1], 10), y2 = parseInt(bet[2], 10);
+          if (y2 >= y1) return { minStart: y1, maxStart: y2, label: `${y1}-${y1 + 1} to ${y2}-${y2 + 1}` };
+        }
+
+        // 2. Comparator + FY pair: "after 2024-25", "before 2022-23", "from 2025-26"
+        const compPair = c.match(/(after|post|greater\s+than|>|from|since|>=|before|prior\s+to|<|upto|up\s*to|<=)\s+(?:fy|financial\s+year|f\.?y\.?)?\s*(20\d{2})\s*[-/]\s*(?:20)?(\d{2})/i);
+        if (compPair) {
+          const op = compPair[1].toLowerCase();
+          const y1 = parseInt(compPair[2], 10);
+          if (/after|post|greater|>/.test(op) && !/>=/.test(op)) return { minStart: y1 + 1, maxStart: 9999, label: `>= ${y1 + 1}-${y1 + 2} (After ${y1}-${y1 + 1})` };
+          if (/from|since|>=/.test(op)) return { minStart: y1, maxStart: 9999, label: `>= ${y1}-${y1 + 1}` };
+          if (/before|prior|</.test(op) && !/<=/.test(op)) return { minStart: 0, maxStart: y1 - 1, label: `<= ${y1 - 1}-${y1} (Before ${y1}-${y1 + 1})` };
+          return { minStart: 0, maxStart: y1, label: `<= ${y1}-${y1 + 1}` };
+        }
+
+        // 3. Comparator + single year: "After financial year 2025", "after FY 2025", "before 2022", "2025 onwards"
+        const compSingle = c.match(/(after|post|greater\s+than|>|from|since|>=|before|prior\s+to|<|upto|up\s*to|<=)\s+(?:the\s+)?(fy|financial\s+year|f\.?y\.?|year)?\s*(20\d{2})\b/i);
+        if (compSingle) {
+          const op = compSingle[1].toLowerCase();
+          const isFyWord = /fy|financial|f\.?y/i.test(compSingle[2] || "");
+          const yr = parseInt(compSingle[3], 10);
+          if (/after|post|greater|>/.test(op) && !/>=/.test(op)) {
+            // In Indian FY terms, FY 2025 = 2024-25 (ends Mar 2025), so "after FY 2025" = 2025-26 onwards
+            const minS = isFyWord ? yr : yr + 1;
+            return { minStart: minS, maxStart: 9999, label: `>= ${minS}-${minS + 1} (After ${isFyWord ? "FY " : ""}${yr})` };
+          }
+          if (/from|since|>=/.test(op)) return { minStart: yr, maxStart: 9999, label: `>= ${yr}-${yr + 1}` };
+          if (/before|prior|</.test(op) && !/<=/.test(op)) return { minStart: 0, maxStart: yr - 1, label: `<= ${yr - 1}-${yr} (Before ${yr})` };
+          return { minStart: 0, maxStart: yr, label: `<= ${yr}-${yr + 1}` };
+        }
+
+        const onwards = c.match(/\b(20\d{2})(?:\s*[-/]\s*(?:20)?\d{2})?\s+onwards\b/i);
+        if (onwards) {
+          const yr = parseInt(onwards[1], 10);
+          return { minStart: yr, maxStart: 9999, label: `>= ${yr}-${yr + 1}` };
+        }
+
+        // 4. Exact FY pair: "2025-26" or "2025-2026"
+        const exactPair = c.match(/\b(20\d{2})\s*[-/]\s*(?:20)?(\d{2})\b/);
+        if (exactPair) {
+          const y1 = parseInt(exactPair[1], 10);
+          return { minStart: y1, maxStart: y1, label: `${y1}-${y1 + 1}` };
+        }
+
+        // 5. Exact single year when accompanied by FY / year / GO / WO keyword
+        const exactSingle = c.match(/\b(?:fy|financial\s+year|year)\s*(20\d{2})\b/i);
+        if (exactSingle) {
+          const yr = parseInt(exactSingle[1], 10);
+          return { minStart: yr, maxStart: yr, label: `${yr}-${yr + 1}` };
+        }
+
         return null;
       }
 
       function parseMmrQueryFilters(rawQuery, ds) {
         const qRaw = String(rawQuery || "").trim();
         const qLower = qRaw.toLowerCase();
-        const qTokens = extractQueryTokens(qRaw);
+
+        // Split into clauses on commas/semicolons/newlines so "Division - Exclude Mangalore" stays scoped cleanly
+        const clauses = qRaw.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
+        const EXCL_RE = /\b(exclude|excluding|excluded|except|without|other\s+than|not\s+in|not|apart\s+from|leave\s+out)\b|ಬಿಟ್ಟು|ಹೊರತುಪಡಿಸಿ/i;
 
         // 1. Cost range (Moola Andaju)
         const costRange = parseCostRange(qRaw);
 
-        // 2. Financial Year (e.g. 2023-24 or 2023-2024)
-        let goFy = "", woFy = "", anyFy = "";
-        const fyMatches = qRaw.match(/\b(20\d{2})\s*[-/]\s*(?:20)?(\d{2})\b/g) || [];
-        if (fyMatches.length) {
-          const m = fyMatches[0].match(/(20\d{2})\s*[-/]\s*(?:20)?(\d{2})/);
-          if (m) {
-            const normFy = `${m[1]}-${parseInt(m[1], 10) + 1}`;
-            if (/\b(work\s*order|wo)\b|ಕಾರ್ಯಾದೇಶ/i.test(qLower)) woFy = normFy;
-            else if (/\b(govt|government|go)\b|ಸರ್ಕಾರದ\s*ಆದೇಶ/i.test(qLower)) goFy = normFy;
-            else anyFy = normFy;
-          }
-        }
+        // 2. Financial Year / Date conditions (GO Date, WO Date, or general FY)
+        let goFyFilter = null, woFyFilter = null, anyFyFilter = null;
+        clauses.forEach((cl) => {
+          const cond = parseFyConditionFromClause(cl);
+          if (!cond) return;
+          if (/\b(work\s*order|wo|karyadesha|karyadhesha)\b|ಕಾರ್ಯಾದೇಶ|ಕಾರ್ಯದೇಶ/i.test(cl)) woFyFilter = cond;
+          else if (/\b(govt|government|go|sarkara|sarkaradha|sarkarada|aadesha|adesha|sanction|approved)\b|ಸರ್ಕಾರದ\s*ಆದೇಶ|ಅನುಮೋದನೆ/i.test(cl)) goFyFilter = cond;
+          else if (!anyFyFilter) anyFyFilter = cond;
+        });
 
-        // 3. Work Type (S = Spillover/Continuing, F = Fresh/New)
+        // 3. Work Type (S = Spillover, F = Fresh)
         let sf = "";
         if (/\b(fresh|new\s+works?)\b|ಹೊಸ/i.test(qLower)) sf = "F";
         else if (/\b(spillover|spill\s*over|continuing)\b|ಮುಂದುವರೆದ/i.test(qLower)) sf = "S";
 
-        // 4. Progress Status codes & Overdue Only
+        // 4. Progress Status codes (supports inclusion & exclusion)
         const statuses = [];
+        const excludedStatuses = [];
         const statusCodes = ["CP", "CF", "TBS", "TP", "ETS", "OTH", "CBW", "CEF", "PBW", "CBWPM", "RRR", "BWF"];
-        statusCodes.forEach((code) => {
-          if (new RegExp(`\\b${code}\\b`, "i").test(qRaw)) statuses.push(code);
+        clauses.forEach((cl) => {
+          const isExcl = EXCL_RE.test(cl);
+          const targetArr = isExcl ? excludedStatuses : statuses;
+          statusCodes.forEach((code) => {
+            if (new RegExp(`\\b${code}\\b`, "i").test(cl) && !targetArr.includes(code)) targetArr.push(code);
+          });
+          if (/\bstatus\s*[:=\-]?\s*p\b|\bin\s+progress\b|\bongoing\b/i.test(cl) && !targetArr.includes("P")) targetArr.push("P");
         });
-        if (/\bstatus\s*[:=]?\s*p\b|\bin\s+progress\b|\bongoing\b/i.test(qLower)) statuses.push("P");
 
-        const overdueOnly = /\b(overdue|od|chronic)\b|ಬಾಕಿ\s*ಅವಧಿ/i.test(qLower);
+        const overdueOnly = /\b(overdue|od|chronic)\b|ಬಾಕಿ\s*ಅವಧಿ/i.test(qLower) && !/\b(?:exclude|excluding|without|not|non)[\s-]*overdue\b/i.test(qLower);
 
         // 5. Overdue Period
         let odPeriod = "";
@@ -10158,56 +10239,15 @@
         else if (/\b3\+\s*y|more\s+than\s+3\s*y|above\s+3\s*y/i.test(qLower)) minOdDays = 1095;
         else if (/\b2\+\s*y|chronic/i.test(qLower)) minOdDays = 730;
 
-        // 6. H.O.A. matching (direct substring + phonetic)
-        const matchedHoas = ds.hoas.filter((h) => {
-          const hLow = h.raw.toLowerCase();
-          if (qRaw.includes(h.raw)) return true;
-          if (hLow.length >= 2 && new RegExp(`\\b${hLow.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(qRaw)) return true;
-          return false;
-        });
+        // 6. Clause-by-Clause H.O.A., Location, and Officer Matching (Respects Exclude / Except!)
+        const matchedHoas = [], excludedHoas = [];
+        const divisions = [], excludedDivisions = [];
+        const subdivisions = [], excludedSubdivisions = [];
+        const districts = [], excludedDistricts = [];
+        const taluks = [], excludedTaluks = [];
+        const constituencies = [], excludedConstituencies = [];
+        const officers = [];
 
-        // 7. Smart Location Matching (avoid double-filtering Division + Taluk on same word)
-        const hasDivWord = /\bdivisions?\b|ವಿಭಾಗ/i.test(qLower);
-        const hasSubWord = /\bsub[-\s]?divisions?\b|ಉಪ\s*ವಿಭಾಗ/i.test(qLower);
-        const hasDistWord = /\bdistricts?\b|ಜಿಲ್ಲೆ/i.test(qLower);
-        const hasTalukWord = /\btaluks?|talukas?\b|ತಾಲ್ಲೂಕು|ತಾಲೂಕು/i.test(qLower);
-        const hasConstWord = /\bconstituenc|mathakshetra/i.test(qLower) || /ಮತಕ್ಷೇತ್ರ/.test(qRaw);
-
-        let divisions = [], subdivisions = [], districts = [], taluks = [], constituencies = [];
-        let remTokens = subtractTokens(qTokens, [matchedHoas]);
-
-        if (hasConstWord) {
-          constituencies = matchItems(remTokens, ds.constituencies).slice(0, 1);
-          remTokens = subtractTokens(remTokens, [constituencies]);
-        }
-        if (hasTalukWord) {
-          taluks = matchItems(remTokens, ds.taluks).slice(0, 1);
-          remTokens = subtractTokens(remTokens, [taluks]);
-        }
-        if (hasSubWord) {
-          subdivisions = matchItems(remTokens, ds.subdivisions).slice(0, 1);
-          remTokens = subtractTokens(remTokens, [subdivisions]);
-        }
-        if (hasDistWord) {
-          districts = matchItems(remTokens, ds.districts).slice(0, 1);
-          remTokens = subtractTokens(remTokens, [districts]);
-        }
-        if (hasDivWord || (!hasConstWord && !hasTalukWord && !hasSubWord && !hasDistWord)) {
-          divisions = matchItems(remTokens, ds.divisions).slice(0, 1);
-          remTokens = subtractTokens(remTokens, [divisions]);
-        }
-        // Fallback if user wrote a taluk/constituency/subdivision name without the keyword
-        if (!divisions.length && !subdivisions.length && !districts.length && !taluks.length && !constituencies.length && remTokens.length) {
-          const tryTaluk = matchItems(remTokens, ds.taluks).slice(0, 1);
-          const tryConst = !tryTaluk.length ? matchItems(remTokens, ds.constituencies).slice(0, 1) : [];
-          const trySub = (!tryTaluk.length && !tryConst.length) ? matchItems(remTokens, ds.subdivisions).slice(0, 1) : [];
-          taluks = tryTaluk;
-          constituencies = tryConst;
-          subdivisions = trySub;
-          remTokens = subtractTokens(remTokens, [taluks, constituencies, subdivisions]);
-        }
-
-        // 8. Officer Role Hint & Officer Matching on remaining tokens
         let roleHint = "";
         if (/\baee\b|assistant executive/i.test(qLower)) roleHint = "AEE";
         else if (/\bee\b|executive engineer/i.test(qLower)) roleHint = "EE";
@@ -10215,15 +10255,88 @@
         else if (/\bta\b|technical assistant/i.test(qLower)) roleHint = "TA";
         else if (/\b(as|account superintendent|accounts superintendent)\b/i.test(qLower)) roleHint = "AS";
 
-        const officers = matchItems(remTokens, ds.officers, roleHint, qRaw);
+        const pushUnique = (arr, items) => {
+          items.forEach((it) => {
+            if (!arr.some((x) => x.raw === it.raw && x.role === it.role)) arr.push(it);
+          });
+        };
+
+        clauses.forEach((cl) => {
+          const clLow = cl.toLowerCase();
+          const isExcl = EXCL_RE.test(cl);
+          let clTokens = extractQueryTokens(cl);
+          if (!clTokens.length && !/[\u0C80-\u0CFF]/.test(cl)) return;
+
+          // Match H.O.A.s in this clause
+          const clHoas = ds.hoas.filter((h) => {
+            const hLow = h.raw.toLowerCase();
+            if (cl.includes(h.raw)) return true;
+            if (hLow.length >= 2 && new RegExp(`\\b${hLow.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(cl)) return true;
+            return false;
+          });
+          pushUnique(isExcl ? excludedHoas : matchedHoas, clHoas);
+          clTokens = subtractTokens(clTokens, [clHoas]);
+
+          const hasDivWord = /\bdivisions?\b|ವಿಭಾಗ/i.test(clLow);
+          const hasSubWord = /\bsub[-\s]?divisions?\b|ಉಪ\s*ವಿಭಾಗ/i.test(clLow);
+          const hasDistWord = /\bdistricts?\b|ಜಿಲ್ಲೆ/i.test(clLow);
+          const hasTalukWord = /\btaluks?|talukas?\b|ತಾಲ್ಲೂಕು|ತಾಲೂಕು/i.test(clLow);
+          const hasConstWord = /\bconstituenc|mathakshetra/i.test(clLow) || /ಮತಕ್ಷೇತ್ರ/.test(cl);
+
+          if (hasConstWord) {
+            const m = matchItems(clTokens, ds.constituencies);
+            pushUnique(isExcl ? excludedConstituencies : constituencies, m);
+            clTokens = subtractTokens(clTokens, [m]);
+          }
+          if (hasTalukWord) {
+            const m = matchItems(clTokens, ds.taluks);
+            pushUnique(isExcl ? excludedTaluks : taluks, m);
+            clTokens = subtractTokens(clTokens, [m]);
+          }
+          if (hasSubWord) {
+            const m = matchItems(clTokens, ds.subdivisions);
+            pushUnique(isExcl ? excludedSubdivisions : subdivisions, m);
+            clTokens = subtractTokens(clTokens, [m]);
+          }
+          if (hasDistWord) {
+            const m = matchItems(clTokens, ds.districts);
+            pushUnique(isExcl ? excludedDistricts : districts, m);
+            clTokens = subtractTokens(clTokens, [m]);
+          }
+          if (hasDivWord || (!hasConstWord && !hasTalukWord && !hasSubWord && !hasDistWord)) {
+            const m = matchItems(clTokens, ds.divisions);
+            if (m.length) {
+              pushUnique(isExcl ? excludedDivisions : divisions, m);
+              clTokens = subtractTokens(clTokens, [m]);
+            }
+          }
+          if (!hasDivWord && !hasConstWord && !hasTalukWord && !hasSubWord && !hasDistWord && clTokens.length) {
+            const tryTaluk = matchItems(clTokens, ds.taluks);
+            const tryConst = !tryTaluk.length ? matchItems(clTokens, ds.constituencies) : [];
+            const trySub = (!tryTaluk.length && !tryConst.length) ? matchItems(clTokens, ds.subdivisions) : [];
+            if (tryTaluk.length) { pushUnique(isExcl ? excludedTaluks : taluks, tryTaluk); clTokens = subtractTokens(clTokens, [tryTaluk]); }
+            if (tryConst.length) { pushUnique(isExcl ? excludedConstituencies : constituencies, tryConst); clTokens = subtractTokens(clTokens, [tryConst]); }
+            if (trySub.length) { pushUnique(isExcl ? excludedSubdivisions : subdivisions, trySub); clTokens = subtractTokens(clTokens, [trySub]); }
+          }
+
+          if (!isExcl && clTokens.length) {
+            const mOff = matchItems(clTokens, ds.officers, roleHint, cl);
+            pushUnique(officers, mOff);
+          }
+        });
 
         const hasNonOfficerMmrFilter = Boolean(
-          costRange || goFy || woFy || anyFy || sf || statuses.length || odPeriod || minOdDays ||
-          matchedHoas.length || divisions.length || subdivisions.length || districts.length || taluks.length || constituencies.length
+          costRange || goFyFilter || woFyFilter || anyFyFilter || sf ||
+          statuses.length || excludedStatuses.length || odPeriod || minOdDays ||
+          matchedHoas.length || excludedHoas.length ||
+          divisions.length || excludedDivisions.length ||
+          subdivisions.length || excludedSubdivisions.length ||
+          districts.length || excludedDistricts.length ||
+          taluks.length || excludedTaluks.length ||
+          constituencies.length || excludedConstituencies.length
         );
         const hasAnyFilter = hasNonOfficerMmrFilter || officers.length > 0 || overdueOnly;
 
-        // Run the exact filter against ALL raw rows (identical to MMR Complete Abstract!)
         const matchesFilter = (r) => {
           if (costRange) {
             if (!r._hasCost) return false;
@@ -10232,20 +10345,39 @@
               if (costRange.strictMax ? r._costNum >= costRange.max : r._costNum > costRange.max) return false;
             }
           }
-          if (goFy && r.go_fy !== goFy) return false;
-          if (woFy && r._woFy !== woFy) return false;
-          if (anyFy && r.go_fy !== anyFy && r._woFy !== anyFy) return false;
+          if (goFyFilter) {
+            const sy = getRowFyStartYear(r.go_fy, r.go_date_str, r.approved_year);
+            if (isNaN(sy) || sy < goFyFilter.minStart || sy > goFyFilter.maxStart) return false;
+          }
+          if (woFyFilter) {
+            const sy = getRowFyStartYear(r._woFy, r.wo_date_str, r.start_date);
+            if (isNaN(sy) || sy < woFyFilter.minStart || sy > woFyFilter.maxStart) return false;
+          }
+          if (anyFyFilter) {
+            const gSy = getRowFyStartYear(r.go_fy, r.go_date_str, r.approved_year);
+            const wSy = getRowFyStartYear(r._woFy, r.wo_date_str, r.start_date);
+            const gOk = !isNaN(gSy) && gSy >= anyFyFilter.minStart && gSy <= anyFyFilter.maxStart;
+            const wOk = !isNaN(wSy) && wSy >= anyFyFilter.minStart && wSy <= anyFyFilter.maxStart;
+            if (!gOk && !wOk) return false;
+          }
           if (sf && (r.is_new_work ? "F" : "S") !== sf) return false;
           if (statuses.length && !statuses.includes(r._statusUp)) return false;
+          if (excludedStatuses.length && excludedStatuses.includes(r._statusUp)) return false;
           if ((overdueOnly || odPeriod || minOdDays) && !r.is_overdue) return false;
           if (odPeriod && r._odPeriod !== odPeriod) return false;
           if (minOdDays && r._odDays <= minOdDays) return false;
           if (matchedHoas.length && !matchedHoas.some((h) => h.raw === r.hoa)) return false;
+          if (excludedHoas.length && excludedHoas.some((h) => h.raw === r.hoa)) return false;
           if (divisions.length && !divisions.some((d) => d.raw === r.division_name)) return false;
+          if (excludedDivisions.length && excludedDivisions.some((d) => d.raw === r.division_name)) return false;
           if (subdivisions.length && !subdivisions.some((s) => s.raw === r.subdivision_name)) return false;
+          if (excludedSubdivisions.length && excludedSubdivisions.some((s) => s.raw === r.subdivision_name)) return false;
           if (districts.length && !districts.some((d) => d.raw === r.district_name)) return false;
+          if (excludedDistricts.length && excludedDistricts.some((d) => d.raw === r.district_name)) return false;
           if (taluks.length && !taluks.some((t) => t.raw === r.taluk_name)) return false;
+          if (excludedTaluks.length && excludedTaluks.some((t) => t.raw === r.taluk_name)) return false;
           if (constituencies.length && !constituencies.some((c) => c.raw === r.constituency_name)) return false;
+          if (excludedConstituencies.length && excludedConstituencies.some((c) => c.raw === r.constituency_name)) return false;
           if (officers.length && !officers[0].rowPred(r, officers[0].raw)) return false;
           return true;
         };
@@ -10255,33 +10387,41 @@
           ? matchedRows.filter((r) => isDefaultAwHoa(r.hoa))
           : matchedRows;
 
-        // Human-readable filter summary chips
         const filterLabels = [];
         if (costRange) filterLabels.push(`Moola Andaju: ${costRange.label}`);
-        if (divisions.length) filterLabels.push(`Division: ${divisions[0].raw}`);
-        if (subdivisions.length) filterLabels.push(`Sub-division: ${subdivisions[0].raw}`);
-        if (districts.length) filterLabels.push(`District: ${districts[0].raw}`);
-        if (taluks.length) filterLabels.push(`Taluk: ${taluks[0].raw}`);
-        if (constituencies.length) filterLabels.push(`Constituency: ${constituencies[0].raw}`);
+        if (divisions.length) filterLabels.push(`Division: ${divisions.map((x) => x.raw).join(", ")}`);
+        if (excludedDivisions.length) filterLabels.push(`Exclude Division: ${excludedDivisions.map((x) => x.raw).join(", ")}`);
+        if (subdivisions.length) filterLabels.push(`Sub-division: ${subdivisions.map((x) => x.raw).join(", ")}`);
+        if (excludedSubdivisions.length) filterLabels.push(`Exclude Sub-div: ${excludedSubdivisions.map((x) => x.raw).join(", ")}`);
+        if (districts.length) filterLabels.push(`District: ${districts.map((x) => x.raw).join(", ")}`);
+        if (excludedDistricts.length) filterLabels.push(`Exclude District: ${excludedDistricts.map((x) => x.raw).join(", ")}`);
+        if (taluks.length) filterLabels.push(`Taluk: ${taluks.map((x) => x.raw).join(", ")}`);
+        if (excludedTaluks.length) filterLabels.push(`Exclude Taluk: ${excludedTaluks.map((x) => x.raw).join(", ")}`);
+        if (constituencies.length) filterLabels.push(`Constituency: ${constituencies.map((x) => x.raw).join(", ")}`);
+        if (excludedConstituencies.length) filterLabels.push(`Exclude Constituency: ${excludedConstituencies.map((x) => x.raw).join(", ")}`);
         if (matchedHoas.length) filterLabels.push(`H.O.A.: ${matchedHoas.map((h) => h.raw).join(", ")}`);
+        if (excludedHoas.length) filterLabels.push(`Exclude H.O.A.: ${excludedHoas.map((h) => h.raw).join(", ")}`);
         if (sf) filterLabels.push(`Type: ${sf === "F" ? "Fresh (F)" : "Spillover (S)"}`);
         if (statuses.length) filterLabels.push(`Status: ${statuses.join(", ")}`);
+        if (excludedStatuses.length) filterLabels.push(`Exclude Status: ${excludedStatuses.join(", ")}`);
         if (overdueOnly) filterLabels.push(`Overdue Only`);
         if (odPeriod) filterLabels.push(`Overdue Period: ${odPeriod}`);
         if (minOdDays) filterLabels.push(`Overdue > ${Math.round(minOdDays / 365)} Yrs`);
-        if (goFy) filterLabels.push(`Govt Order FY: ${goFy}`);
-        if (woFy) filterLabels.push(`Work Order FY: ${woFy}`);
-        if (anyFy) filterLabels.push(`FY: ${anyFy}`);
+        if (goFyFilter) filterLabels.push(`Govt Order FY: ${goFyFilter.label}`);
+        if (woFyFilter) filterLabels.push(`Work Order FY: ${woFyFilter.label}`);
+        if (anyFyFilter) filterLabels.push(`FY: ${anyFyFilter.label}`);
         if (officers.length) filterLabels.push(`${officers[0].role}: ${officers[0].raw}`);
 
         return {
-          costRange, goFy, woFy, anyFy, sf, statuses, overdueOnly, odPeriod, minOdDays,
-          matchedHoas, divisions, subdivisions, districts, taluks, constituencies, officers, roleHint,
-          hasNonOfficerMmrFilter, hasAnyFilter,
+          costRange, goFyFilter, woFyFilter, anyFyFilter, sf, statuses, excludedStatuses,
+          overdueOnly, odPeriod, minOdDays,
+          matchedHoas, excludedHoas, divisions, excludedDivisions,
+          subdivisions, excludedSubdivisions, districts, excludedDistricts,
+          taluks, excludedTaluks, constituencies, excludedConstituencies,
+          officers, roleHint, hasNonOfficerMmrFilter, hasAnyFilter,
           matchedRows, default17Rows, filterLabels
         };
       }
-
       function findOfficersInReply(replyText, officers, preferredRole = "") {
         const text = String(replyText || "");
         if (!text) return [];
@@ -10593,11 +10733,16 @@
 
       function openInMmrAbstract(mmrFilters) {
         if (typeof STATE === "undefined" || !STATE.awFilters) return;
-        // Reset MMR filters, then apply parsed query filters
+        const ds = getAiDataset();
         Object.keys(STATE.awFilters).forEach((k) => { STATE.awFilters[k] = []; });
         STATE.awHoaDefaultApplied = false;
 
-        if (mmrFilters.divisions?.length) STATE.awFilters.div = mmrFilters.divisions.map((x) => x.raw);
+        if (mmrFilters.divisions?.length) {
+          STATE.awFilters.div = mmrFilters.divisions.map((x) => x.raw);
+        } else if (mmrFilters.excludedDivisions?.length) {
+          const ex = new Set(mmrFilters.excludedDivisions.map((x) => x.raw));
+          STATE.awFilters.div = ds.divisions.map((d) => d.raw).filter((d) => !ex.has(d));
+        }
         if (mmrFilters.subdivisions?.length) STATE.awFilters.subdiv = mmrFilters.subdivisions.map((x) => x.raw);
         if (mmrFilters.districts?.length) STATE.awFilters.district = mmrFilters.districts.map((x) => x.raw);
         if (mmrFilters.taluks?.length) STATE.awFilters.taluk = mmrFilters.taluks.map((x) => x.raw);
@@ -10607,8 +10752,18 @@
           STATE.awHoaDefaultApplied = true;
         }
         if (mmrFilters.costRange?.awBucket) STATE.awFilters.cost = [mmrFilters.costRange.awBucket];
-        if (mmrFilters.goFy) STATE.awFilters.go = [mmrFilters.goFy];
-        if (mmrFilters.woFy) STATE.awFilters.wo = [mmrFilters.woFy];
+        if (mmrFilters.goFyFilter && typeof AW_STATIC_FYS !== "undefined") {
+          STATE.awFilters.go = AW_STATIC_FYS.filter((fy) => {
+            const sy = parseInt(fy.slice(0, 4), 10);
+            return sy >= mmrFilters.goFyFilter.minStart && sy <= mmrFilters.goFyFilter.maxStart;
+          });
+        }
+        if (mmrFilters.woFyFilter && typeof AW_STATIC_FYS !== "undefined") {
+          STATE.awFilters.wo = AW_STATIC_FYS.filter((fy) => {
+            const sy = parseInt(fy.slice(0, 4), 10);
+            return sy >= mmrFilters.woFyFilter.minStart && sy <= mmrFilters.woFyFilter.maxStart;
+          });
+        }
         if (mmrFilters.sf) STATE.awFilters.sf = [mmrFilters.sf];
         if (mmrFilters.statuses?.length) STATE.awFilters.status = [...mmrFilters.statuses];
         if (mmrFilters.odPeriod) STATE.awFilters.period = [mmrFilters.odPeriod];
@@ -10890,10 +11045,17 @@
           const hoaBreak = Array.from(hoaAgg.entries()).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}: ${v}`).join(", ");
           const stBreak = Array.from(stAgg.entries()).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}: ${v}`).join(", ");
 
+          const fyAgg = new Map();
+          rows.forEach((r) => {
+            const fy = r.go_fy || (typeof extractFinancialYear === "function" ? extractFinancialYear(r.go_date_str) : "") || r.approved_year || "Unspecified";
+            fyAgg.set(fy, (fyAgg.get(fy) || 0) + 1);
+          });
+          const fyBreak = Array.from(fyAgg.entries()).sort((a, b) => b[0].localeCompare(a[0])).map(([k, v]) => `${k}: ${v}`).join(", ");
+
           const sampleLines = [...rows]
             .sort((a, b) => (b._costNum - a._costNum) || (b._odDays - a._odDays))
             .slice(0, 28)
-            .map((r, i) => `${i + 1}. Work: ${r.work_name || "-"} | MoolaAndaju: ${r._costNum}L | Exp: ${Number(r.total_exp || 0).toFixed(2)}L | HOA: ${r.hoa} | Div: ${r.division_name} (${kannadaToEnglish(r.division_name)}) | Taluk: ${r.taluk_name || "-"} | AE: ${r.so_name} (${kannadaToEnglish(r.so_name)}) | Status: ${r.status_raw} | S/F: ${r.is_new_work ? "F" : "S"} | Target: ${r.target_date} | OverdueBy: ${r.overdue_by}`);
+            .map((r, i) => `${i + 1}. Work: ${r.work_name || "-"} | MoolaAndaju: ${r._costNum}L | Exp: ${Number(r.total_exp || 0).toFixed(2)}L | HOA: ${r.hoa} | Div: ${r.division_name} (${kannadaToEnglish(r.division_name)}) | Taluk: ${r.taluk_name || "-"} | AE: ${r.so_name} (${kannadaToEnglish(r.so_name)}) | Status: ${r.status_raw} | S/F: ${r.is_new_work ? "F" : "S"} | GO Date: ${r.go_date_str || "-"} (FY: ${r.go_fy || "-"}) | Target: ${r.target_date} | OverdueBy: ${r.overdue_by}`);
 
           sections.push(
             `\nLIVE FILTERED QUERY RESULT (MMR COMPLETE ABSTRACT ENGINE):`,
@@ -10902,6 +11064,7 @@
             `FINANCIAL TOTALS (for ${rows.length} works): Total Moola Andaju = ₹${totEst.toFixed(2)} Lakhs | Total Expenditure = ₹${totExp.toFixed(2)} Lakhs | Pending Bills = ₹${totPend.toFixed(2)} Lakhs | Overdue('P') = ${odCnt} | ETS = ${etsCount}`,
             `DIVISION-WISE COUNT: ${divBreak || "None"}`,
             `H.O.A.-WISE COUNT: ${hoaBreak || "None"}`,
+            `GOVT ORDER FY-WISE COUNT: ${fyBreak || "None"}`,
             `STATUS-WISE COUNT: ${stBreak || "None"}`,
             `SAMPLE MATCHING WORKS (Top ${sampleLines.length} of ${rows.length} — user has a Table Popup & Excel/PDF buttons below to view all ${rows.length}):\n${sampleLines.join("\n") || "None"}`
           );
@@ -11087,6 +11250,7 @@
         }
 
         // Case 2: MMR Filtered List Queries (Moola Andaju range, Taluk, District, Constituency, Status, FY, S/F, Division, H.O.A.)
+        if (mmr.hasNonOfficerMmrFilter && mmr.matchedRows.length === 0) return "";
         if (mmr.hasNonOfficerMmrFilter && mmr.matchedRows.length > 0) {
           const primaryRows = (mmr.default17Rows.length > 0 && !mmr.matchedHoas.length) ? mmr.default17Rows : mmr.matchedRows;
           const title = `Filtered Works — ${mmr.filterLabels.join(" | ")}`;
