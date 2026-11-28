@@ -4014,7 +4014,7 @@
         else if ((norm.includes("ಒಟ್ಟಾರೆ ವೆಚ್ಚ") || norm.includes("ಒಟ್ಟು ವೆಚ್ಚ") || upper.includes("TOTAL EXP")) && map.total_exp === undefined) map.total_exp = idx;
         else if ((norm.includes("ಬಾಕಿ ಬಿಲ್") || upper.includes("PENDING BILL")) && map.pending_bill === undefined) map.pending_bill = idx;
         else if ((norm.includes("ಪೂರ್ಣಗೊಳಿಸಲು") || norm.includes("ಬೇಕಾಗುವ ಬಾಕಿ") || upper.includes("BALANCE TO COMPLETE")) && map.bal_to_complete === undefined) map.bal_to_complete = idx;
-        else if ((upper.includes("BESCOM") || norm.includes("ಬೆಸ್ಕಾಂ") || (upper.includes("REGISTRATION") && (upper.includes("NO") || upper.includes("NUMBER")))) && map.bescom_reg === undefined) map.bescom_reg = idx;
+        else if (((upper.includes("BESCOM") && upper.includes("REGISTRATION")) || (upper.includes("REGISTRATION") && (upper.includes("NO") || upper.includes("NUMBER")))) && !upper.includes("AMOUNT") && !upper.includes("DEPOSIT") && !norm.includes("ಪಾವತಿಸಿದ") && map.bescom_reg === undefined) map.bescom_reg = idx;
         else if (((norm.includes("ಮುಂದುವರೆದ") && norm.includes("ಹೊಸ")) || norm.includes("ಕಾಮಗಾರಿಯ ವಿಧ") || upper.includes("WORK TYPE") || upper.includes("SPILLOVER")) && map.work_type === undefined) map.work_type = idx;
       });
 
@@ -10169,7 +10169,7 @@
         "assistant", "account", "superintendent", "division", "divisions", "subdivision", "sub",
         "district", "districts", "taluk", "taluks", "taluka", "constituency", "constituencies",
         "mathakshetra", "hoa", "lekkashirshike", "scheme", "sheet", "sheets", "mmr", "complete",
-        "dabs", "cabs", "wise", "mathakshethra", "matakshetra", "abstract", "summary", "overview", "overall", "entire", "whole", "full", "general", "brief", "quick", "dashboard", "valaya", "north", "east", "west", "report", "details", "detail", "status", "pct",
+        "dabs", "cabs", "wise", "strictly", "strict", "exactly", "exact", "specifically", "specific", "purely", "mathakshethra", "matakshetra", "abstract", "summary", "overview", "overall", "entire", "whole", "full", "general", "brief", "quick", "dashboard", "valaya", "north", "east", "west", "report", "details", "detail", "status", "pct",
         "percentage", "percent", "south", "zone", "please", "pls", "pdf", "excel", "popup", "pop",
         "open", "download", "his", "her", "him", "their", "this", "that", "these", "those", "its",
         "it", "fresh", "spillover", "continuing", "new", "govt", "government", "order", "fy",
@@ -10489,14 +10489,60 @@
           // Match H.O.A.s in this clause
           const normHoaTxt = (s) => String(s || "").toLowerCase().replace(/[()\-_]+/g, " ").replace(/\s+/g, " ").trim();
           const clNormHoa = normHoaTxt(cl);
-         const clHoas = ds.hoas.filter((h) => {
-         const hNorm = normHoaTxt(h.raw);
-         if (cl.includes(h.raw)) return true;
-         if (hNorm.length >= 2 && new RegExp(`\\b${hNorm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(clNormHoa)) return true;
-         return false;
-       });
+          const clHoas = ds.hoas.filter((h) => {
+            const hNorm = normHoaTxt(h.raw);
+            if (cl.includes(h.raw)) return true;
+            if (hNorm.length >= 2 && new RegExp(`\\b${hNorm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(clNormHoa)) return true;
+            return false;
+          });
+
+          // Group & alias expansion (e.g. "SCP" -> SCP BOREWELL + SCP CHECKDAM + SCP LIS)
+          const addHoaByPred = (pred) => {
+            ds.hoas.forEach((h) => {
+              if (pred(h, normHoaTxt(h.raw)) && !clHoas.some((x) => x.raw === h.raw)) clHoas.push(h);
+            });
+          };
+          const hasSpecificScp = clHoas.some((h) => normHoaTxt(h.raw).startsWith("scp "));
+          const hasSpecificTsp = clHoas.some((h) => normHoaTxt(h.raw).startsWith("tsp "));
+          const hasSpecificNabard = clHoas.some((h) => /^(nmot|n lis|n fmp|napb|nnt|nabard)\b/.test(normHoaTxt(h.raw)));
+
+          if (!hasSpecificScp && /\bscp\b|ವಿಶೇಷ\s*ಘಟಕ/i.test(clNormHoa)) {
+            addHoaByPred((h, hn) => hn.startsWith("scp "));
+          }
+          if (!hasSpecificTsp && /\btsp\b|ಗಿರಿಜನ/i.test(clNormHoa)) {
+            addHoaByPred((h, hn) => hn.startsWith("tsp "));
+          }
+          if (!hasSpecificNabard && /\bnabard\b|ನಬಾರ್ಡ/i.test(clNormHoa)) {
+            addHoaByPred((h, hn) => /^(nmot|n lis|n fmp|napb|nnt|nabard)\b/.test(hn));
+          }
+          if (!hasSpecificScp && !hasSpecificTsp && /\bborewells?\b/i.test(clNormHoa)) {
+            addHoaByPred((h, hn) => hn.includes("borewell"));
+          }
+          if (!hasSpecificScp && !hasSpecificTsp && /\bcheck\s*dams?\b/i.test(clNormHoa)) {
+            addHoaByPred((h, hn) => hn.includes("checkdam"));
+          }
+          if (/\b(paschima\s*vahini|kharland)\b|ಪಶ್ಚಿಮ\s*ವಾಹಿನಿ|ಖಾರ್/i.test(clNormHoa)) {
+            addHoaByPred((h, hn) => hn === "pv");
+          }
+          if (/\bnew\s*tanks?\b|ಹೊಸ\s*ಕೆರೆ/i.test(clNormHoa)) {
+            addHoaByPred((h, hn) => hn === "nt");
+          }
+          if (/\b(flood\s*control|fpw)\b|ಪ್ರವಾಹ/i.test(clNormHoa)) {
+            addHoaByPred((h, hn) => hn === "fmp");
+          }
+          if (/\b(a\s*&\s*p|anicut)\b|ಅಣೆಕಟ್ಟು\s*ಮತ್ತು\s*ಬಂದಾರು/i.test(clNormHoa)) {
+            addHoaByPred((h, hn) => hn === "apb");
+          }
+          if (/\bpmksy\b/i.test(clNormHoa)) {
+            addHoaByPred((h, hn) => hn.startsWith("pmksy"));
+          }
+          if (/\b(odf|other\s*dept\s*funds?)\b/i.test(clNormHoa)) {
+            addHoaByPred((h) => h.rows.some((r) => String(r.sheet_name || "").toLowerCase() === "other dept funds"));
+          }
+
           pushUnique(isExcl ? excludedHoas : matchedHoas, clHoas);
           clTokens = subtractTokens(clTokens, [clHoas]);
+          clTokens = clTokens.filter((t) => !["scp", "tsp", "nabard", "borevel", "borewel", "chekdam", "checkdam", "odf", "pmksy", "pasima", "vahini", "kharland", "flod", "kontrol"].includes(t));
 
           const hasDivWord = /\bdivisions?\b|ವಿಭಾಗ/i.test(clLow);
           const hasSubWord = /\bsub[-\s]?divisions?\b|ಉಪ\s*ವಿಭಾಗ/i.test(clLow);
@@ -11903,28 +11949,117 @@
         const ds = getAiDataset();
         if (!ds.rows.length) return `Data is still syncing from the cloud snapshot. Please ask again in a few seconds.`;
 
-        if (mmr && mmr.hasNonOfficerMmrFilter) {
-          const useRows = mmr.default17Rows.length > 0 && !mmr.matchedHoas.length ? mmr.default17Rows : mmr.matchedRows;
-          const totEst = useRows.reduce((s, r) => s + (r._costNum || 0), 0);
-          const odCnt = useRows.filter((r) => r.is_overdue).length;
+        if (mmr && mmr.wantsDabs) {
+          const filterDesc = mmr.filterLabels.length ? mmr.filterLabels.join(" | ") : "All Works (South Zone)";
+          if (!mmr.matchedRows.length) {
+            return `<div><b>DABS Result: 0 Matching Works</b></div><div style="font-size:0.74rem;color:#475569;margin-top:3px;">Applied Filters: ${esc(filterDesc)}</div>`;
+          }
+          const cleanBaseQ = String(rawQuery || "")
+            .replace(/\b(division|math?a\s*ksheth?ra|constituenc\w*)\s*[-]?\s*wise\b/gi, "")
+            .replace(/[,;\s]+$/g, "")
+            .trim() || "DABS";
+
+          if (!mmr.dabsGroupBy) {
+            const useRows = (mmr.default17Rows.length > 0 && !mmr.matchedHoas.length) ? mmr.default17Rows : mmr.matchedRows;
+            return `
+              <div><b>DABS Abstract Ready (${useRows.length.toLocaleString("en-IN")} Works)</b></div>
+              <div style="font-size:0.74rem;color:#475569;margin-top:2px;">${esc(filterDesc)}</div>
+              <div style="margin-top:6px;">Choose your DABS format:</div>
+              <div class="mi-ai-action-row">
+                <button type="button" class="mi-ai-action-btn" data-ask-query="${esc(cleanBaseQ)}, Division wise">Division Wise DABS →</button>
+                <button type="button" class="mi-ai-action-btn" data-ask-query="${esc(cleanBaseQ)}, Mathakshethra wise">Mathakshethra Wise DABS →</button>
+              </div>
+            `;
+          }
+
+          const isConst = mmr.dabsGroupBy === "constituency";
+          const modeLabel = isConst ? "Mathakshethra Wise" : "Division Wise";
+          const useRows = (mmr.default17Rows.length > 0 && !mmr.matchedHoas.length) ? mmr.default17Rows : mmr.matchedRows;
+          const title = `DABS (${modeLabel}) — ${filterDesc}`;
+          const dabs = buildAiDabsTableData(useRows, ds.divisions.length, mmr.dabsGroupBy);
+          const z = dabs.zoneTotalRow;
+
           const modalId = saveResultModalPack({
-            title: `Filtered Works - ${mmr.filterLabels.join(" | ")}`,
-            filterSummary: mmr.filterLabels.join(" | "),
+            mode: "dabs",
+            dabsGroupBy: mmr.dabsGroupBy,
+            title,
+            filterSummary: filterDesc,
             allRows: mmr.matchedRows,
             def17Rows: mmr.default17Rows,
             mmrFilters: mmr
           });
-          const packId = saveExportPack(`MMR_${mmr.filterLabels[0] || "Works"}`, toExportRows(useRows, false), false);
+          const packId = saveDabsExportPack({
+            dabsGroupBy: mmr.dabsGroupBy,
+            title,
+            filterSummary: filterDesc,
+            workCount: useRows.length,
+            divCount: dabs.activeDivs.length,
+            dabsRows: dabs.tableRows
+          });
+          const otherModeLabel = isConst ? "Division Wise" : "Mathakshethra Wise";
+          const mainBtns = buildActionButtonsHtml({
+            resultModalId: modalId,
+            modalCount: useRows.length,
+            modalLabel: `View ${modeLabel} DABS Popup (${useRows.length}) →`,
+            mmrAbstractId: modalId,
+            packId,
+            packCount: useRows.length,
+            allowPdf: true,
+            pdfLabel: `Download DABS PDF`,
+            xlsxLabel: `Download DABS Excel`
+          });
+          const switchBtn = `<button type="button" class="mi-ai-action-btn" data-ask-query="${esc(cleanBaseQ)}, ${otherModeLabel}">Switch to ${otherModeLabel} →</button>`;
+
           return `
-            <div><b>Filtered Works Summary</b></div>
-            <div style="font-size:0.74rem;color:#475569;margin-top:2px;">${esc(mmr.filterLabels.join(" • "))}</div>
+            <div><b>DABS Summary (${modeLabel})</b></div>
+            <div style="font-size:0.74rem;color:#475569;margin-top:2px;">${esc(filterDesc)}</div>
+            <div class="mi-ai-stat-grid">
+              <div class="mi-ai-stat-box">Matching Works<b>${useRows.length.toLocaleString("en-IN")}</b></div>
+              <div class="mi-ai-stat-box">${isConst ? "Mathakshethras" : "Divisions"}<b>${isConst ? dabs.activeConsts.length : dabs.activeDivs.length}</b></div>
+              <div class="mi-ai-stat-box">Total Estimate<b>₹${Number(z?.tot_est || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })} L</b></div>
+              <div class="mi-ai-stat-box">Total Exp.<b>₹${Number(z?.total_exp || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })} L</b></div>
+            </div>
+            ${mainBtns.replace("</div>", `${switchBtn}</div>`)}
+          `;
+        }
+
+        if (mmr && (mmr.hasNonOfficerMmrFilter || mmr.wantsAllWorks)) {
+          const useRows = (mmr.default17Rows.length > 0 && !mmr.matchedHoas.length) ? mmr.default17Rows : mmr.matchedRows;
+          const filterDesc = mmr.filterLabels.length ? mmr.filterLabels.join(" | ") : "All Works (South Zone)";
+          if (!useRows.length) {
+            return `<div><b>0 Matching Works</b></div><div style="font-size:0.74rem;color:#475569;margin-top:3px;">Applied Filters: ${esc(filterDesc)}</div>`;
+          }
+          const totEst = useRows.reduce((s, r) => s + (r._costNum || 0), 0);
+          const odCnt = useRows.filter((r) => r.is_overdue).length;
+          const title = mmr.wantsCabs ? `CABS — ${filterDesc}` : `Filtered Works — ${filterDesc}`;
+          const modalId = saveResultModalPack({
+            mode: "works",
+            title,
+            filterSummary: filterDesc,
+            allRows: mmr.matchedRows,
+            def17Rows: mmr.default17Rows,
+            mmrFilters: mmr
+          });
+          const packId = saveExportPack(title, toExportRows(useRows, false), false);
+          return `
+            <div><b>${mmr.wantsCabs ? "CABS Summary" : "Filtered Works Summary"}</b></div>
+            <div style="font-size:0.74rem;color:#475569;margin-top:2px;">${esc(filterDesc)}</div>
             <div class="mi-ai-stat-grid">
               <div class="mi-ai-stat-box">17 MMR H.O.A.s<b>${mmr.default17Rows.length.toLocaleString("en-IN")}</b></div>
               <div class="mi-ai-stat-box">All 21 Sheets<b>${mmr.matchedRows.length.toLocaleString("en-IN")}</b></div>
               <div class="mi-ai-stat-box">Total Moola Andaju<b>₹${totEst.toLocaleString("en-IN", { maximumFractionDigits: 1 })} L</b></div>
               <div class="mi-ai-stat-box red">Overdue ('P')<b>${odCnt}</b></div>
             </div>
-            ${buildActionButtonsHtml({ resultModalId: modalId, modalCount: useRows.length, mmrAbstractId: modalId, packId, packCount: useRows.length })}
+            ${buildActionButtonsHtml({
+              resultModalId: modalId,
+              modalCount: useRows.length,
+              modalLabel: mmr.wantsCabs ? `View CABS Table Popup (${useRows.length} Works) →` : "",
+              mmrAbstractId: modalId,
+              packId,
+              packCount: useRows.length,
+              pdfLabel: mmr.wantsCabs ? `Download CABS PDF (${useRows.length})` : "",
+              xlsxLabel: mmr.wantsCabs ? `Download CABS Excel (${useRows.length})` : ""
+            })}
           `;
         }
 
@@ -11941,7 +12076,6 @@
           </div>
         `;
       }
-
       // 8. SMART ACTION BUTTONS (MATCHES MMR FILTERS, BESCOM, OR OFFICER — NEVER RANDOM!)
       function attachGeminiActionButtons(rawQuery, replyText, mmr) {
         const ds = getAiDataset();
