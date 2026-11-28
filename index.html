@@ -8282,7 +8282,7 @@
       paintHud(displayPct);
     })();
     window.addEventListener("DOMContentLoaded", initAppLoad);
-  // =========================================================================
+    // =========================================================================
     // VISITOR TELEMETRY LOGGER + PRIVATE VIEWER (?logs=1)
     // =========================================================================
     async function detectPcAndBrowserInfo() {
@@ -8290,14 +8290,12 @@
       let os = "Unknown OS";
       let browser = "Unknown Browser";
 
-      // Browser detection
       if (/Edg\//i.test(ua)) browser = "Edge " + (ua.match(/Edg\/([\d.]+)/i)?.[1] || "");
       else if (/OPR\//i.test(ua)) browser = "Opera " + (ua.match(/OPR\/([\d.]+)/i)?.[1] || "");
       else if (/Chrome\//i.test(ua)) browser = "Chrome " + (ua.match(/Chrome\/([\d.]+)/i)?.[1] || "");
       else if (/Firefox\//i.test(ua)) browser = "Firefox " + (ua.match(/Firefox\/([\d.]+)/i)?.[1] || "");
       else if (/Safari\//i.test(ua)) browser = "Safari " + (ua.match(/Version\/([\d.]+)/i)?.[1] || "");
 
-      // OS detection (including Windows 10 vs 11 on Chrome/Edge)
       if (/Android/i.test(ua)) {
         os = "Android " + (ua.match(/Android\s([\d.]+)/i)?.[1] || "");
       } else if (/iPhone|iPad|iPod/i.test(ua)) {
@@ -8321,7 +8319,10 @@
       const isTablet = /iPad|Tablet/i.test(ua);
       const deviceType = isTablet ? "Tablet" : (isMobile ? "Mobile" : "Desktop / PC");
 
-      // Graphics card / GPU renderer (helps distinguish different office PCs)
+      // Touch capability (navigator.maxTouchPoints)
+      const touchPts = Number(navigator.maxTouchPoints || 0);
+      const touchInfo = touchPts > 0 ? `Touch (${touchPts} pts)` : "No Touch (Mouse)";
+
       let gpu = "-";
       try {
         const canvas = document.createElement("canvas");
@@ -8338,7 +8339,6 @@
         ? [rawConnType, conn.effectiveType || "", conn.downlink ? `(${conn.downlink} Mbps)` : ""].filter(Boolean).join(" ").trim()
         : "-";
 
-      // Persistent anonymous Visitor ID & repeat counter
       let visitorId = localStorage.getItem("mi_visitor_id");
       if (!visitorId) {
         visitorId = "PC-" + Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -8351,6 +8351,8 @@
         visitorId,
         visitCount,
         deviceType,
+        touchInfo,
+        maxTouchPoints: touchPts,
         os: os.trim(),
         browser: browser.trim(),
         screen: `${window.screen?.width || 0}x${window.screen?.height || 0}`,
@@ -8360,8 +8362,7 @@
         gpu,
         network: network || "-",
         language: navigator.language || "-",
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "-",
-        referrer: document.referrer || "Direct / Bookmark / WhatsApp"
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "-"
       };
     }
 
@@ -8378,10 +8379,95 @@
       }).format(new Date());
     }
 
+    function formatDurationShort(totalSec) {
+      const s = Math.max(0, Math.round(Number(totalSec) || 0));
+      if (s < 60) return `${s}s`;
+      const m = Math.floor(s / 60);
+      const remS = s % 60;
+      if (m < 60) return remS ? `${m}m ${remS}s` : `${m}m`;
+      const h = Math.floor(m / 60);
+      const remM = m % 60;
+      return `${h}h ${remM}m`;
+    }
+
+    function startSessionEngagementTracker(fbUrl, logKey) {
+      if (!fbUrl || !logKey) return;
+      let activeMs = 0;
+      let visibleSince = document.visibilityState === "visible" ? Date.now() : null;
+      let clickCount = 0;
+      let interacted = false;
+      let lastPatchedSec = -1;
+
+      const markActive = () => { interacted = true; };
+      document.addEventListener("click", () => { clickCount++; interacted = true; }, { passive: true });
+      document.addEventListener("keydown", markActive, { passive: true });
+      window.addEventListener("scroll", markActive, { passive: true, once: true });
+
+      const getActiveSeconds = () => {
+        const liveMs = visibleSince ? (Date.now() - visibleSince) : 0;
+        return Math.round((activeMs + liveMs) / 1000);
+      };
+
+      const flushEngagement = (force = false) => {
+        const sec = getActiveSeconds();
+        if (!force && sec === lastPatchedSec) return;
+        lastPatchedSec = sec;
+
+        const patchBody = JSON.stringify({
+          timeOnPageSec: sec,
+          timeOnPage: formatDurationShort(sec),
+          activeStatus: interacted ? `Active (${clickCount} clicks)` : "Passive (0 clicks)",
+          lastActiveIST: getVisitISTTime()
+        });
+
+        try {
+          fetch(`${fbUrl}/mi_visit_logs/${logKey}.json`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: patchBody,
+            keepalive: true
+          }).catch(() => {});
+        } catch (_) {}
+      };
+
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") {
+          if (visibleSince) {
+            activeMs += Date.now() - visibleSince;
+            visibleSince = null;
+          }
+          flushEngagement(true);
+        } else {
+          visibleSince = Date.now();
+        }
+      });
+
+      window.addEventListener("pagehide", () => {
+        if (visibleSince) {
+          activeMs += Date.now() - visibleSince;
+          visibleSince = null;
+        }
+        flushEngagement(true);
+      });
+
+      window.addEventListener("beforeunload", () => {
+        if (visibleSince) {
+          activeMs += Date.now() - visibleSince;
+          visibleSince = null;
+        }
+        flushEngagement(true);
+      });
+
+      // Periodic heartbeat every 30s while tab is visible
+      setInterval(() => {
+        if (document.visibilityState === "visible") flushEngagement(false);
+      }, 30000);
+    }
+
     async function logCurrentVisit() {
       const params = new URLSearchParams(window.location.search);
-      if (params.get("logs") === "1") return; // Don't log when you open the viewer
-      if (localStorage.getItem("mi_ignore_my_visits") === "1") return; // Ignore your own PC if toggled
+      if (params.get("logs") === "1") return;
+      if (localStorage.getItem("mi_ignore_my_visits") === "1") return;
 
       const fbUrl = typeof getFirebaseBaseUrl === "function" ? getFirebaseBaseUrl() : "";
       if (!fbUrl) return;
@@ -8409,6 +8495,8 @@
         location: locationStr,
         isp: ispStr,
         deviceType: pc.deviceType,
+        touchInfo: pc.touchInfo,
+        maxTouchPoints: pc.maxTouchPoints,
         os: pc.os,
         browser: pc.browser,
         screen: pc.screen,
@@ -8417,16 +8505,24 @@
         ram: pc.ram,
         gpu: pc.gpu,
         network: pc.network,
-        referrer: pc.referrer,
-        timezone: pc.timezone
+        timezone: pc.timezone,
+        timeOnPageSec: 0,
+        timeOnPage: "0s",
+        activeStatus: "Passive (0 clicks)"
       };
 
       try {
-        await fetch(`${fbUrl}/mi_visit_logs.json`, {
+        const postResp = await fetch(`${fbUrl}/mi_visit_logs.json`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
+        if (postResp.ok) {
+          const resJson = await postResp.json();
+          if (resJson && resJson.name) {
+            startSessionEngagementTracker(fbUrl, resJson.name);
+          }
+        }
       } catch (_) {}
     }
 
@@ -8491,10 +8587,10 @@
               <th style="padding:9px;border:1px solid #94A3B8;">IP Address</th>
               <th style="padding:9px;border:1px solid #94A3B8;">Location</th>
               <th style="padding:9px;border:1px solid #94A3B8;">ISP / Network</th>
-              <th style="padding:9px;border:1px solid #94A3B8;">Device &amp; OS</th>
+              <th style="padding:9px;border:1px solid #94A3B8;">Device, OS &amp; Touch</th>
               <th style="padding:9px;border:1px solid #94A3B8;">Browser</th>
               <th style="padding:9px;border:1px solid #94A3B8;">PC Specs (Screen / CPU / RAM / GPU)</th>
-              <th style="padding:9px;border:1px solid #94A3B8;">Came From</th>
+              <th style="padding:9px;border:1px solid #94A3B8;">Time on Page &amp; Activity</th>
             </tr>
           </thead>
           <tbody>
@@ -8506,10 +8602,10 @@
                 <td style="padding:7px;border:1px solid #CBD5E1;white-space:nowrap;font-family:monospace;">${esc(r.ip)}</td>
                 <td style="padding:7px;border:1px solid #CBD5E1;">${esc(r.location)}</td>
                 <td style="padding:7px;border:1px solid #CBD5E1;">${esc(r.isp)}</td>
-                <td style="padding:7px;border:1px solid #CBD5E1;">${esc(r.deviceType)}<br><span style="color:#334155;">${esc(r.os)}</span></td>
+                <td style="padding:7px;border:1px solid #CBD5E1;">${esc(r.deviceType)}<br><span style="color:#334155;">${esc(r.os)}</span><br><span style="color:#1D4ED8;font-size:0.72rem;font-weight:700;">${esc(r.touchInfo || "-")}</span></td>
                 <td style="padding:7px;border:1px solid #CBD5E1;">${esc(r.browser)}</td>
                 <td style="padding:7px;border:1px solid #CBD5E1;font-size:0.74rem;">${esc(r.screen)} | ${esc(r.cpuCores)} | ${esc(r.ram)}<br><span style="color:#475569;">${esc(r.gpu)}</span></td>
-                <td style="padding:7px;border:1px solid #CBD5E1;font-size:0.74rem;max-width:180px;word-break:break-word;">${esc(r.referrer)}</td>
+                <td style="padding:7px;border:1px solid #CBD5E1;white-space:nowrap;font-size:0.76rem;"><b>${esc(r.timeOnPage || "-")}</b><br><span style="color:${String(r.activeStatus || "").startsWith("Active") ? "#047857" : "#64748B"};font-weight:700;">${esc(r.activeStatus || "-")}</span></td>
               </tr>
             `).join("")}
           </tbody>
@@ -8534,11 +8630,12 @@
       document.getElementById("vlog-xlsx-btn").onclick = () => {
         if (!logsList.length || typeof XLSX === "undefined") return;
         const aoa = [
-          ["#", "Date & Time (IST)", "Visitor ID", "Visit #", "IP Address", "Location", "ISP / Network", "Device", "OS", "Browser", "Screen", "CPU", "RAM", "GPU", "Connection", "Referrer"]
+          ["#", "Date & Time (IST)", "Visitor ID", "Visit #", "IP Address", "Location", "ISP / Network", "Device", "OS", "Touch Capability", "Browser", "Screen", "CPU", "RAM", "GPU", "Connection", "Time on Page", "Active Interaction"]
         ];
         logsList.forEach((r, i) => aoa.push([
           i + 1, r.timeIST, r.visitorId, r.visitCount, r.ip, r.location, r.isp,
-          r.deviceType, r.os, r.browser, r.screen, r.cpuCores, r.ram, r.gpu, r.network, r.referrer
+          r.deviceType, r.os, r.touchInfo || "-", r.browser, r.screen, r.cpuCores, r.ram, r.gpu, r.network,
+          r.timeOnPage || "-", r.activeStatus || "-"
         ]));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "Visitor_Logs");
@@ -12658,7 +12755,7 @@
             <div class="mi-ai-header-badge">${BOT_SVG}</div>
             <div>
               <div class="mi-ai-header-title">MI Dashboard Assistant</div>
-              <div class="mi-ai-header-sub">Grounded in Live MI Data • EN &amp; ಕನ್ನಡ</div>
+              <div class="mi-ai-header-sub">Grounded in Live MMR Data • EN &amp; ಕನ್ನಡ</div>
             </div>
           </div>
           <button type="button" class="mi-ai-close" id="mi-ai-close" title="Close">✕</button>
