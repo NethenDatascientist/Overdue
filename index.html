@@ -3325,7 +3325,7 @@
     <!-- =======================================================================
          LEFT SIDEBAR CONTROLS
          ======================================================================= -->
-    <aside class="sidebar" id="app-sidebar">
+    <aside class="sidebar collapsed" id="app-sidebar">
       <div class="sidebar-title" style="padding-left:28px;">Dashboard Controls</div>
 
       <div class="ctrl-group">
@@ -4053,18 +4053,6 @@
     const spinnerEl = document.getElementById("intro-spinner-icon");
     const introStartTime = performance.now();
 
-    function scheduleSidebarAutoClose() {
-      if (STATE.sidebarAutoClosed) return;
-      STATE.sidebarAutoClosed = true;
-      setTimeout(() => {
-        const sb = document.getElementById("app-sidebar");
-        if (sb && !sb.classList.contains("collapsed")) {
-          sb.classList.add("collapsed");
-          setTimeout(() => window.dispatchEvent(new Event("resize")), 260);
-        }
-      }, 3000);
-    }
-
     function ensureDashboardRenderedBehindCurtain() {
       if (STATE.dashboardRendered || !STATE.dataReady) return;
       STATE.dashboardRendered = true;
@@ -4102,7 +4090,6 @@
               overlayEl.style.display = "none";
             }, 500);
           }
-          scheduleSidebarAutoClose();
           setTimeout(playMiAiStackEntrance, 260);
         });
       });
