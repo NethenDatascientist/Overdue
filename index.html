@@ -2619,6 +2619,99 @@
       transform: translate(-50%, -2px);
       box-shadow: 0 16px 34px rgba(30, 58, 138, 0.42);
     }
+    /* MI AI Stack-Absorb Entrance Animation (Center -> Ask MI AI Button) */
+    #mi-ai-fly-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 9998;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .mi-ai-fly-stage {
+      position: fixed;
+      top: 41%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 14px;
+      width: min(680px, 92vw);
+    }
+    .mi-ai-fly-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 10px 16px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1.5px solid rgba(148, 163, 184, 0.45);
+      box-shadow: 0 14px 32px rgba(15, 23, 42, 0.16);
+      font-family: 'Montserrat', 'Inter', sans-serif;
+      font-size: 0.88rem;
+      font-weight: 800;
+      color: #0F172A;
+      white-space: nowrap;
+      opacity: 0;
+      transform: translate3d(0, 16px, 0) scale(0.84);
+      will-change: transform, opacity;
+      transition: transform 0.36s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.32s ease;
+    }
+    .mi-ai-fly-chip.popped {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    .mi-ai-fly-chip.flying {
+      transition:
+        transform 0.72s cubic-bezier(0.52, 0.04, 0.72, 0.22),
+        opacity 0.62s ease-in,
+        box-shadow 0.4s ease;
+      box-shadow: 0 0 22px rgba(59, 130, 246, 0.55);
+    }
+    .mi-ai-fly-chip[data-stack="gemini"] { border-top: 3px solid #4F46E5; }
+    .mi-ai-fly-chip[data-stack="js"]     { border-top: 3px solid #EAB308; }
+    .mi-ai-fly-chip[data-stack="gsheet"] { border-top: 3px solid #16A34A; }
+    .mi-ai-fly-chip[data-stack="vercel"] { border-top: 3px solid #0F172A; }
+
+    #mi-ai-launcher.mi-ai-charging {
+      border-color: #93C5FD !important;
+      animation: miAiAbsorbGlow 1.15s ease-in-out infinite;
+    }
+    @keyframes miAiAbsorbGlow {
+      0%, 100% {
+        transform: translateX(-50%) scale(1.03);
+        box-shadow:
+          0 0 0 4px rgba(59, 130, 246, 0.35),
+          0 0 28px rgba(59, 130, 246, 0.85),
+          0 0 54px rgba(99, 102, 241, 0.65);
+      }
+      50% {
+        transform: translateX(-50%) scale(1.11);
+        box-shadow:
+          0 0 0 9px rgba(96, 165, 250, 0.45),
+          0 0 40px rgba(37, 99, 235, 1),
+          0 0 72px rgba(16, 185, 129, 0.72);
+      }
+    }
+    .mi-ai-absorb-ring {
+      position: fixed;
+      border-radius: 999px;
+      border: 2.5px solid #60A5FA;
+      box-shadow: 0 0 18px rgba(59, 130, 246, 0.85);
+      pointer-events: none;
+      transform: translate(-50%, -50%) scale(0.95);
+      opacity: 0.95;
+      animation: miAiRingBurst 0.62s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes miAiRingBurst {
+      to {
+        transform: translate(-50%, -50%) scale(1.75);
+        opacity: 0;
+      }
+    }
     .mi-ai-live-dot {
       width: 11px;
       height: 11px;
@@ -4010,10 +4103,96 @@
             }, 500);
           }
           scheduleSidebarAutoClose();
+          setTimeout(playMiAiStackEntrance, 260);
         });
       });
     }
+      function playMiAiStackEntrance() {
+      if (window._miAiStackAnimPlayed) return;
+      if (new URLSearchParams(window.location.search).get("logs") === "1") return;
+      const launcher = document.getElementById("mi-ai-launcher");
+      if (!launcher) return;
+      window._miAiStackAnimPlayed = true;
 
+      const items = [
+        {
+          key: "gemini",
+          name: "Gemini",
+          svg: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><defs><linearGradient id="flyGeminiGrad" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#2563EB"/><stop offset="55%" stop-color="#6366F1"/><stop offset="100%" stop-color="#EC4899"/></linearGradient></defs><path d="M12 1.5C12.8 7.4 16.6 11.2 22.5 12C16.6 12.8 12.8 16.6 12 22.5C11.2 16.6 7.4 12.8 1.5 12C7.4 11.2 11.2 7.4 12 1.5Z" fill="url(#flyGeminiGrad)"/></svg>`
+        },
+        {
+          key: "js",
+          name: "JavaScript",
+          svg: `<svg width="22" height="22" viewBox="0 0 24 24"><rect width="24" height="24" rx="4.5" fill="#F7DF1E"/><text x="12.5" y="17.5" text-anchor="middle" font-family="Montserrat, Arial, sans-serif" font-weight="900" font-size="11.5" fill="#0F172A">JS</text></svg>`
+        },
+        {
+          key: "gsheet",
+          name: "G-Sheets",
+          svg: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" fill="#0F9D58"/><path d="M14 2v5h5" fill="#87CEAC"/><rect x="7" y="10.5" width="10" height="7.5" rx="1" stroke="#FFFFFF" stroke-width="1.3"/><line x1="7" y1="14.2" x2="17" y2="14.2" stroke="#FFFFFF" stroke-width="1.2"/><line x1="11.2" y1="10.5" x2="11.2" y2="18" stroke="#FFFFFF" stroke-width="1.2"/></svg>`
+        },
+        {
+          key: "vercel",
+          name: "Vercel",
+          svg: `<svg width="22" height="22" viewBox="0 0 24 24"><rect width="24" height="24" rx="5" fill="#0F172A"/><path d="M12 6.2L18.4 17.2H5.6L12 6.2Z" fill="#FFFFFF"/></svg>`
+        }
+      ];
+
+      const layer = document.createElement("div");
+      layer.id = "mi-ai-fly-layer";
+      layer.innerHTML = `<div class="mi-ai-fly-stage">${items.map((it) =>
+        `<div class="mi-ai-fly-chip" data-stack="${it.key}">${it.svg}<span>${it.name}</span></div>`
+      ).join("")}</div>`;
+      document.body.appendChild(layer);
+
+      const chips = Array.from(layer.querySelectorAll(".mi-ai-fly-chip"));
+
+      // Phase 1: Staggered pop-in in the center area
+      chips.forEach((chip, i) => {
+        setTimeout(() => chip.classList.add("popped"), 40 + i * 75);
+      });
+
+      const spawnRing = () => {
+        const b = launcher.getBoundingClientRect();
+        const ring = document.createElement("span");
+        ring.className = "mi-ai-absorb-ring";
+        ring.style.left = `${b.left + b.width / 2}px`;
+        ring.style.top = `${b.top + b.height / 2}px`;
+        ring.style.width = `${b.width + 10}px`;
+        ring.style.height = `${b.height + 10}px`;
+        layer.appendChild(ring);
+        setTimeout(() => ring.remove(), 650);
+      };
+
+      // Phase 2: Fly each logo chip into the Ask MI AI button & glow on arrival
+      const flyStartDelay = 780;
+      chips.forEach((chip, i) => {
+        setTimeout(() => {
+          const cRect = chip.getBoundingClientRect();
+          const bRect = launcher.getBoundingClientRect();
+          const dx = (bRect.left + bRect.width / 2) - (cRect.left + cRect.width / 2);
+          const dy = (bRect.top + bRect.height / 2) - (cRect.top + cRect.height / 2);
+
+          chip.classList.add("flying");
+          chip.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(0.18)`;
+          chip.style.opacity = "0";
+        }, flyStartDelay + i * 115);
+
+        // Glow + pulse ring right as each chip enters the button
+        setTimeout(() => {
+          launcher.classList.add("mi-ai-charging");
+          spawnRing();
+        }, flyStartDelay + 540 + i * 115);
+      });
+
+      // Phase 3: Settle button glow and clean up overlay cleanly
+      setTimeout(() => {
+        launcher.classList.remove("mi-ai-charging");
+      }, flyStartDelay + 1480);
+
+      setTimeout(() => {
+        layer.remove();
+      }, flyStartDelay + 1750);
+    }
     function checkDismissOverlay() {
       if (STATE.dataReady && STATE.videoEnded) {
         dismissOverlayAndRender(false);
