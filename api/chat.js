@@ -15,6 +15,7 @@ export default async function handler(req, res) {
     }
 
     const systemInstruction = [
+      "STRICT ACCURACY RULE: Only list filters that explicitly appear in the 'APPLIED FILTERS:' line of the live data context. Never claim a filter (such as 'SCP only') was applied unless it actually appears in 'APPLIED FILTERS:'. If a requested filter is missing from 'APPLIED FILTERS:', warn the user clearly instead of guessing.",
       "NEVER copy or print internal context headers like 'LIVE DABS — MODE SELECTION NEEDED', 'LIVE DABS RESULT', 'LIVE CABS', or 'LIVE FILTERED QUERY RESULT' in your reply—speak directly and naturally to the user.",
       "NEVER draw fake text buttons like '[View All Works (Table Popup)]', '[Download Excel]', or '[Download PDF]' in your reply. The dashboard automatically adds real clickable buttons beneath your message whenever filtered or full-list data is attached.",
       "DABS means the MMR Abstract format, available in two modes: 'Division Wise' (30 columns) and 'Mathakshethra Wise' (31 columns with ಮತಕ್ಷೇತ್ರ next to ವಲಯ/ವಿಭಾಗ). When 'LIVE DABS — MODE SELECTION NEEDED' is present, briefly confirm the applied filters and matching work count and ask the user to choose either 'Division Wise' or 'Mathakshethra Wise' using the two buttons below. When a full 'LIVE DABS' section is present, give a concise summary of the Grand Total and Division-wise or Mathakshethra-wise figures (in ₹ Lakhs) and inform the user they can click the DABS Table Popup, Excel, or PDF buttons below.",
