@@ -1943,8 +1943,42 @@
       font-weight: 800;
       white-space: nowrap;
     }
+    #ai-results-modal table.odm-table {
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+    #ai-results-modal table.odm-table thead {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
     #ai-results-modal table.odm-table thead th {
+      position: relative !important;
+      top: auto !important;
       padding: 18px 8px 8px 8px;
+      border: none;
+      border-right: 1px solid #94A3B8;
+      border-bottom: 1px solid #94A3B8;
+    }
+    #ai-results-modal table.odm-table thead tr:first-child th {
+      border-top: 1px solid #94A3B8;
+    }
+    #ai-results-modal table.odm-table thead th:first-child,
+    #ai-results-modal table.odm-table tbody td:first-child {
+      border-left: 1px solid #94A3B8;
+    }
+    #ai-results-modal table.odm-table tbody td {
+      border: none;
+      border-right: 1px solid #CBD5E1;
+      border-bottom: 1px solid #CBD5E1;
+    }
+    #ai-results-modal table.odm-table thead tr.aw-colnum-row th {
+      background: #EAD1DC !important;
+      color: #000000 !important;
+      font-size: 0.78rem;
+      font-weight: 800;
+      padding: 5px 6px !important;
+      text-align: center;
     }
     #ai-results-modal table.aw-abstract-table thead th {
       padding: 18px 8px 8px 8px !important;
@@ -11640,7 +11674,10 @@
         bodyEl.innerHTML = `
           ${hiddenBarHtml}
           <table class="odm-table" style="min-width:${minW}px;">
-            <thead><tr>${headerHtml}</tr></thead>
+            <thead>
+              <tr>${headerHtml}</tr>
+              <tr class="aw-colnum-row">${visCabsCols.map((_, idx) => `<th>${idx + 1}</th>`).join("")}</tr>
+            </thead>
             <tbody>${tbodyHtml}</tbody>
           </table>
           ${showMoreHtml}
@@ -11843,7 +11880,10 @@
           return;
         }
         const cols = Object.keys(rows[0]);
-        const aoa = [cols, ...rows.map((r) => cols.map((c) => r[c] ?? "-"))];
+        const showColNums = !pack?.isBescom;
+     const aoa = showColNums
+       ? [cols, cols.map((_, idx) => idx + 1), ...rows.map((r) => cols.map((c) => r[c] ?? "-"))]
+       : [cols, ...rows.map((r) => cols.map((c) => r[c] ?? "-"))];
         const ws = XLSX.utils.aoa_to_sheet(aoa);
 
         // Set neat column widths (extra wide for Work Name & Contractor)
@@ -11866,17 +11906,18 @@
         const workColIdx = cols.indexOf("ಕಾಮಗಾರಿ ಹೆಸರು") !== -1 ? cols.indexOf("ಕಾಮಗಾರಿ ಹೆಸರು") : cols.indexOf("Work Name");
         const range = XLSX.utils.decode_range(ws["!ref"]);
         for (let R = range.s.r; R <= range.e.r; R++) {
-          const isHdr = R === 0;
-          for (let C = range.s.c; C <= range.e.c; C++) {
-            const addr = XLSX.utils.encode_cell({ r: R, c: C });
-            if (!ws[addr]) ws[addr] = { t: "s", v: "" };
-            ws[addr].s = {
-              font: { name: "Calibri", sz: 10, bold: isHdr, color: { rgb: "000000" } },
-              fill: { fgColor: { rgb: isHdr ? "CFE2F3" : (R % 2 === 0 ? "F8FAFC" : "FFFFFF") } },
-              border,
-              alignment: { horizontal: (!isHdr && C === workColIdx) ? "left" : "center", vertical: "center", wrapText: true }
-            };
-          }
+         const isHdr = R === 0;
+       const isColNum = showColNums && R === 1;
+       for (let C = range.s.c; C <= range.e.c; C++) {
+         const addr = XLSX.utils.encode_cell({ r: R, c: C });
+         if (!ws[addr]) ws[addr] = { t: "s", v: "" };
+         ws[addr].s = {
+           font: { name: "Calibri", sz: 10, bold: isHdr || isColNum, color: { rgb: "000000" } },
+           fill: { fgColor: { rgb: isHdr ? "CFE2F3" : (isColNum ? "EAD1DC" : (R % 2 === 0 ? "F8FAFC" : "FFFFFF")) } },
+           border,
+           alignment: { horizontal: (!isHdr && !isColNum && C === workColIdx) ? "left" : "center", vertical: "center", wrapText: true }
+         };
+       }
         }
 
         const wb = XLSX.utils.book_new();
@@ -11910,6 +11951,9 @@
             });
 
             const ths = cols.map((c) => `<th>${esc(c)}</th>`).join("");
+            const colNumRow = !pack?.isBescom
+           ? `<tr>${cols.map((_, idx) => `<th style="background:#EAD1DC;color:#000000;padding:2.5px 2px;">${idx + 1}</th>`).join("")}</tr>`
+           : "";
             const rowChunks = new Array(rows.length);
             for (let i = 0; i < rows.length; i++) {
               const r = rows[i];
@@ -11949,7 +11993,7 @@
       <button class="close-btn" onclick="window.close()">Close</button>
     </div>
   </div>
-  <table><thead><tr>${ths}</tr></thead><tbody>${rowChunks.join("")}</tbody></table>
+  <table><thead><tr>${ths}</tr>${colNumRow}</thead><tbody>${rowChunks.join("")}</tbody></table>
   <script>window.addEventListener("load", function(){ setTimeout(function(){ window.print(); }, 250); });<\/script>
 </body></html>`;
 
