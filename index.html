@@ -10398,19 +10398,20 @@
 
         // Split into clauses on commas/semicolons/newlines so "Division - Exclude Mangalore" stays scoped cleanly
         const wantsDabs = /\bdabs\b/i.test(qRaw);
-        let dabsGroupBy = ""; // "" (ask user) | "division" | "constituency"
-        if (wantsDabs) {
-          if (/\b(mathakshethra|mathakshetra|matakshetra|constituency)\s*[-]?\s*wise\b|\bby\s+(mathakshethra|mathakshetra|matakshetra|constituency)\b|ಮತಕ್ಷೇತ್ರವಾರು/i.test(qRaw)) {
-            dabsGroupBy = "constituency";
-          } else if (/\bdivision\s*[-]?\s*wise\b|\bby\s+division\b|ವಿಭಾಗವಾರು/i.test(qRaw)) {
-            dabsGroupBy = "division";
-          }
-        }
-        const qForClauses = qRaw
-          .replace(/\b(division|mathakshethra|mathakshetra|matakshetra|constituency)\s*[-]?\s*wise\b/gi, " ")
-          .replace(/\bby\s+(division|mathakshethra|mathakshetra|matakshetra|constituency)\b/gi, " ")
-          .replace(/ಮತಕ್ಷೇತ್ರವಾರು|ವಿಭಾಗವಾರು/g, " ");
-        const clauses = qForClauses.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
+     let dabsGroupBy = ""; // "" (ask user) | "division" | "constituency"
+     if (wantsDabs) {
+       if (/\b(math?a\s*ksheth?ra|constituenc\w*)\s*[-]?\s*wise\b|\bby\s+(math?a\s*ksheth?ra|constituenc\w*)\b|ಮತಕ್ಷೇತ್ರವಾರು/i.test(qRaw)) {
+         dabsGroupBy = "constituency";
+       } else if (/\bdivision\s*[-]?\s*wise\b|\bby\s+division\b|ವಿಭಾಗವಾರು/i.test(qRaw)) {
+         dabsGroupBy = "division";
+       }
+     }
+     const qForClauses = qRaw
+       .replace(/\b(division|math?a\s*ksheth?ra|constituenc\w*)\s*[-]?\s*wise\b/gi, " ")
+       .replace(/\bby\s+(division|math?a\s*ksheth?ra|constituenc\w*)\b/gi, " ")
+       .replace(/ಮತಕ್ಷೇತ್ರವಾರು|ವಿಭಾಗವಾರು/g, " ");
+     const clauses = qForClauses.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
+     const DOUBLE_NEG_INCLUDE_RE = /\b(exclude|excluding|excluded|remove|leave\s+out|omit)\b.*\b(except|other\s+than|apart\s+from|but)\b/i;
         const EXCL_RE = /\b(exclude|excluding|excluded|except|without|other\s+than|not\s+in|not|apart\s+from|leave\s+out)\b|ಬಿಟ್ಟು|ಹೊರತುಪಡಿಸಿ/i;
 
         // 1. Cost range (Moola Andaju)
@@ -10481,17 +10482,19 @@
 
         clauses.forEach((cl) => {
           const clLow = cl.toLowerCase();
-          const isExcl = EXCL_RE.test(cl);
+          const isExcl = !DOUBLE_NEG_INCLUDE_RE.test(cl) && EXCL_RE.test(cl);
           let clTokens = extractQueryTokens(cl);
           if (!clTokens.length && !/[\u0C80-\u0CFF]/.test(cl)) return;
 
           // Match H.O.A.s in this clause
-          const clHoas = ds.hoas.filter((h) => {
-            const hLow = h.raw.toLowerCase();
-            if (cl.includes(h.raw)) return true;
-            if (hLow.length >= 2 && new RegExp(`\\b${hLow.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(cl)) return true;
-            return false;
-          });
+          const normHoaTxt = (s) => String(s || "").toLowerCase().replace(/[()\-_]+/g, " ").replace(/\s+/g, " ").trim();
+          const clNormHoa = normHoaTxt(cl);
+         const clHoas = ds.hoas.filter((h) => {
+         const hNorm = normHoaTxt(h.raw);
+         if (cl.includes(h.raw)) return true;
+         if (hNorm.length >= 2 && new RegExp(`\\b${hNorm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(clNormHoa)) return true;
+         return false;
+       });
           pushUnique(isExcl ? excludedHoas : matchedHoas, clHoas);
           clTokens = subtractTokens(clTokens, [clHoas]);
 
@@ -11702,7 +11705,13 @@
           const filterDesc = mmr.filterLabels.length ? mmr.filterLabels.join(" | ") : "All Works (South Zone)";
           const grpMode = mmr.dabsGroupBy || "";
 
-          if (!grpMode) {
+          if (!rows.length) {
+            sections.push(
+              `\nLIVE DABS RESULT (0 MATCHING WORKS):`,
+              `APPLIED FILTERS: ${filterDesc}`,
+              `MATCHING WORKS: 0 works match these exact filters. State clearly that 0 works match and list the applied filters. Do NOT ask the user to select Division Wise or Mathakshethra Wise.`
+            );
+          } else if (!grpMode) {
             const divSet = new Set(rows.map((r) => r.division_name).filter(Boolean));
             const constSet = new Set(rows.map((r) => r.constituency_name).filter((v) => v && v !== UNSPECIFIED_LABEL && v !== UNASSIGNED_LABEL));
             sections.push(
@@ -11942,8 +11951,7 @@
           return "";
         }
 
-        const wantsBescom = /\b(bescom|rr\s*no|rr\s*number|rr\s*pending|registration|borewell)\b|ಬೆಸ್ಕಾಂ/.test(qLower);
-
+        const wantsBescom = !mmr.wantsDabs && !mmr.wantsCabs && /\b(bescom|rr\s*no|rr\s*number|rr\s*pending|registration)\b|ಬೆಸ್ಕಾಂ|ಆರ್\.?\s*ಆರ್/i.test(qLower);
         // Case 1: BESCOM Queries
         if (wantsBescom) {
           const divMatch = mmr.divisions?.[0];
