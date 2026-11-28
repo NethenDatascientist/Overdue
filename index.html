@@ -330,6 +330,192 @@
       0% { transform: translate3d(0, 0, 0) scale(1); }
       100% { transform: translate3d(-40px, -25px, 0) scale(1.15); }
     }
+    /* MI AI Bot Integration Tree (Intro Screen Top) */
+    .argon-stage {
+      padding-bottom: 54px;
+    }
+    .argon-en-subtitle {
+      margin-bottom: 20px;
+    }
+    .argon-ai-tree {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: min(760px, 92vw);
+      margin-bottom: 14px;
+    }
+    .argon-ai-hub {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 20px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%);
+      color: #FFFFFF;
+      border: 1.5px solid rgba(147, 197, 253, 0.55);
+      box-shadow: 0 10px 26px rgba(30, 58, 138, 0.24);
+      font-family: 'Montserrat', sans-serif;
+      font-size: 0.96rem;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+      opacity: 0;
+      transform: translate3d(0, -10px, 0) scale(0.96);
+      animation: argonReveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.04s forwards;
+    }
+    .argon-ai-hub-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #10B981;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.28);
+    }
+    .argon-ai-stem {
+      position: relative;
+      width: 2px;
+      height: 15px;
+      background: linear-gradient(180deg, #1E3A8A, #64748B);
+      opacity: 0;
+      animation: argonReveal 0.45s ease 0.14s forwards;
+    }
+    .argon-ai-stem::after {
+      content: "";
+      position: absolute;
+      bottom: -4px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #2563EB;
+      border: 2px solid #FFFFFF;
+      z-index: 3;
+    }
+    .argon-ai-branches {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      width: 100%;
+    }
+    .argon-ai-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 6px;
+    }
+    .argon-ai-conn {
+      position: relative;
+      width: calc(100% + 12px);
+      height: 18px;
+      opacity: 0;
+      animation: argonReveal 0.45s ease 0.18s forwards;
+    }
+    .argon-ai-col:first-child .argon-ai-conn::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 50%;
+      right: 0;
+      height: 18px;
+      border-top: 2px solid #94A3B8;
+      border-left: 2px solid #94A3B8;
+      border-top-left-radius: 8px;
+    }
+    .argon-ai-col:last-child .argon-ai-conn::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 50%;
+      height: 18px;
+      border-top: 2px solid #94A3B8;
+      border-right: 2px solid #94A3B8;
+      border-top-right-radius: 8px;
+    }
+    .argon-ai-col:not(:first-child):not(:last-child) .argon-ai-conn::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: #94A3B8;
+    }
+    .argon-ai-col:not(:first-child):not(:last-child) .argon-ai-conn::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: calc(50% - 1px);
+      width: 2px;
+      height: 18px;
+      background: #94A3B8;
+    }
+    .argon-ai-node {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      padding: 8px 11px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.90);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(148, 163, 184, 0.42);
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+      opacity: 0;
+      transform: translate3d(0, 12px, 0);
+    }
+    .argon-ai-col:nth-child(1) .argon-ai-node {
+      border-top: 2.5px solid #4F46E5;
+      animation: argonReveal 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.20s forwards;
+    }
+    .argon-ai-col:nth-child(2) .argon-ai-node {
+      border-top: 2.5px solid #EAB308;
+      animation: argonReveal 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.26s forwards;
+    }
+    .argon-ai-col:nth-child(3) .argon-ai-node {
+      border-top: 2.5px solid #16A34A;
+      animation: argonReveal 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.32s forwards;
+    }
+    .argon-ai-col:nth-child(4) .argon-ai-node {
+      border-top: 2.5px solid #0F172A;
+      animation: argonReveal 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.38s forwards;
+    }
+    .argon-ai-logo {
+      width: 24px;
+      height: 24px;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .argon-ai-node-text {
+      display: flex;
+      flex-direction: column;
+      text-align: left;
+      line-height: 1.18;
+      min-width: 0;
+    }
+    .argon-ai-node-name {
+      font-size: 0.80rem;
+      font-weight: 800;
+      color: #0F172A;
+      white-space: nowrap;
+    }
+    .argon-ai-node-role {
+      font-size: 0.63rem;
+      font-weight: 700;
+      color: #64748B;
+      white-space: nowrap;
+    }
+    @media (max-width: 680px) {
+      .argon-ai-branches {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        row-gap: 8px;
+      }
+      .argon-ai-conn {
+        display: none;
+      }
+    }
 
     /* =========================================================================
        2. APP SHELL LAYOUT (SIDEBAR + MAIN CONTENT)
