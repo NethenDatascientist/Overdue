@@ -1943,6 +1943,15 @@
       font-weight: 800;
       white-space: nowrap;
     }
+    #ai-results-modal table.odm-table thead th {
+      padding: 18px 8px 8px 8px;
+    }
+    #ai-results-modal table.aw-abstract-table thead th {
+      padding: 18px 8px 8px 8px !important;
+    }
+    #ai-results-modal .aw-hidden-bar {
+      margin-top: 8px;
+    }
   /* =========================================================================
        PACKAGE GROUPING STYLING (SINGLE SL. NO. + COMBINED WORK CARD)
        ========================================================================= */
@@ -10396,7 +10405,152 @@
 
         return null;
       }
+        const AI_DABS_COL_RULES = [
+        [0, /\b(?:krama\s*sank(?:e|he|hye|ye|ya|hya)|kra\.?\s*sam|sl\.?\s*no\.?|s\.?\s*no\.?|sno|serial(?:\s*(?:no|num|number))?)\b|ಕ್ರ\.?\s*ಸಂ|ಕ್ರಮ\s*ಸಂಖ್ಯೆ/i],
+        [1, /\b(?:valaya|vibhaga|zone|division)\b|ವಲಯ|ವಿಭಾಗ/i],
+        [30, /\b(?:math?a\s*ksheth?ra|constituency)\b|ಮತಕ್ಷೇತ್ರ/i],
+        [2, /\b(?:lekk?a\s*sh(?:ee|i)rshike|h\.?o\.?a\.?|head\s+of\s+account)\b|ಲೆಕ್ಕ\s*ಶೀರ್ಷಿಕೆ/i],
+        [3, /\b(?:spill\s*over\s*(?:count|works?|no|nos|number)|munduvareda\s*(?:kamagari\w*\s*)?(?:sank\w*|count|no))\b|ಮುಂದುವರೆದ\s*ಕಾಮಗಾರಿಗಳ\s*ಸಂಖ್ಯೆ/i],
+        [4, /\b(?:spill\s*over\s*(?:est\w*|cost|amt|amount)|munduvareda\s*(?:kamagari\w*\s*)?(?:andaj\w*|amt|amount|mott\w*))\b|ಮುಂದುವರೆದ\s*ಕಾಮಗಾರಿಗಳ\s*ಅಂದಾಜು/i],
+        [5, /\b(?:(?:fresh|new\s*works?)\s*(?:count|works?|no|nos|number)|hosa\s*(?:kamagari\w*\s*)?(?:sank\w*|count|no))\b|ಹೊಸ\s*ಕಾಮಗಾರಿಗಳ\s*ಸಂಖ್ಯೆ/i],
+        [6, /\b(?:(?:fresh|new\s*works?)\s*(?:est\w*|cost|amt|amount)|hosa\s*(?:kamagari\w*\s*)?(?:andaj\w*|amt|amount|mott\w*))\b|ಹೊಸ\s*ಕಾಮಗಾರಿಗಳ\s*ಅಂದಾಜು/i],
+        [7, /\b(?:total\s*(?:works?|count|no|nos|number)|ottu\s*(?:kamagari\w*\s*)?(?:sank\w*|count|works?))\b|ಒಟ್ಟು\s*ಕಾಮಗಾರಿಗಳ\s*ಸಂಖ್ಯೆ/i],
+        [8, /\b(?:total\s*(?:est\w*|cost|amt|amount)|ottu\s*andaj\w*|moola\s*anda+j\w*)\b|ಒಟ್ಟು\s*ಅಂದಾಜು/i],
+        [9, /\b(?:contract\s*(?:amt|amount)?|tender\s*amount|gutt?ige\s*mott?h?a?)\b|ಗುತ್ತಿಗೆ\s*ಮೊತ್ತ/i],
+        [10, /\b(?:revised\s*(?:est\w*|amt|amount)?|parishkruth?a)\b|ಪರಿಷ್ಕೃತ/i],
+        [11, /\b(?:(?:2026-?27\s*)?grants?|allocated\s*grant|anuda?na)\b|ಅನುದಾನ/i],
+        [12, /\b(?:mar(?:ch)?\s*2026(?:\s*exp\w*)?|exp\w*\s*(?:upto|up\s*to)\s*mar(?:ch)?)\b|ಮಾರ್ಚ್\s*2026/i],
+        [13, /\b(?:2026-?27\s*(?:exp\w*|vech\w*)|current\s*year\s*exp\w*)\b|2026-27ನೇ\s*ಸಾಲಿನ\s*ವೆಚ್ಚ/i],
+        [14, /\b(?:total\s*exp\w*|ottare\s*vech\w*|ottu\s*vech\w*)\b|ಒಟ್ಟಾರೆ\s*ವೆಚ್ಚ/i],
+        [15, /\b(?:pending\s*bills?|ba?ki\s*bill\w*)\b|ಬಾಕಿ\s*ಬಿಲ್/i],
+        [16, /\b(?:bal(?:ance)?\s*(?:to\s*complete|amt|amount)|bekaguva\s*ba?ki)\b|ಪೂರ್ಣಗೊಳಿಸಲು|ಬೇಕಾಗುವ\s*ಬಾಕಿ/i],
+        ...AW_STATUS_COLS.map((st, idx) => [17 + idx, new RegExp(`\\b${st}\\b`, "i")])
+      ];
 
+      const AI_CABS_COL_RULES = [
+        [0, /\b(?:krama\s*sank(?:e|he|hye|ye|ya|hya)|kra\.?\s*sam|sl\.?\s*no\.?|s\.?\s*no\.?|sno|serial(?:\s*(?:no|num|number))?)\b|ಕ್ರ\.?\s*ಸಂ|ಕ್ರಮ\s*ಸಂಖ್ಯೆ/i],
+        [1, /\b(?:valaya|vibhaga|division)\b|ವಿಭಾಗ/i],
+        [2, /\b(?:district|jille)\b|ಜಿಲ್ಲೆ/i],
+        [3, /\b(?:taluk|taluka|talluku)\b|ತಾಲ್ಲೂಕು|ತಾಲೂಕು/i],
+        [4, /\b(?:math?a\s*ksheth?ra|constituency)\b|ಮತಕ್ಷೇತ್ರ/i],
+        [5, /\b(?:lekk?a\s*sh(?:ee|i)rshike|h\.?o\.?a\.?|head\s+of\s+account)\b|ಲೆಕ್ಕ\s*ಶೀರ್ಷಿಕೆ/i],
+        [6, /\b(?:work\s*name|name\s+of\s+work|kamagari\s*hesaru)\b|ಕಾಮಗಾರಿ\s*ಹೆಸರು/i],
+        [7, /\b(?:s\s*\/\s*f|s-?f|work\s*type|spillover\s*\/\s*fresh)\b/i],
+        [8, /\b(?:moola\s*anda+ju(?:\s*mott?h?a?)?|original\s*est\w*|est(?:imated)?\s*cost)\b|ಮೂಲ\s*ಅಂದಾಜು/i],
+        [9, /\b(?:achukattu|ayacut|hectares?)\b|ಅಚ್ಚುಕಟ್ಟು/i],
+        [10, /\b(?:g\.?o\.?\s*(?:no|num|number)|govt\.?\s*order\s*(?:no|num|number))\b|ಆದೇಶ\s*ಸಂಖ್ಯೆ/i],
+        [11, /\b(?:g\.?o\.?\s*date|govt\.?\s*order\s*date)\b|ಆದೇಶ\s*ದಿನಾಂಕ/i],
+        [12, /\b(?:t\.?s\.?\s*(?:no|num|number)|technical\s*sanction\s*(?:no|num|number))\b|ತಾಂತ್ರಿಕ\s*ಮಂಜೂರಾತಿ\s*ಸಂಖ್ಯೆ/i],
+        [13, /\b(?:t\.?s\.?\s*date|technical\s*sanction\s*date)\b|ತಾಂತ್ರಿಕ\s*ಮಂಜೂರಾತಿ\s*ದಿನಾಂಕ/i],
+        [14, /\b(?:contract\s*(?:amt|amount)|tender\s*amount|gutt?ige\s*mott?h?a?)\b|ಗುತ್ತಿಗೆ\s*ಮೊತ್ತ/i],
+        [15, /\b(?:contractor(?:\s*name)?|agency(?:\s*name)?|gutt?igedara)\b|ಗುತ್ತಿಗೆದಾರ/i],
+        [16, /\b(?:revised\s*(?:est\w*|amt|amount)?|parishkruth?a)\b|ಪರಿಷ್ಕೃತ/i],
+        [17, /\b(?:(?:project\s*)?duration|months|kalavadhi)\b|ಕಾಲಾವಧಿ/i],
+        [18, /\b(?:w\.?o\.?\s*date|work\s*order\s*date|karyadesha)\b|ಕಾರ್ಯದೇಶ|ಕಾರ್ಯಾದೇಶ/i],
+        [19, /\b(?:start\s*date|commencement|prarambha)\b|ಪ್ರಾರಂಭಿಸಿದ/i],
+        [20, /\b(?:target\s*date|completion\s*date|muktaya)\b|ಮುಕ್ತಾಯಗೊಳಿಸಬೇಕಾದ/i],
+        [21, /\b(?:mar(?:ch)?\s*2026(?:\s*exp\w*)?)\b|ಮಾರ್ಚ್\s*2026/i],
+        [22, /\b(?:total\s*exp\w*|ottare\s*vech\w*)\b|ಒಟ್ಟಾರೆ\s*ವೆಚ್ಚ/i],
+        [23, /\b(?:pending\s*bills?|ba?ki\s*bill\w*)\b|ಬಾಕಿ\s*ಬಿಲ್/i],
+        [24, /\b(?:progress\s*status|status)\b/i],
+        [25, /\b(?:approved\s*year|sanction\s*year|anumodane\w*\s*varsha)\b|ಅನುಮೋದನೆಯಾದ\s*ವರ್ಷ/i],
+        [26, /\b(?:a\.?e\.?(?:\s*name)?|assistant\s*engineer|shakhadhikari)\b|ಶಾಖಾಧಿಕಾರಿ/i],
+        [27, /\b(?:a\.?e\.?e\.?(?:\s*name)?|assistant\s*executive\s*engineer)\b|ಸಹಾಯಕ\s*ಕಾರ್ಯಪಾಲಕ/i]
+      ];
+
+      function extractHideColumnsFromQuery(qRaw, wantsDabs, dabsGroupBy) {
+        const parts = String(qRaw || "")
+          .split(/[,;\n]+|\s+\b(?:but|and)\s+(?=(?:please\s+|pls\s+)?(?:hide|remove|drop|omit|delete|exclude|without|don'?t\s+(?:show|include))\b)/i);
+
+        const hideVerbStrong = /\b(?:hide|remove|drop|omit|delete|don'?t\s+(?:show|include))\b|ತೋರಿಸಬೇಡ|ತೆಗೆದುಹಾಕು/i;
+        const hideVerbWeak = /\b(?:exclude|without)\b/i;
+        const hasColWord = /\b(?:cols?|columns?|fields?)\b|ಕಾಲಂ/i;
+        const looksLikeRowFilter = /[:=<>]|\b(?:filters?|only|between|lakhs?|crores?|exclude|except|other\s+than|from|above|below|for)\b/i;
+
+        const keptParts = [];
+        const hideDabsCols = [];
+        const hideCabsCols = [];
+        let inHideList = false;
+        let isNumList = false;
+
+        const addUnique = (arr, val) => { if (!arr.includes(val)) arr.push(val); };
+
+        const collectFrom = (text, allowBareNums) => {
+          let matchedAny = false;
+          if (/\b(?:all\s+)?status\s+columns?\b/i.test(text)) {
+            for (let idx = 17; idx < 30; idx++) addUnique(hideDabsCols, idx);
+            addUnique(hideCabsCols, 24);
+            matchedAny = true;
+          }
+          AI_DABS_COL_RULES.forEach(([idx, rx]) => {
+            if (rx.test(text)) { addUnique(hideDabsCols, idx); matchedAny = true; }
+          });
+          AI_CABS_COL_RULES.forEach(([idx, rx]) => {
+            if (rx.test(text)) { addUnique(hideCabsCols, idx); matchedAny = true; }
+          });
+          if (hasColWord.test(text) || allowBareNums) {
+            const dabsOrder = getAwAllColIndices(dabsGroupBy === "constituency");
+            const numSources = [];
+            const reColNums = /(?:columns?|cols?)\s*[:#]?\s*([\d\s,&and]+)/gi;
+            let m;
+            while ((m = reColNums.exec(text)) !== null) numSources.push(m[1]);
+            if (allowBareNums && /^[\d\s&and]+(?:columns?|cols?)?\.?$/i.test(text.trim())) numSources.push(text);
+            numSources.forEach((ns) => {
+              (ns.match(/\d+/g) || []).forEach((nStr) => {
+                const n = parseInt(nStr, 10);
+                if (n >= 1 && n <= dabsOrder.length) { addUnique(hideDabsCols, dabsOrder[n - 1]); matchedAny = true; }
+                if (n >= 1 && n <= 28) { addUnique(hideCabsCols, n - 1); matchedAny = true; }
+              });
+            });
+          }
+          return matchedAny;
+        };
+
+        parts.forEach((rawPart) => {
+          const pt = rawPart.trim();
+          if (!pt) return;
+          const isStrong = hideVerbStrong.test(pt);
+          const isWeak = hideVerbWeak.test(pt);
+          const colWord = hasColWord.test(pt);
+
+          let startHide = false;
+          if (colWord && (isStrong || isWeak)) {
+            startHide = true;
+          } else if (isStrong && !/\b(?:except|other\s+than|others|divisions?\s+except)\b/i.test(pt)) {
+            const rulesToCheck = wantsDabs ? AI_DABS_COL_RULES : AI_CABS_COL_RULES;
+            if (rulesToCheck.some(([, rx]) => rx.test(pt)) || /\b(?:all\s+)?status\s+columns?\b/i.test(pt)) {
+              startHide = true;
+            }
+          }
+
+          if (startHide) {
+            collectFrom(pt, colWord);
+            inHideList = true;
+            isNumList = colWord && /\d/.test(pt);
+          } else if (inHideList && !looksLikeRowFilter.test(pt)) {
+            if (collectFrom(pt, isNumList)) {
+              if (colWord) inHideList = false;
+            } else {
+              inHideList = false;
+              keptParts.push(pt);
+            }
+          } else {
+            inHideList = false;
+            keptParts.push(pt);
+          }
+        });
+
+        const hiddenColNames = wantsDabs
+          ? hideDabsCols.map((cIdx) => getAwHeaderLabel(cIdx)).filter(Boolean)
+          : hideCabsCols.map((cIdx) => AI_KN_COLUMNS[cIdx]).filter(Boolean);
+
+        return {
+          cleanedQuery: keptParts.join(", "),
+          hideDabsCols,
+          hideCabsCols,
+          hiddenColNames
+        };
+      }
       function parseMmrQueryFilters(rawQuery, ds) {
         const qRaw = String(rawQuery || "").trim();
         const qLower = qRaw.toLowerCase();
@@ -10411,7 +10565,9 @@
          dabsGroupBy = "division";
        }
      }
-     const qForClauses = qRaw
+     const hideInfo = extractHideColumnsFromQuery(qRaw, wantsDabs, dabsGroupBy);
+   const qClean = hideInfo.cleanedQuery || qRaw;
+   const qForClauses = qClean
        .replace(/\b(division|math?a\s*ksheth?ra|constituenc\w*)\s*[-]?\s*wise\b/gi, " ")
        .replace(/\bby\s+(division|math?a\s*ksheth?ra|constituenc\w*)\b/gi, " ")
        .replace(/ಮತಕ್ಷೇತ್ರವಾರು|ವಿಭಾಗವಾರು/g, " ");
@@ -10422,7 +10578,7 @@
         const EXCL_RE = /\b(exclude|excluding|excluded|except|without|other\s+than|not\s+in|not|apart\s+from|leave\s+out)\b|ಬಿಟ್ಟು|ಹೊರತುಪಡಿಸಿ/i;
 
         // 1. Cost range (Moola Andaju)
-        const costRange = parseCostRange(qRaw);
+        const costRange = parseCostRange(qClean);
 
         // 2. Financial Year / Date conditions (GO Date, WO Date, or general FY)
         let goFyFilter = null, woFyFilter = null, anyFyFilter = null;
@@ -10693,8 +10849,9 @@
         if (anyFyFilter) filterLabels.push(`FY: ${anyFyFilter.label}`);
         if (officers.length) filterLabels.push(`${officers[0].role}: ${officers[0].raw}`);
 
-        return {
-          wantsDabs, dabsGroupBy, wantsCabs, wantsAllWorks, costRange, goFyFilter, woFyFilter, anyFyFilter, sf, statuses, excludedStatuses,
+        const { hideDabsCols, hideCabsCols, hiddenColNames } = hideInfo;
+     return {
+       wantsDabs, dabsGroupBy, wantsCabs, wantsAllWorks, hideDabsCols, hideCabsCols, hiddenColNames, costRange, goFyFilter, woFyFilter, anyFyFilter, sf, statuses, excludedStatuses,
           overdueOnly, odPeriod, minOdDays,
           matchedHoas, excludedHoas, divisions, excludedDivisions,
           subdivisions, excludedSubdivisions, districts, excludedDistricts,
@@ -10922,14 +11079,17 @@
         return { tableRows, activeDivs, activeConsts, zoneTotalRow, constTotals: Array.from(constTotalsMap.values()) };
       }
 
-      function exportAiDabsExcel(tableRows, title, groupBy = "division") {
-        if (!tableRows || !tableRows.length || typeof XLSX === "undefined") {
-          alert("No DABS rows available to export to Excel.");
-          return;
-        }
-        const isConstMode = groupBy === "constituency";
-        const visCols = getAwAllColIndices(isConstMode);
-        const colCount = visCols.length;
+      function exportAiDabsExcel(tableRows, title, groupBy = "division", hiddenCols = []) {
+     if (!tableRows || !tableRows.length || typeof XLSX === "undefined") {
+       alert("No DABS rows available to export to Excel.");
+       return;
+     }
+     const isConstMode = groupBy === "constituency";
+     const hiddenSet = new Set(hiddenCols || []);
+     const allCols = getAwAllColIndices(isConstMode);
+     const filtered = allCols.filter((c) => !hiddenSet.has(c));
+     const visCols = filtered.length ? filtered : [allCols[0]];
+     const colCount = visCols.length;
         const unitRow = new Array(colCount).fill("");
         unitRow[0] = "(ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)";
 
@@ -11003,20 +11163,23 @@
         XLSX.writeFile(wb, `${safeName}_${STATE.todayStr || "Report"}.xlsx`);
       }
 
-      function exportAiDabsPdf(tableRows, title, filterSummary, workCount, divCount, btnEl, groupBy = "division") {
-        if (!tableRows || !tableRows.length) {
-          alert("No DABS rows available to export to PDF.");
-          return;
-        }
-        const origTxt = btnEl ? btnEl.textContent : "";
-        if (btnEl) { btnEl.disabled = true; btnEl.textContent = "Opening PDF..."; }
+      function exportAiDabsPdf(tableRows, title, filterSummary, workCount, divCount, btnEl, groupBy = "division", hiddenCols = []) {
+     if (!tableRows || !tableRows.length) {
+       alert("No DABS rows available to export to PDF.");
+       return;
+     }
+     const origTxt = btnEl ? btnEl.textContent : "";
+     if (btnEl) { btnEl.disabled = true; btnEl.textContent = "Opening PDF..."; }
 
-        const printWin = window.open("", "_blank");
-        setTimeout(() => {
-          try {
-            const isConstMode = groupBy === "constituency";
-            const visCols = getAwAllColIndices(isConstMode);
-            const colCount = visCols.length;
+     const printWin = window.open("", "_blank");
+     setTimeout(() => {
+       try {
+         const isConstMode = groupBy === "constituency";
+         const hiddenSet = new Set(hiddenCols || []);
+         const allCols = getAwAllColIndices(isConstMode);
+         const filtered = allCols.filter((c) => !hiddenSet.has(c));
+         const visCols = filtered.length ? filtered : [allCols[0]];
+         const colCount = visCols.length;
             const safeTitle = String(title || "DABS — MMR Abstract").replace(/[\\/:*?"<>|]/g, "_").trim();
             const nowStr = new Date().toLocaleString("en-IN", {
               day: "2-digit", month: "2-digit", year: "numeric",
@@ -11092,8 +11255,7 @@
           }
         }, 30);
       }
-
-      let AI_MODAL_STATE = {
+        let AI_MODAL_STATE = {
         mode: "works", // "works" | "dabs"
         dabsGroupBy: "division", // "division" | "constituency"
         title: "Filtered Works",
@@ -11101,6 +11263,8 @@
         allRows: [],
         def17Rows: [],
         activeTab: "def17",
+        hiddenDabsCols: [],
+        hiddenCabsCols: [],
         showAllRendered: false
       };
 
@@ -11145,9 +11309,9 @@
           if (AI_MODAL_STATE.mode === "dabs") {
             const ds = getAiDataset();
             const dabs = buildAiDabsTableData(rows, ds.divisions.length, AI_MODAL_STATE.dabsGroupBy);
-            exportAiDabsExcel(dabs.tableRows, AI_MODAL_STATE.title, AI_MODAL_STATE.dabsGroupBy);
+            exportAiDabsExcel(dabs.tableRows, AI_MODAL_STATE.title, AI_MODAL_STATE.dabsGroupBy, AI_MODAL_STATE.hiddenDabsCols);
           } else {
-            downloadAiExcel({ title: AI_MODAL_STATE.title, rows: toExportRows(rows, false) });
+            downloadAiExcel({ title: AI_MODAL_STATE.title, rows: toExportRows(rows, false, AI_MODAL_STATE.hiddenCabsCols) });
           }
         });
         document.getElementById("arm-dl-pdf-btn")?.addEventListener("click", (e) => {
@@ -11155,9 +11319,50 @@
           if (AI_MODAL_STATE.mode === "dabs") {
             const ds = getAiDataset();
             const dabs = buildAiDabsTableData(rows, ds.divisions.length, AI_MODAL_STATE.dabsGroupBy);
-            exportAiDabsPdf(dabs.tableRows, AI_MODAL_STATE.title, AI_MODAL_STATE.filterSummary, rows.length, dabs.activeDivs.length, e.currentTarget, AI_MODAL_STATE.dabsGroupBy);
+            exportAiDabsPdf(dabs.tableRows, AI_MODAL_STATE.title, AI_MODAL_STATE.filterSummary, rows.length, dabs.activeDivs.length, e.currentTarget, AI_MODAL_STATE.dabsGroupBy, AI_MODAL_STATE.hiddenDabsCols);
           } else {
-            downloadAiPdf({ title: AI_MODAL_STATE.title, rows: toExportRows(rows, false) }, e.currentTarget);
+            downloadAiPdf({ title: AI_MODAL_STATE.title, rows: toExportRows(rows, false, AI_MODAL_STATE.hiddenCabsCols) }, e.currentTarget);
+          }
+        });
+
+        // Interactive ✕ Hide / Restore Column buttons inside AI Popup (both DABS and CABS)
+        document.getElementById("arm-body")?.addEventListener("click", (e) => {
+          const hideBtn = e.target.closest("[data-arm-hide-col]");
+          if (hideBtn) {
+            const cIdx = parseInt(hideBtn.getAttribute("data-arm-hide-col"), 10);
+            if (AI_MODAL_STATE.mode === "dabs") {
+              const allCols = getAwAllColIndices(AI_MODAL_STATE.dabsGroupBy === "constituency");
+              const vis = allCols.filter((c) => !AI_MODAL_STATE.hiddenDabsCols.includes(c));
+              if (vis.length <= 1) { alert("At least 1 column must remain visible."); return; }
+              if (!AI_MODAL_STATE.hiddenDabsCols.includes(cIdx)) {
+                AI_MODAL_STATE.hiddenDabsCols.push(cIdx);
+                renderAiResultsModalBody();
+              }
+            } else {
+              const vis = AI_KN_COLUMNS.map((_, i) => i).filter((c) => !AI_MODAL_STATE.hiddenCabsCols.includes(c));
+              if (vis.length <= 1) { alert("At least 1 column must remain visible."); return; }
+              if (!AI_MODAL_STATE.hiddenCabsCols.includes(cIdx)) {
+                AI_MODAL_STATE.hiddenCabsCols.push(cIdx);
+                renderAiResultsModalBody();
+              }
+            }
+            return;
+          }
+          const showBtn = e.target.closest("[data-arm-show-col]");
+          if (showBtn) {
+            const cIdx = parseInt(showBtn.getAttribute("data-arm-show-col"), 10);
+            if (AI_MODAL_STATE.mode === "dabs") {
+              AI_MODAL_STATE.hiddenDabsCols = AI_MODAL_STATE.hiddenDabsCols.filter((x) => x !== cIdx);
+            } else {
+              AI_MODAL_STATE.hiddenCabsCols = AI_MODAL_STATE.hiddenCabsCols.filter((x) => x !== cIdx);
+            }
+            renderAiResultsModalBody();
+            return;
+          }
+          if (e.target.closest("[data-arm-show-all]")) {
+            if (AI_MODAL_STATE.mode === "dabs") AI_MODAL_STATE.hiddenDabsCols = [];
+            else AI_MODAL_STATE.hiddenCabsCols = [];
+            renderAiResultsModalBody();
           }
         });
         return modal;
@@ -11242,6 +11447,20 @@
         );
       }
 
+      function buildArmHiddenBarHtml(hiddenIndices, getLabelFn) {
+        if (!hiddenIndices || !hiddenIndices.length) return "";
+        const chipsHtml = hiddenIndices
+          .map((cIdx) => `<button type="button" class="aw-hidden-chip" data-arm-show-col="${cIdx}" title="Click to restore column">+ ${esc(getLabelFn(cIdx))}</button>`)
+          .join("");
+        return `
+          <div class="aw-hidden-bar">
+            <span>Hidden Columns (${hiddenIndices.length}):</span>
+            ${chipsHtml}
+            <button type="button" class="aw-show-all-btn" data-arm-show-all="1">Show All Columns</button>
+          </div>
+        `;
+      }
+
       function renderAiResultsModalBody() {
         const { mode, dabsGroupBy, allRows, def17Rows, activeTab, filterSummary } = AI_MODAL_STATE;
         const isConstDabs = mode === "dabs" && dabsGroupBy === "constituency";
@@ -11258,8 +11477,8 @@
         const sumEl = document.getElementById("arm-summary-bar");
         if (sumEl) {
           const fmtTag = mode === "dabs"
-            ? (isConstDabs ? "DABS (Mathakshethra Wise — 31 Columns)" : "DABS (Division Wise — 30 Columns)")
-            : "Works List (28 Columns)";
+            ? (isConstDabs ? "DABS (Mathakshethra Wise)" : "DABS (Division Wise)")
+            : "CABS / Works List";
           sumEl.innerHTML = `
             <div class="odm-chip-row">
               <span class="odm-chip"><span class="odm-chip-label">Format:</span> ${fmtTag}</span>
@@ -11312,11 +11531,25 @@
         if (mode === "dabs") {
           const ds = getAiDataset();
           const { tableRows } = buildAiDabsTableData(rows, ds.divisions.length, dabsGroupBy);
-          const visCols = getAwAllColIndices(isConstDabs);
+          const allCols = getAwAllColIndices(isConstDabs);
+          const activeSet = new Set(allCols);
+          const visibleHidden = (AI_MODAL_STATE.hiddenDabsCols || []).filter((c) => activeSet.has(c))
+            .sort((a, b) => allCols.indexOf(a) - allCols.indexOf(b));
+          const hiddenSet = new Set(visibleHidden);
+          const filteredCols = allCols.filter((c) => !hiddenSet.has(c));
+          const visCols = filteredCols.length ? filteredCols : [allCols[0]];
           const colCount = visCols.length;
 
+          const hiddenBarHtml = buildArmHiddenBarHtml(visibleHidden, getAwHeaderLabel);
           const unitRowHtml = `<tr class="aw-unit-row"><th colspan="${colCount}">(ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)</th></tr>`;
-          const headerRowHtml = `<tr>${visCols.map((cIdx) => `<th class="${getAwThClass(cIdx)}" style="padding:8px 6px !important;">${esc(getAwHeaderLabel(cIdx))}</th>`).join("")}</tr>`;
+          const headerRowHtml = `<tr>${visCols.map((cIdx) => `
+            <th class="${getAwThClass(cIdx)}">
+              <div class="aw-th-inner">
+                <span>${esc(getAwHeaderLabel(cIdx))}</span>
+                <button type="button" class="aw-col-hide-btn" data-arm-hide-col="${cIdx}" title="Hide this column">✕</button>
+              </div>
+            </th>
+          `).join("")}</tr>`;
           const colNumRowHtml = `<tr class="aw-colnum-row">${visCols.map((_, i) => `<th>${i + 1}</th>`).join("")}</tr>`;
           const tbodyHtml = tableRows.map((row) => {
             if (row.rowType === "divider") {
@@ -11327,6 +11560,7 @@
           }).join("");
 
           bodyEl.innerHTML = `
+            ${hiddenBarHtml}
             <table class="aw-abstract-table" style="margin-top:8px;">
               <thead>
                 ${unitRowHtml}
@@ -11340,55 +11574,73 @@
           return;
         }
 
+        // CABS / Works List Mode with interactive ✕ Hide Column buttons
+        const hiddenCabs = [...(AI_MODAL_STATE.hiddenCabsCols || [])].sort((a, b) => a - b);
+        const hiddenCabsSet = new Set(hiddenCabs);
+        const allCabsCols = AI_KN_COLUMNS.map((_, i) => i);
+        const filteredCabs = allCabsCols.filter((c) => !hiddenCabsSet.has(c));
+        const visCabsCols = filteredCabs.length ? filteredCabs : [0];
+        const hiddenBarHtml = buildArmHiddenBarHtml(hiddenCabs, (idx) => AI_KN_COLUMNS[idx]);
+
         const limit = AI_MODAL_STATE.showAllRendered ? rows.length : Math.min(rows.length, 300);
         const slice = rows.slice(0, limit);
         const fmtNum = (n) => (typeof n === "number" ? n.toLocaleString("en-IN", { maximumFractionDigits: 2 }) : "-");
 
-        const tbodyHtml = slice.map((r, i) => {
+        const getCabsCellHtml = (r, i, cIdx) => {
           const odCls = r.is_overdue ? "odm-red-text" : "";
-          return `
-            <tr>
-              <td>${i + 1}</td>
-              <td>${esc(cleanAiCell(r.division_name))}</td>
-              <td>${esc(cleanAiCell(r.district_name))}</td>
-              <td>${esc(cleanAiCell(r.taluk_name))}</td>
-              <td>${esc(cleanAiCell(r.constituency_name))}</td>
-              <td>${esc(cleanAiCell(r.hoa))}</td>
-              <td class="odm-work-col">${esc(cleanAiCell(r.work_name))}</td>
-              <td>${r.is_new_work ? "F" : "S"}</td>
-              <td style="white-space:nowrap;font-weight:800;color:#1E3A8A;">${r._hasCost ? fmtNum(r._costNum) : "-"}</td>
-              <td>${esc(cleanAiCell(r.achukattu))}</td>
-              <td>${esc(cleanAiCell(r.go_no))}</td>
-              <td style="white-space:nowrap;">${esc(cleanAiCell(r.go_date_str || r.go_fy))}</td>
-              <td>${esc(cleanAiCell(r.ts_no))}</td>
-              <td style="white-space:nowrap;">${esc(cleanAiCell(r.ts_date))}</td>
-              <td style="white-space:nowrap;">${fmtNum(fmtAiAmt(r.contract_amt))}</td>
-              <td>${esc(cleanAiCell(r.contractor_name))}</td>
-              <td style="white-space:nowrap;">${fmtNum(fmtAiAmt(r.revised_est))}</td>
-              <td>${esc(cleanAiCell(r.project_duration))}</td>
-              <td style="white-space:nowrap;">${esc(cleanAiCell(r.wo_date_str || r._woFy))}</td>
-              <td style="white-space:nowrap;">${esc(cleanAiCell(r.start_date))}</td>
-              <td class="${odCls}" style="white-space:nowrap;">${esc(cleanAiCell(r.target_date))}</td>
-              <td style="white-space:nowrap;">${fmtNum(fmtAiAmt(r.exp_mar26))}</td>
-              <td style="white-space:nowrap;">${fmtNum(fmtAiAmt(r.total_exp))}</td>
-              <td style="white-space:nowrap;">${fmtNum(fmtAiAmt(r.pending_bill))}</td>
-              <td><b>${esc(cleanAiCell(r.status_raw))}</b></td>
-              <td style="white-space:nowrap;">${esc(cleanAiCell(r.approved_year || r.go_fy))}</td>
-              <td>${esc(cleanAiCell(r.so_name))}</td>
-              <td>${esc(cleanAiCell(r.aee_name))}</td>
-            </tr>
-          `;
-        }).join("");
+          switch (cIdx) {
+            case 0: return `<td>${i + 1}</td>`;
+            case 1: return `<td>${esc(cleanAiCell(r.division_name))}</td>`;
+            case 2: return `<td>${esc(cleanAiCell(r.district_name))}</td>`;
+            case 3: return `<td>${esc(cleanAiCell(r.taluk_name))}</td>`;
+            case 4: return `<td>${esc(cleanAiCell(r.constituency_name))}</td>`;
+            case 5: return `<td>${esc(cleanAiCell(r.hoa))}</td>`;
+            case 6: return `<td class="odm-work-col">${esc(cleanAiCell(r.work_name))}</td>`;
+            case 7: return `<td>${r.is_new_work ? "F" : "S"}</td>`;
+            case 8: return `<td style="white-space:nowrap;font-weight:800;color:#1E3A8A;">${r._hasCost ? fmtNum(r._costNum) : "-"}</td>`;
+            case 9: return `<td>${esc(cleanAiCell(r.achukattu))}</td>`;
+            case 10: return `<td>${esc(cleanAiCell(r.go_no))}</td>`;
+            case 11: return `<td style="white-space:nowrap;">${esc(cleanAiCell(r.go_date_str || r.go_fy))}</td>`;
+            case 12: return `<td>${esc(cleanAiCell(r.ts_no))}</td>`;
+            case 13: return `<td style="white-space:nowrap;">${esc(cleanAiCell(r.ts_date))}</td>`;
+            case 14: return `<td style="white-space:nowrap;">${fmtNum(fmtAiAmt(r.contract_amt))}</td>`;
+            case 15: return `<td>${esc(cleanAiCell(r.contractor_name))}</td>`;
+            case 16: return `<td style="white-space:nowrap;">${fmtNum(fmtAiAmt(r.revised_est))}</td>`;
+            case 17: return `<td>${esc(cleanAiCell(r.project_duration))}</td>`;
+            case 18: return `<td style="white-space:nowrap;">${esc(cleanAiCell(r.wo_date_str || r._woFy))}</td>`;
+            case 19: return `<td style="white-space:nowrap;">${esc(cleanAiCell(r.start_date))}</td>`;
+            case 20: return `<td class="${odCls}" style="white-space:nowrap;">${esc(cleanAiCell(r.target_date))}</td>`;
+            case 21: return `<td style="white-space:nowrap;">${fmtNum(fmtAiAmt(r.exp_mar26))}</td>`;
+            case 22: return `<td style="white-space:nowrap;">${fmtNum(fmtAiAmt(r.total_exp))}</td>`;
+            case 23: return `<td style="white-space:nowrap;">${fmtNum(fmtAiAmt(r.pending_bill))}</td>`;
+            case 24: return `<td><b>${esc(cleanAiCell(r.status_raw))}</b></td>`;
+            case 25: return `<td style="white-space:nowrap;">${esc(cleanAiCell(r.approved_year || r.go_fy))}</td>`;
+            case 26: return `<td>${esc(cleanAiCell(r.so_name))}</td>`;
+            case 27: return `<td>${esc(cleanAiCell(r.aee_name))}</td>`;
+            default: return `<td>-</td>`;
+          }
+        };
+
+        const headerHtml = visCabsCols.map((cIdx) => `
+          <th>
+            <div class="aw-th-inner">
+              <span>${esc(AI_KN_COLUMNS[cIdx])}</span>
+              <button type="button" class="aw-col-hide-btn" data-arm-hide-col="${cIdx}" title="Hide this column">✕</button>
+            </div>
+          </th>
+        `).join("");
+
+        const tbodyHtml = slice.map((r, i) => `<tr>${visCabsCols.map((cIdx) => getCabsCellHtml(r, i, cIdx)).join("")}</tr>`).join("");
 
         const showMoreHtml = rows.length > limit
           ? `<div style="text-align:center;padding:12px;"><button type="button" id="arm-show-all-btn" class="btn-primary" style="width:auto;padding:8px 18px;">Show All ${rows.length.toLocaleString("en-IN")} Rows (Currently showing ${limit})</button></div>`
           : "";
 
+        const minW = Math.max(700, visCabsCols.length * 90);
         bodyEl.innerHTML = `
-          <table class="odm-table" style="min-width:2400px;">
-            <thead>
-              <tr>${AI_KN_COLUMNS.map((h) => `<th>${esc(h)}</th>`).join("")}</tr>
-            </thead>
+          ${hiddenBarHtml}
+          <table class="odm-table" style="min-width:${minW}px;">
+            <thead><tr>${headerHtml}</tr></thead>
             <tbody>${tbodyHtml}</tbody>
           </table>
           ${showMoreHtml}
@@ -11413,6 +11665,8 @@
           allRows: pack.allRows,
           def17Rows: pack.def17Rows || pack.allRows,
           activeTab: hasDiff17 ? "def17" : "all",
+          hiddenDabsCols: Array.isArray(pack.hiddenDabsCols) ? [...pack.hiddenDabsCols] : [],
+          hiddenCabsCols: Array.isArray(pack.hiddenCabsCols) ? [...pack.hiddenCabsCols] : [],
           showAllRendered: false
         };
         const titleEl = document.getElementById("arm-title");
@@ -11491,6 +11745,7 @@
         }
 
         STATE.awAbstractBy = mmrFilters.dabsGroupBy === "constituency" ? "constituency" : "division";
+        STATE.awHiddenCols = Array.isArray(mmrFilters.hideDabsCols) ? [...mmrFilters.hideDabsCols] : [];
         STATE.allWorksOverdueOnly = Boolean(mmrFilters.overdueOnly);
         STATE.activePage = "allworks";
         if (typeof renderActivePage === "function") renderActivePage();
@@ -11512,7 +11767,7 @@
         return id;
       }
 
-      function toExportRows(workList, isBescom = false) {
+      function toExportRows(workList, isBescom = false, hiddenCabsCols = []) {
         if (isBescom) {
           return (workList || []).map((r, i) => ({
             "Sl. No.": i + 1,
@@ -11524,36 +11779,51 @@
             "Division": cleanAiCell(r.division_name)
           }));
         }
-        return (workList || []).map((r, i) => ({
-          "ಕ್ರ.ಸಂ": i + 1,
-          "ವಿಭಾಗ": cleanAiCell(r.division_name),
-          "ಜಿಲ್ಲೆ": cleanAiCell(r.district_name),
-          "ತಾಲ್ಲೂಕು": cleanAiCell(r.taluk_name),
-          "ಮತಕ್ಷೇತ್ರ": cleanAiCell(r.constituency_name),
-          "ಲೆಕ್ಕಶೀರ್ಷಿಕೆ": cleanAiCell(r.hoa),
-          "ಕಾಮಗಾರಿ ಹೆಸರು": cleanAiCell(r.work_name),
-          "S /F": r.is_new_work ? "F" : "S",
-          "ಮೂಲ ಅಂದಾಜು ಮೊತ್ತ (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)": r._hasCost ? fmtAiAmt(r._costNum) : "-",
-          "ಅಚ್ಚುಕಟ್ಟು(ಸೃಷ್ಟಿಸಿದ/ ಸ್ಥಿರೀಕರಿಸಿದ) (ಹೆಕ್ಟೇರ್ ಗಳಲ್ಲಿ)": cleanAiCell(r.achukattu),
-          "ಅನುಮೋದಿತ ಸರ್ಕಾರದ ಆದೇಶ ಸಂಖ್ಯೆ": cleanAiCell(r.go_no),
-          "ಸರ್ಕಾರದ ಆದೇಶ ದಿನಾಂಕ": cleanAiCell(r.go_date_str || r.go_fy),
-          "ತಾಂತ್ರಿಕ ಮಂಜೂರಾತಿ ಸಂಖ್ಯೆ": cleanAiCell(r.ts_no),
-          "ತಾಂತ್ರಿಕ ಮಂಜೂರಾತಿ ದಿನಾಂಕ": cleanAiCell(r.ts_date),
-          "ಗುತ್ತಿಗೆ ಮೊತ್ತ (ಜಿ.ಎಸ್.ಟಿ ಸೇರಿದಂತೆ) (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)": fmtAiAmt(r.contract_amt),
-          "ಗುತ್ತಿಗೆದಾರರ ಹೆಸರು": cleanAiCell(r.contractor_name),
-          "ಪರಿಷ್ಕೃತ ಅಂದಾಜು ಮೊತ್ತ (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)": fmtAiAmt(r.revised_est),
-          "ಯೋಜನೆಗೆ ನಿಗಧಿಪಡಿಸಿದ ಕಾಲಾವಧಿ (ತಿಂಗಳು)": cleanAiCell(r.project_duration),
-          "ಕಾರ್ಯದೇಶ ನೀಡಿದ ದಿನಾಂಕ": cleanAiCell(r.wo_date_str || r._woFy),
-          "ಕಾಮಗಾರಿ ಪ್ರಾರಂಭಿಸಿದ ದಿನಾಂಕ": cleanAiCell(r.start_date),
-          "ಕಾಮಗಾರಿ ಮುಕ್ತಾಯಗೊಳಿಸಬೇಕಾದ ದಿನಾಂಕ": cleanAiCell(r.target_date),
-          "ಮಾರ್ಚ್ 2026 ವರೆಗಿನ ವೆಚ್ಚ (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)": fmtAiAmt(r.exp_mar26),
-          "ಒಟ್ಟಾರೆ ವೆಚ್ಚ (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)": fmtAiAmt(r.total_exp),
-          "ಬಾಕಿ ಬಿಲ್ಲಿನ ಮೊತ್ತ (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)": fmtAiAmt(r.pending_bill),
-          "Progress status (cp/cf/p)": cleanAiCell(r.status_raw),
-          "ಅನುಮೋದನೆಯಾದ ವರ್ಷ": cleanAiCell(r.approved_year || r.go_fy),
-          "ಶಾಖಾಧಿಕಾರಿಯ ಹೆಸರು": cleanAiCell(r.so_name),
-          "ಸಹಾಯಕ ಕಾರ್ಯಪಾಲಕ ಇಂಜಿನಿಯರ್ ಹೆಸರು": cleanAiCell(r.aee_name)
-        }));
+        const hiddenSet = new Set(hiddenCabsCols || []);
+        const hiddenKeys = new Set(
+          AI_KN_COLUMNS.filter((_, idx) => hiddenSet.has(idx))
+        );
+        // Always keep at least 1 column
+        if (hiddenKeys.size >= AI_KN_COLUMNS.length) hiddenKeys.delete(AI_KN_COLUMNS[0]);
+
+        return (workList || []).map((r, i) => {
+          const fullRow = {
+            "ಕ್ರ.ಸಂ": i + 1,
+            "ವಿಭಾಗ": cleanAiCell(r.division_name),
+            "ಜಿಲ್ಲೆ": cleanAiCell(r.district_name),
+            "ತಾಲ್ಲೂಕು": cleanAiCell(r.taluk_name),
+            "ಮತಕ್ಷೇತ್ರ": cleanAiCell(r.constituency_name),
+            "ಲೆಕ್ಕಶೀರ್ಷಿಕೆ": cleanAiCell(r.hoa),
+            "ಕಾಮಗಾರಿ ಹೆಸರು": cleanAiCell(r.work_name),
+            "S /F": r.is_new_work ? "F" : "S",
+            "ಮೂಲ ಅಂದಾಜು ಮೊತ್ತ (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)": r._hasCost ? fmtAiAmt(r._costNum) : "-",
+            "ಅಚ್ಚುಕಟ್ಟು(ಸೃಷ್ಟಿಸಿದ/ ಸ್ಥಿರೀಕರಿಸಿದ) (ಹೆಕ್ಟೇರ್ ಗಳಲ್ಲಿ)": cleanAiCell(r.achukattu),
+            "ಅನುಮೋದಿತ ಸರ್ಕಾರದ ಆದೇಶ ಸಂಖ್ಯೆ": cleanAiCell(r.go_no),
+            "ಸರ್ಕಾರದ ಆದೇಶ ದಿನಾಂಕ": cleanAiCell(r.go_date_str || r.go_fy),
+            "ತಾಂತ್ರಿಕ ಮಂಜೂರಾತಿ ಸಂಖ್ಯೆ": cleanAiCell(r.ts_no),
+            "ತಾಂತ್ರಿಕ ಮಂಜೂರಾತಿ ದಿನಾಂಕ": cleanAiCell(r.ts_date),
+            "ಗುತ್ತಿಗೆ ಮೊತ್ತ (ಜಿ.ಎಸ್.ಟಿ ಸೇರಿದಂತೆ) (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)": fmtAiAmt(r.contract_amt),
+            "ಗುತ್ತಿಗೆದಾರರ ಹೆಸರು": cleanAiCell(r.contractor_name),
+            "ಪರಿಷ್ಕೃತ ಅಂದಾಜು ಮೊತ್ತ (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)": fmtAiAmt(r.revised_est),
+            "ಯೋಜನೆಗೆ ನಿಗಧಿಪಡಿಸಿದ ಕಾಲಾವಧಿ (ತಿಂಗಳು)": cleanAiCell(r.project_duration),
+            "ಕಾರ್ಯದೇಶ ನೀಡಿದ ದಿನಾಂಕ": cleanAiCell(r.wo_date_str || r._woFy),
+            "ಕಾಮಗಾರಿ ಪ್ರಾರಂಭಿಸಿದ ದಿನಾಂಕ": cleanAiCell(r.start_date),
+            "ಕಾಮಗಾರಿ ಮುಕ್ತಾಯಗೊಳಿಸಬೇಕಾದ ದಿನಾಂಕ": cleanAiCell(r.target_date),
+            "ಮಾರ್ಚ್ 2026 ವರೆಗಿನ ವೆಚ್ಚ (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)": fmtAiAmt(r.exp_mar26),
+            "ಒಟ್ಟಾರೆ ವೆಚ್ಚ (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)": fmtAiAmt(r.total_exp),
+            "ಬಾಕಿ ಬಿಲ್ಲಿನ ಮೊತ್ತ (ರೂ.ಲಕ್ಷಗಳಲ್ಲಿ)": fmtAiAmt(r.pending_bill),
+            "Progress status (cp/cf/p)": cleanAiCell(r.status_raw),
+            "ಅನುಮೋದನೆಯಾದ ವರ್ಷ": cleanAiCell(r.approved_year || r.go_fy),
+            "ಶಾಖಾಧಿಕಾರಿಯ ಹೆಸರು": cleanAiCell(r.so_name),
+            "ಸಹಾಯಕ ಕಾರ್ಯಪಾಲಕ ಇಂಜಿನಿಯರ್ ಹೆಸರು": cleanAiCell(r.aee_name)
+          };
+          if (!hiddenKeys.size) return fullRow;
+          const out = {};
+          Object.keys(fullRow).forEach((k) => {
+            if (!hiddenKeys.has(k)) out[k] = fullRow[k];
+          });
+          return out;
+        });
       }
         function saveDabsExportPack(meta) {
      const id = `pack_${++aiPackSeq}`;
@@ -11564,7 +11834,7 @@
 
    function downloadAiExcel(pack) {
      if (pack?.isDabs) {
-       exportAiDabsExcel(pack.dabsRows, pack.title, pack.dabsGroupBy);
+       exportAiDabsExcel(pack.dabsRows, pack.title, pack.dabsGroupBy, pack.hiddenCols || []);
        return;
      }
      const rows = pack?.rows || [];
@@ -11617,7 +11887,7 @@
 
         function downloadAiPdf(pack, btnEl) {
      if (pack?.isDabs) {
-       exportAiDabsPdf(pack.dabsRows, pack.title, pack.filterSummary, pack.workCount, pack.divCount, btnEl, pack.dabsGroupBy);
+       exportAiDabsPdf(pack.dabsRows, pack.title, pack.filterSummary, pack.workCount, pack.divCount, btnEl, pack.dabsGroupBy, pack.hiddenCols || []);
        return;
      }
      const rows = pack?.rows || [];
@@ -11800,6 +12070,7 @@
             sections.push(
               `\nLIVE DABS (${isConst ? "MATHAKSHETHRA WISE ABSTRACT — 31 COLUMNS WITH ಮತಕ್ಷೇತ್ರ" : "DIVISION WISE ABSTRACT — 30 COLUMNS"}):`,
               `APPLIED FILTERS: ${filterDesc}`,
+              mmr.hiddenColNames?.length ? `HIDDEN COLUMNS IN POPUP & DOWNLOADS: ${mmr.hiddenColNames.join(", ")}` : `HIDDEN COLUMNS: None`,
               `MATCHING WORKS: 17 MMR H.O.A.s=${mmr.default17Rows.length} | All 21 Sheets=${mmr.matchedRows.length} | Divisions=${dabs.activeDivs.length} | Mathakshethras=${dabs.activeConsts.length}`,
               z ? `GRAND TOTAL (₹ Lakhs): Spillover=${z.cont_cnt} (₹${z.cont_est}L) | Fresh=${z.new_cnt} (₹${z.new_est}L) | Total Works=${z.tot_cnt} (₹${z.tot_est}L) | Contract Amt=₹${z.contract_amt}L | Revised Est=₹${z.revised_est}L | 2026-27 Grant=₹${z.grantExcel}L | Exp upto Mar 2026=₹${z.exp_mar26}L | Exp 2026-27=₹${z.exp_2627}L | Total Exp=₹${z.total_exp}L | Pending Bills=₹${z.pending_bill}L | Balance to Complete=₹${z.bal_to_complete}L | Statuses: ${statusSummary}` : `GRAND TOTAL: 0 works match these filters.`,
               `H.O.A.-WISE DABS SUMMARY:\n${hoaLines.join("\n") || "None"}`,
@@ -11845,6 +12116,7 @@
               ? `\nLIVE CABS (COMPLETE 28-COLUMN WORKS DETAILS):`
               : `\nLIVE FILTERED QUERY RESULT (MMR COMPLETE ABSTRACT ENGINE):`,
             `APPLIED FILTERS: ${mmr.filterLabels.length ? mmr.filterLabels.join(" | ") : "All Works (South Zone)"}`,
+            mmr.hiddenColNames?.length ? `HIDDEN COLUMNS IN POPUP & DOWNLOADS: ${mmr.hiddenColNames.join(", ")}` : `HIDDEN COLUMNS: None`,
             `EXACT MATCHING WORKS (Default 17 MMR H.O.A.s): ${mmr.default17Rows.length} | ALL 21 SHEETS: ${mmr.matchedRows.length}`,
             `FINANCIAL TOTALS (for ${rows.length} works): Total Moola Andaju = ₹${totEst.toFixed(2)} Lakhs | Total Expenditure = ₹${totExp.toFixed(2)} Lakhs | Pending Bills = ₹${totPend.toFixed(2)} Lakhs | Overdue('P') = ${odCnt} | ETS = ${etsCount}`,
             `DIVISION-WISE COUNT: ${divBreak || "None"}`,
@@ -11991,6 +12263,7 @@
           const modalId = saveResultModalPack({
             mode: "dabs",
             dabsGroupBy: mmr.dabsGroupBy,
+            hiddenDabsCols: mmr.hideDabsCols || [],
             title,
             filterSummary: filterDesc,
             allRows: mmr.matchedRows,
@@ -11999,6 +12272,7 @@
           });
           const packId = saveDabsExportPack({
             dabsGroupBy: mmr.dabsGroupBy,
+            hiddenCols: mmr.hideDabsCols || [],
             title,
             filterSummary: filterDesc,
             workCount: useRows.length,
@@ -12049,7 +12323,7 @@
             def17Rows: mmr.default17Rows,
             mmrFilters: mmr
           });
-          const packId = saveExportPack(title, toExportRows(useRows, false), false);
+          const packId = saveExportPack(title, toExportRows(useRows, false, mmr.hideCabsCols), false);
           return `
             <div><b>${mmr.wantsCabs ? "CABS Summary" : "Filtered Works Summary"}</b></div>
             <div style="font-size:0.74rem;color:#475569;margin-top:2px;">${esc(filterDesc)}</div>
@@ -12161,6 +12435,7 @@
           const modalId = saveResultModalPack({
             mode: "dabs",
             dabsGroupBy: mmr.dabsGroupBy,
+            hiddenDabsCols: mmr.hideDabsCols || [],
             title,
             filterSummary: filterDesc,
             allRows: mmr.matchedRows,
@@ -12169,6 +12444,7 @@
           });
           const packId = saveDabsExportPack({
             dabsGroupBy: mmr.dabsGroupBy,
+            hiddenCols: mmr.hideDabsCols || [],
             title,
             filterSummary: filterDesc,
             workCount: primaryRows.length,
@@ -12200,13 +12476,14 @@
             ? `CABS — ${filterDesc}`
             : (mmr.filterLabels.length ? `Filtered Works — ${filterDesc}` : "All Works — South Zone");
           const modalId = saveResultModalPack({
+            hiddenCabsCols: mmr.hideCabsCols || [],
             title,
             filterSummary: filterDesc,
             allRows: mmr.matchedRows,
             def17Rows: mmr.default17Rows,
             mmrFilters: mmr
           });
-          const packId = saveExportPack(title, toExportRows(primaryRows, false), false);
+          const packId = saveExportPack(title, toExportRows(primaryRows, false, mmr.hideCabsCols), false);
           const actionOpts = {
             resultModalId: modalId,
             modalCount: primaryRows.length,
