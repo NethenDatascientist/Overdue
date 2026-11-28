@@ -10160,10 +10160,10 @@
         "works", "ets", "bescom", "pending", "reg", "registration", "rr", "no", "borewell", "chronic",
         "year", "years", "yr", "yrs", "month", "months", "day", "days", "cost", "amount", "estimate",
         "estimated", "expenditure", "bill", "bills", "expensive", "big", "biggest", "largest",
-        "moola", "mula", "andaju", "andaj", "motta", "mottha", "lakh", "lakhs", "crore", "crores", "cr",
+        "moola", "mula", "andaju", "andaaju", "andaj", "motta", "mottha", "lakh", "lakhs", "crore", "crores", "cr",
         "between", "above", "below", "over", "greater", "less", "more", "than", "upto", "range",
         "after", "before", "since", "onwards", "until", "only", "exclude", "excluding", "excluded",
-        "except", "without", "other", "not", "apart", "leave", "out", "filter", "filters",
+        "except", "without", "other", "others", "not", "apart", "leave", "out", "filter", "filters",
         "sarkara", "sarkaradha", "sarkarada", "aadesha", "adesha", "dinanka", "karyadesha", "karyadhesha",
         "ae", "aee", "ta", "as", "ee", "officer", "officers", "engineer", "executive", "technical",
         "assistant", "account", "superintendent", "division", "divisions", "subdivision", "sub",
@@ -10284,14 +10284,19 @@
           return "";
         };
 
-        const rangeMatch = cleaned.match(/(?:between\s+|from\s+)?(\d+(?:\.\d+)?)\s*(lakhs?|lakh|crores?|crore|cr|ಲಕ್ಷ|ಕೋಟಿ)?\s*(?:to|and|-|–|ರಿಂದ)\s*(\d+(?:\.\d+)?)\s*(lakhs?|lakh|crores?|crore|cr|ಲಕ್ಷ|ಕೋಟಿ)?/i);
-        if (rangeMatch && (hasCostWord || rangeMatch[2] || rangeMatch[4])) {
-          const unit2 = rangeMatch[4] || rangeMatch[2] || "";
-          const unit1 = rangeMatch[2] || unit2;
-          const v1 = toLakhs(rangeMatch[1], unit1);
-          const v2 = toLakhs(rangeMatch[3], unit2);
+        const rangeMatch = cleaned.match(/(?:between\s+|from\s+)?(>=|=>|>)?\s*(?:rs\.?|₹)?\s*(\d+(?:\.\d+)?)\s*(lakhs?|lakh|crores?|crore|cr|ಲಕ್ಷ|ಕೋಟಿ)?\s*(?:to|and|-|–|ರಿಂದ)\s*(<=|=<|<)?\s*(?:rs\.?|₹)?\s*(\d+(?:\.\d+)?)\s*(lakhs?|lakh|crores?|crore|cr|ಲಕ್ಷ|ಕೋಟಿ)?/i);
+        if (rangeMatch && (hasCostWord || rangeMatch[3] || rangeMatch[6])) {
+          const op1 = rangeMatch[1] || "";
+          const op2 = rangeMatch[4] || "";
+          const unit2 = rangeMatch[6] || rangeMatch[3] || "";
+          const unit1 = rangeMatch[3] || unit2;
+          const v1 = toLakhs(rangeMatch[2], unit1);
+          const v2 = toLakhs(rangeMatch[5], unit2);
           if (!isNaN(v1) && !isNaN(v2) && v2 >= v1) {
-            return { min: v1, max: v2, strictMin: false, strictMax: false, label: `${v1}–${v2} Lakhs`, awBucket: mapAwBucket(v1, v2) };
+            const strictMin = op1 === ">";
+            const strictMax = op2 === "<";
+            const lbl = (op1 || op2) ? `${op1}${v1} to ${op2}${v2} Lakhs` : `${v1}–${v2} Lakhs`;
+            return { min: v1, max: v2, strictMin, strictMax, label: lbl, awBucket: mapAwBucket(v1, v2) };
           }
         }
 
@@ -10410,8 +10415,10 @@
        .replace(/\b(division|math?a\s*ksheth?ra|constituenc\w*)\s*[-]?\s*wise\b/gi, " ")
        .replace(/\bby\s+(division|math?a\s*ksheth?ra|constituenc\w*)\b/gi, " ")
        .replace(/ಮತಕ್ಷೇತ್ರವಾರು|ವಿಭಾಗವಾರು/g, " ");
-     const clauses = qForClauses.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
+     const qSplitReady = qForClauses.replace(/\.\s+(?=(?:ae|aee|ee|ta|as|hoa|division|sub[-\s]?division|district|taluk|constituency|math?a\s*ksheth?ra|moola|status|govt|work\s*order|s\/f)\b)/gi, ", ");
+     const clauses = qSplitReady.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
      const DOUBLE_NEG_INCLUDE_RE = /\b(exclude|excluding|excluded|remove|leave\s+out|omit)\b.*\b(except|other\s+than|apart\s+from|but)\b/i;
+     const EXCLUDE_OTHERS_RE = /\(?\s*\b(?:exclude|excluding|excluded|remove|leave\s+out|omit|not)\s+(?:all\s+)?(?:the\s+)?(?:other|others|rest)\b[^,;\n)]*\)?/gi;
         const EXCL_RE = /\b(exclude|excluding|excluded|except|without|other\s+than|not\s+in|not|apart\s+from|leave\s+out)\b|ಬಿಟ್ಟು|ಹೊರತುಪಡಿಸಿ/i;
 
         // 1. Cost range (Moola Andaju)
@@ -10482,7 +10489,9 @@
 
         clauses.forEach((cl) => {
           const clLow = cl.toLowerCase();
-          const isExcl = !DOUBLE_NEG_INCLUDE_RE.test(cl) && EXCL_RE.test(cl);
+          const hasDblNeg = DOUBLE_NEG_INCLUDE_RE.test(cl);
+       const clNoSelfExcl = hasDblNeg ? cl : cl.replace(EXCLUDE_OTHERS_RE, " ");
+       const isExcl = !hasDblNeg && EXCL_RE.test(clNoSelfExcl);
           let clTokens = extractQueryTokens(cl);
           if (!clTokens.length && !/[\u0C80-\u0CFF]/.test(cl)) return;
 
