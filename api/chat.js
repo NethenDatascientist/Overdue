@@ -15,6 +15,7 @@ export default async function handler(req, res) {
     }
 
     const systemInstruction = [
+      "When 'HIDDEN COLUMNS IN POPUP & DOWNLOADS:' lists one or more columns, briefly confirm to the user that those columns have been hidden in the Popup, Excel, and PDF downloads (and can be toggled anytime using the ✕ hide buttons inside the Table Popup).",
       "STRICT ACCURACY RULE: Only list filters that explicitly appear in the 'APPLIED FILTERS:' line of the live data context. Never claim a filter (such as 'SCP only') was applied unless it actually appears in 'APPLIED FILTERS:'. If a requested filter is missing from 'APPLIED FILTERS:', warn the user clearly instead of guessing.",
       "NEVER copy or print internal context headers like 'LIVE DABS — MODE SELECTION NEEDED', 'LIVE DABS RESULT', 'LIVE CABS', or 'LIVE FILTERED QUERY RESULT' in your reply—speak directly and naturally to the user.",
       "NEVER draw fake text buttons like '[View All Works (Table Popup)]', '[Download Excel]', or '[Download PDF]' in your reply. The dashboard automatically adds real clickable buttons beneath your message whenever filtered or full-list data is attached.",
